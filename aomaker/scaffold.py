@@ -147,7 +147,7 @@ BASEDIR = os.path.dirname(os.path.dirname(__file__))
 CONF_DIR = os.path.join(BASEDIR, "conf")
 CONFIG_DIR = os.path.join(CONF_DIR, 'config.yaml')
 # 用例数据的目录
-DATA_DIR = os.path.join(BASEDIR, "datas")
+DATA_DIR = os.path.join(BASEDIR, "data")
 # 日志文件目录
 LOG_DIR = os.path.join(BASEDIR, "log")
 # 测试报告的路
@@ -369,8 +369,8 @@ class FuncPool(BaseApi):
     create_file(os.path.join(os.path.join(testcase_path, "test_api"), "__init__.py"))
     create_folder(os.path.join(testcase_path, "test_scenario"))
     create_file(os.path.join(os.path.join(testcase_path, "test_scenario"), "__init__.py"))
-    create_folder(os.path.join(project_name, "fixtrues"))
-    create_file(os.path.join(project_name, "fixtrues", "__init__.py"))
+    create_folder(os.path.join(project_name, "fixtures"))
+    create_file(os.path.join(project_name, "fixtures", "__init__.py"))
     fixture_env_content = """import os
 
 import pytest
@@ -394,10 +394,9 @@ def env_vars(conf):
         env = config['env']
         host = config[env]["host"]
         account = config[env]["account"]
-
     return Env()
     """
-    create_file(os.path.join(project_name, "fixtrues", "fixture_env.py"), fixture_env_content)
+    create_file(os.path.join(project_name, "fixtures", "fixture_env.py"), fixture_env_content)
     fixture_login_content = """import pytest
 from loguru import logger
 from requests import request
@@ -421,8 +420,7 @@ def login(env_vars):
 @pytest.fixture(scope='session', autouse=True)
 def handle_headers(login):
     resp_login = login
-    headers = {'Cookie': f'csrftoken={resp_login["csrftoken"]};sid={resp_login["sid"]};sk={resp_login["sk"]}',
-               'X-CSRFToken': resp_login["csrftoken"]}
+    headers = {'Cookie': "cookie"}
     setattr(BaseApi, 'headers', headers)
     logger.info(f'设置全局请求头:{headers}')
 
@@ -433,7 +431,7 @@ def make_params():
     pp.init_common_params()
     logger.info('******************************全局前置条件配置完成******************************')
     """
-    create_file(os.path.join(project_name, "fixtrues", "fixture_login.py"), fixture_login_content)
+    create_file(os.path.join(project_name, "fixtures", "fixture_login.py"), fixture_login_content)
     create_folder(os.path.join(project_name, "conf"))
     config_content = """env: test
 test:
@@ -460,7 +458,7 @@ for root, _, files in os.walk(FIXTURE_DIR):
                 _fixture_name, _ = os.path.splitext(file)
                 try:
                     exec(f"from fixtures.{_fixture_name} import *")
-                    logger.info("导入fixture成功")
+                    logger.info(f"导入fixture:{_fixture_name}成功")
                 except:
                     pass
     """
@@ -499,7 +497,7 @@ markers =
         queue_type: 'share_queue'
       expected: {"ret_code": 0}
     """
-    create_file(os.path.join(project_name, "data", "api_datas.yaml"), datas_content)
+    create_file(os.path.join(project_name, "data", "job_datas.yaml"), datas_content)
     datas_content = """hpc_smoke:
   - title: 'hpc冒烟用例'
     step:
@@ -537,6 +535,7 @@ ehpc_smoke:
         'queue_type': 'share_queue'
     """
     create_file(os.path.join(project_name, "data", "case_datas.yaml"), datas_content)
+    create_folder(os.path.join(project_name, "report"))
 
     return 0
 

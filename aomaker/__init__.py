@@ -1,4 +1,5 @@
-__version__ = "0.1.0"
+__version__ = "1.0.2"
+__description__ = "help you play your API like building blocks !"
 __image__ = r"""
          /\                         .-.                 .:                      
      _  / |      .;;.    .-          .;|/:              ::                      
@@ -7,4 +8,3 @@ __image__ = r"""
  .:' /    |   ;;     ;'        .:'.;     :    `:::'-' _.'`  `.   `:::' .;'      
 (__.'     `-' `;.__.'         (__.'      `.                                     
 """
-__description__ = "like building blocks to play your api!"

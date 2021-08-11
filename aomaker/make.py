@@ -4,6 +4,9 @@ import sys
 import jinja2
 import yaml
 
+from aomaker.swagger2yaml import main_swagger2yaml
+
+
 __TEMPLATE__ = jinja2.Template(
     """import json
 from common.base_api import BaseApi
@@ -27,8 +30,7 @@ class Define{{ class_name | title}}(BaseApi):
             {% endif %}
         }
         response = self.send_http(payload)
-        return response
-    {% endfor %}   
+        return response{% endfor %}   
 """
 )
 
@@ -59,7 +61,9 @@ class {{ class_name | title}}(Define{{ class_name | title}}):
 from loguru import logger
 
 
-def make_api_file(yaml_path):
+def make_api_file(parm):
+    main_swagger2yaml(parm)
+    yaml_path = 'swagger.yaml'
     yaml_data = yaml.safe_load(open(yaml_path, mode='r', encoding='utf-8'))
     # 创建api目录
     workspace = os.getcwd()
@@ -127,9 +131,9 @@ def make_api_file(yaml_path):
 #             f.write(content)
 
 
-def main_make(yaml_path):
+def main_make(param):
     try:
-        make_api_file(yaml_path)
+        make_api_file(param)
     except Exception as e:
         logger.error(e)
         sys.exit(1)
@@ -139,10 +143,13 @@ def init_make_parser(subparsers):
     """ make api object: parse command line options and run commands.
     """
     parser = subparsers.add_parser(
-        "make", help="Convert YAML of API definition to Api object.",
+        "make", help="Convert swagger to Api object.",
     )
     parser.add_argument(
-        "yaml_path", type=str, nargs="?", help="Specify YAML of API definition file path"
+        "param", type=str, nargs="?",
+        help="The parameters must be swagger url or json file path.\n"
+             "if param is swagger url,it should be like http://xxxx/api/swagger.json;\n"
+             "if param is json file path,it should be like 'xx/xxx.json'"
     )
 
     return parser
