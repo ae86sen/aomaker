@@ -30,37 +30,39 @@ def __parse_swagger(parm):
         if not final_data.get(module_name):  # 如果模块名不存在，新建该键
             final_data[module_name] = {}
         method = list(value.keys())[0]
-        description = value[method]['description']
         final_data[module_name].update({api_name: {}})
         api = final_data[module_name].get(api_name)
+        description = value[method].get('description')
+        if description:
+            api['description'] = description
         path = path[1:]
         api['method'] = method
-        api['description'] = description
         api['path'] = path
         api['parameters'] = {}
         api['body'] = {}
         params = {}
         body = {}
         # 处理parameters中的参数：查询参数、请求体
-        for i in value[method]['parameters']:
-            # print(i.keys())
-            if i.get('in') == 'query':
-                params[i['name']] = ''
-            if i.get('in') == 'body':
-                schema: dict = i.get('schema')
-                try:
-                    properties = schema.get('properties')
-                    body_name_list = list(properties.keys())
-                except Exception:
-                    pass
-                else:
-                    body = {key: '' for key in body_name_list}
-                # print(body)
-            if i.get("$ref"):
-                name = i.get("$ref")
-                param_name = name.split('/')[-1]
-                params[param_name] = ''
-        api['parameters'].update(params)
+        parameters = value[method].get('parameters')
+        if parameters:
+            for i in parameters:
+                if i.get('in') == 'query':
+                    params[i['name']] = ''
+                if i.get('in') == 'body':
+                    schema: dict = i.get('schema')
+                    try:
+                        properties = schema.get('properties')
+                        body_name_list = list(properties.keys())
+                    except Exception:
+                        pass
+                    else:
+                        body = {key: '' for key in body_name_list}
+                    # print(body)
+                if i.get("$ref"):
+                    name = i.get("$ref")
+                    param_name = name.split('/')[-1]
+                    params[param_name] = ''
+            api['parameters'].update(params)
         api['body'].update(body)
     return final_data
 
