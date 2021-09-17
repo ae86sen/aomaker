@@ -393,6 +393,7 @@ def env_vars(conf):
         config = conf
         env = config['env']
         host = config[env]["host"]
+        base_path = config[env]["base_path"]
         account = config[env]["account"]
     return Env()
     """
@@ -409,8 +410,10 @@ from service.params_pool import ParamsPool
 def login(env_vars):
     logger.info('******************************开始配置全局前置条件******************************')
     host = env_vars.host
+    base_path = env_vars.base_path
     account = env_vars.account
     setattr(BaseApi, 'host', host)
+    setattr(BaseApi, 'base_path', base_path)
     setattr(BaseApi, 'account', account)
 
     resp_login = 1
@@ -424,6 +427,7 @@ def handle_headers(login):
     setattr(BaseApi, 'headers', headers)
     logger.info(f'设置全局请求头:{headers}')
 
+
 @pytest.fixture(scope='session', autouse=True)
 def make_params():
     logger.info('开始生成公共参数')
@@ -436,12 +440,14 @@ def make_params():
     config_content = """env: test
 test:
   host: 'https://test.aomaker.com'
+  base_path: '/portal_api/'
   account:
     user: 'aomaker'
     pwd: '123456'
 
 release:
   host: 'https://release.aomaker.com'
+  base_path: '/api/'
   account:
     user: 'aomaker'
     pwd: '123456'

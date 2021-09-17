@@ -1,4 +1,4 @@
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __description__ = "help you play your API like building blocks !"
 __image__ = r"""
          /\                         .-.                 .:                      

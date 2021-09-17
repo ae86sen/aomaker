@@ -32,6 +32,7 @@ def set_conf_file(env):
             sys.exit(1)
         with open('conf/config.yaml', 'w') as f:
             yaml.safe_dump(doc, f, default_flow_style=False)
+        logger.info(f'Current Test Env: {env}')
     else:
         logger.error('配置文件conf/config.yaml不存在')
         sys.exit(1)
@@ -60,7 +61,6 @@ def main():
     # sub_parser_s2y = init_swagger2yaml_parser(subparsers)
     sub_parser_a2c = init_make_case_parser(subparsers)
     sub_parser_run = init_parser_run(subparsers)
-
     if len(sys.argv) == 1:
         # aomker
         print(__image__)
@@ -78,6 +78,7 @@ def main():
             # aomaker startproject
             sub_parser_scaffold.print_help()
         elif sys.argv[1] == "make":
+            print('sys.argv', sys.argv)
             # aomaker make
             sub_parser_make.print_help()
         elif sys.argv[1] == "mcase":
@@ -87,16 +88,28 @@ def main():
             # aomaker run
             sub_parser_run.print_help()
         sys.exit(0)
-    elif (
-            len(sys.argv) == 3 and sys.argv[1] == "run" and sys.argv[2] in ["-h", "--help"]
-    ):
-        # aomaker run -h
-        pytest.main(["-h"])
+    elif len(sys.argv) == 3:
+        if sys.argv[1] == "run" and sys.argv[2] in ["-h", "--help"]:
+            # aomaker run -h
+            pytest.main(["-h"])
+            sys.exit(0)
+        elif sys.argv[1] == "run" and sys.argv[2] == "-e":
+            # aomaker run -e xxx
+            print('please input env name in "conf/config.yaml"')
+            sys.exit(0)
+        elif sys.argv[1] == "make" and sys.argv[2] == "-s":
+            # aomaker run -s xxx
+            print('please input template:"qingcloud" or "restful".default template style:restful')
+            sys.exit(0)
+    # elif sys.argv[1] == "run" and sys.argv[2] == "-e":
+    #     # aomaker run -e xxx
+    #     # print('please input env name in "conf/config.yaml"')
+    #     # sys.exit(0)
+    #
+    #     set_conf_file(sys.argv[3])
+    elif sys.argv[1] == "make" and sys.argv[2] == "-s" and sys.argv[3] not in ["qingcloud", "restful"]:
+        print('please input template style:qingcloud or restful')
         sys.exit(0)
-    elif sys.argv[1] == "run" and sys.argv[2] == "-e":
-        # aomaker run -e xxx
-        logger.info(sys.argv[3])
-        set_conf_file(sys.argv[3])
 
     extra_args = []
     if len(sys.argv) >= 2 and sys.argv[1] in ["run"]:
@@ -112,12 +125,17 @@ def main():
         main_scaffold(args)
         print('Project created successfully!')
     elif sys.argv[1] == "make":
-        main_make(args.param)
+        if sys.argv[2] == '-s' and sys.argv[3] == 'qingcloud':
+            main_make(args.param, style=args.style)
+        else:
+            main_make(args.param)
         print('API object generated successfully!')
     elif sys.argv[1] == "mcase":
         main_make_case(args.data_path)
         print('Test cases generated successfully from test data!')
     elif sys.argv[1] == "run":
+        if sys.argv[2] == "-e":
+            set_conf_file(sys.argv[3])
         sys.exit(main_run(extra_args))
 
 
