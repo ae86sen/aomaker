@@ -117,28 +117,112 @@ class BaseApi:
         logger.info(f"请求参数：{params}")
         logger.info(f"请求体：{json}")
         logger.info(f"请求表单数据：{data}")
-    
-    @staticmethod
-    def assert_equal(ex, re):
-        \"""
-        断言相等
-        :param ex:预期结果
-        :param re:实际结果
-        :return:
-        \"""
-        return HandleAssert.eq(ex, re)
 
-    @staticmethod
-    def assert_contains(content, target):
-        \"""
-        断言包含
-        :param content: 文本内容
-        :param target: 目标文本
-        :return:
-        \"""
-        return HandleAssert.contains(content, target)
     """
     create_file(os.path.join(project_name, "common", "base_api.py"), base_api_content)
+    base_testcase_content = """from typing import Text, NoReturn
+
+from jsonpath import jsonpath
+from loguru import logger
+
+from service.params_pool import ParamsPool
+
+
+class BaseTestcase:
+    @staticmethod
+    def extract_set_vars(res, var_name: Text, expr: Text, index=None) -> NoReturn:
+        \"""
+        提取响应结果中的变量并设置为参数池属性
+        :param res: the json-encoded content of response
+        :param var_name:
+        :param expr: jsonpath expr
+        :param index: jsonpath result index
+        :return:
+        \"""
+        if index:
+            extract_variable = jsonpath(res, expr)[index]
+        else:
+            extract_variable = jsonpath(res, expr)[0]
+        setattr(ParamsPool().Vars, var_name, extract_variable)
+
+    @staticmethod
+    def eq(actual_value, expected_value):
+        \"""
+        equals
+        \"""
+        try:
+            assert actual_value == expected_value
+        except AssertionError as e:
+            logger.error(f"eq断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def gt(actual_value, expected_value):
+        \"""
+        greater than
+        \"""
+        try:
+            assert actual_value > expected_value
+        except AssertionError as e:
+            logger.error(f"gt断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def lt(actual_value, expected_value):
+        \"""
+        less than
+        \"""
+        try:
+            assert actual_value < expected_value
+        except AssertionError as e:
+            logger.error(f"lt断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def neq(actual_value, expected_value):
+        \"""
+        not equals
+        \"""
+        try:
+            assert actual_value != expected_value
+        except AssertionError as e:
+            logger.error(f"neq断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def ge(actual_value, expected_value):
+        \"""
+        greater than or equals
+        \"""
+        try:
+            assert actual_value >= expected_value
+        except AssertionError as e:
+            logger.error(f"ge断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def le(actual_value, expected_value):
+        \"""
+        less than or equals
+        ""\"
+        try:
+            assert actual_value <= expected_value
+        except AssertionError as e:
+            logger.error(f"le断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+
+    @staticmethod
+    def contains(actual_value, expected_value):
+        assert isinstance(
+            expected_value, (list, tuple, dict, str, bytes)
+        ), "expect_value should be list/tuple/dict/str/bytes type"
+        try:
+            assert expected_value in actual_value
+        except AssertionError as e:
+            logger.error(f"contains断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            raise e
+    """
+    create_file(os.path.join(project_name, "common", "base_testcase.py"), base_testcase_content)
     handle_path_content = """import os
 
 # 项目根目录
@@ -262,41 +346,6 @@ class HandleMysql:
         self.con.close()
     """
     create_file(os.path.join(project_name, "common", "handle_mysql.py"), mysql_content)
-    assert_content = """from loguru import logger
-
-
-class HandleAssert:
-
-    @staticmethod
-    def eq(ex, re):
-        \"""
-        断言相等
-        :param ex: 预期结果
-        :param re: 实际结果
-        :return:
-        \"""
-        try:
-            assert str(ex) == str(re)
-        except AssertionError as e:
-            logger.error(f"eq断言失败，预期结果：{ex}，实际结果：{re}")
-            logger.error("用例失败！")
-            raise e
-
-    @staticmethod
-    def contains(content, target):
-        \"""
-        断言包含
-        :param content: 文本内容
-        :param target: 目标文本
-        :return:
-        \"""
-        try:
-            assert str(content) in str(target)
-        except AssertionError as e:
-            logger.error(f"contains断言失败，目标文本{target}包含 文本{content}")
-            raise e
-    """
-    create_file(os.path.join(project_name, "common", "handle_assert.py"), assert_content)
     create_folder(os.path.join(project_name, "apis"))
     # TODO: check
     create_file(os.path.join(project_name, "apis", "__init__.py"))
@@ -345,6 +394,9 @@ class ParamsPool(BaseApi):
 
     def init_common_params(self):
         setattr(self, 'name', 'test')
+        
+    class Vars:
+        pass
     """
     create_file(os.path.join(project_name, "service", "params_pool.py"), params_pool_content)
     func_pool_content = """from common.base_api import BaseApi

@@ -192,3 +192,5 @@ def swagger_to_yaml(parm, extra_args='restful'):
 
 def main_swagger2yaml(parm, style='restful'):
     swagger_to_yaml(parm, style)
+
+main_swagger2yaml('http://192.168.202.97:8889/api/swagger.json',style='qingcloud')

@@ -1,0 +1,158 @@
+import json
+import os
+import sys
+from json import JSONDecodeError
+from typing import Text, List, Dict
+from urllib.parse import unquote
+
+import yaml
+from loguru import logger
+from aomaker.models import Steps
+
+def dump_yaml(testcase, yaml_file):
+    """ dump HAR entries to yaml testcases
+    """
+    logger.info("dump testcases to YAML format.")
+
+    with open(yaml_file, "w", encoding="utf-8") as outfile:
+        yaml.dump(
+            testcase, outfile, allow_unicode=True, default_flow_style=False, sort_keys=False
+        )
+
+    logger.info("Generate YAML testcases successfully: {}".format(yaml_file))
+
+
+def load_yaml(yaml_file):
+    with open(yaml_file, encoding='utf-8') as f:
+        yaml_testcase = yaml.safe_load(f)
+    return yaml_testcase
+
+
+# TODO: 1.get entries list from har file.
+def load_har_log_entries(file_path):
+    """ load HAR file and return log entries list
+
+    Args:
+        file_path (str)
+
+    Returns:
+        list: entries
+            [
+                {
+                    "request": {},
+                    "response": {}
+                },
+                {
+                    "request": {},
+                    "response": {}
+                }
+            ]
+
+    """
+    with open(file_path, mode="rb") as f:
+        try:
+            content_json = json.load(f)
+            return content_json["log"]["entries"]
+        except (TypeError, JSONDecodeError) as ex:
+            logger.error(f"failed to load HAR file {file_path}: {ex}")
+            sys.exit(1)
+        except KeyError:
+            logger.error(f"log entries not found in HAR file: {content_json}")
+            sys.exit(1)
+
+
+def ensure_file_path(path: Text, file_type='HAR') -> Text:
+    if file_type == 'HAR':
+        if not path or not path.endswith(f".har"):
+            logger.error("HAR file not specified.")
+            sys.exit(1)
+    elif file_type == 'YAML':
+        if not path or not (path.endswith(".yaml") or path.endswith(".yml")):
+            logger.error("YAML file not specified.")
+            sys.exit(1)
+
+    path = ensure_path_sep(path)
+    if not os.path.isfile(path):
+        logger.error(f"{file_type} file not exists: {path}")
+        sys.exit(1)
+
+    if not os.path.isabs(path):
+        path = os.path.join(os.getcwd(), path)
+
+    return path
+
+
+def ensure_path_sep(path: Text) -> Text:
+    """ ensure compatibility with different path separators of Linux and Windows
+    """
+    if "/" in path:
+        # windows
+        path = os.sep.join(path.split("/"))
+
+    elif "\\" in path:
+        # linux
+        path = os.sep.join(path.split("\\"))
+
+    elif ":" in path:
+        # mac
+        path = os.sep.join(path.split(":"))
+
+    return path
+
+
+def convert_list_to_dict(origin_list):
+    """ convert HAR data list to mapping
+
+    Args:
+        origin_list (list)
+            [
+                {"name": "v", "value": "1"},
+                {"name": "w", "value": "2"}
+            ]
+
+    Returns:
+        dict:
+            {"v": "1", "w": "2"}
+
+    """
+    return {item["name"]: item.get("value") for item in origin_list}
+
+
+def convert_x_www_form_urlencoded_to_dict(post_data):
+    """ convert x_www_form_urlencoded data to dict
+
+    Args:
+        post_data (str): a=1&b=2
+
+    Returns:
+        dict: {"a":1, "b":2}
+
+    """
+    if isinstance(post_data, str):
+        converted_dict = {}
+        for k_v in post_data.split("&"):
+            try:
+                key, value = k_v.split("=")
+            except ValueError:
+                raise Exception(
+                    "Invalid x_www_form_urlencoded data format: {}".format(post_data)
+                )
+            converted_dict[key] = unquote(value)
+        return converted_dict
+    else:
+        return post_data
+
+
+def distinct_req(req_data_list: List[Dict]) -> List[Dict]:
+    """remove duplicates req"""
+    new_req_data_list = []
+    api_list = []
+    for req in req_data_list:
+        dic = dict()
+        # req = req.dict()
+        dic['class_name'] = req['class_name']
+        dic['method_name'] = req['method_name']
+        if dic not in api_list:
+            api_list.append(dic)
+            new_req_data_list.append(req)
+    return new_req_data_list

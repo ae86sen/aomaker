@@ -1,39 +1,14 @@
 import os
 import sys
 
-import jinja2
-import yaml
-
-__TEMPLATE__ = jinja2.Template(
-    """import os
-
-import pytest
-import yaml
-
-from service.service_api.{{api}} import {{api | capitalize}}
-from common.base_api import BaseApi
-from common.handle_path import DATA_DIR
-
-case_data_path = os.path.join(DATA_DIR, '{{api}}_datas.yaml')
-datas = yaml.safe_load(open(case_data_path, encoding='utf-8'))
-
-
-class Test{{api | capitalize}}:
-    {{api}} = {{api | capitalize}}()
-    {% for case in case_list %}
-    @pytest.mark.parametrize('data', datas['{{api}}']['{{case}}'])
-    def test_{{case}}(self, data):
-        res = self.{{api}}.{{case}}(data['variables'])
-        assert res['ret_code'] == data['expected']
-    {% endfor %}
-"""
-)
-
 from loguru import logger
+
+from aomaker import utils
+from aomaker.template import Template as Temp
 
 
 def make_testcase_file(data_file):
-    yaml_data = yaml.safe_load(open(data_file, mode='r', encoding='utf-8'))
+    yaml_data = utils.load_yaml(data_file)
     # 创建testcase目录
     workspace = os.getcwd()
     testcase_dir = os.path.join(workspace, 'testcases')
@@ -54,7 +29,7 @@ def make_testcase_file(data_file):
         "api": api,
         "case_list": case_list
     }
-    content = __TEMPLATE__.render(data)
+    content = Temp.TEMP_API_CASE.render(data)
     with open(f'{testcase_api_dir}/test_{api}.py', mode='w', encoding='utf-8') as f:
         f.write(content)
 
@@ -68,15 +43,16 @@ def main_make_case(data_file):
 
 
 def init_make_case_parser(subparsers):
-    """ make api testcase: parse command line options and run commands.
+    """ make api testcases: parse command line options and run commands.
     """
     parser = subparsers.add_parser(
-        "mcase", help="make testcase by api object.",
+        "mcase", help="make testcases by api object.",
     )
     parser.add_argument(
-        "data_path", type=str, nargs="?", help="testcase data path"
+        "data_path", type=str, nargs="?", help="testcases data path"
     )
 
     return parser
+
 
 # main_make_case('job_datas.yaml')

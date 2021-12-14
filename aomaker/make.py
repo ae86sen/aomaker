@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 import jinja2
@@ -6,147 +7,167 @@ import yaml
 from loguru import logger
 
 from aomaker.swagger2yaml import main_swagger2yaml
-
-__TEMPLATE_API__ = jinja2.Template(
-    """import json
-from common.base_api import BaseApi
+from aomaker.template import Template as Temp
 
 
-class Define{{ class_name | title}}(BaseApi):
-    {% for func,v in func_list.items() %}
-    {% if v.method != 'get'%}def api_{{func}}(self, body):{% else %}def api_{{func}}(self):{% endif %}
-        \"""{{v.description}}""\"
-        payload = {
-            'url': f'{getattr(self, "host")}{getattr(self, "base_path")}',
-            'method': '{{v.method}}',
-            'headers': getattr(self, 'headers'),
-            'params': {'action': '{{v.path}}'},
-            {% if v.method != 'get'%}'data': {
-                'params': json.dumps(body)
-            }{% endif %}
+def _create_dir(dir_path):
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path)
+        with open(f'{dir_path}/__init__.py', mode='w', encoding='utf-8') as f:
+            f.write('')
+
+
+def create_api_dir(workspace):
+    # 创建api目录
+    api_dir = os.path.join(workspace, 'apis')
+    _create_dir(api_dir)
+    return api_dir
+
+
+def create_service_api_dir(workspace):
+    # 创建service目录
+    service_dir: str = os.path.join(workspace, 'service')
+    _create_dir(service_dir)
+    # 创建service_api目录
+    service_api_dir = os.path.join(service_dir, 'service_api')
+    _create_dir(service_api_dir)
+    return service_api_dir
+
+
+def create_api_file(yaml_data, temp, api_dir):
+    for key, value in yaml_data.items():
+        data = {
+            "class_name": key,
+            "func_list": value,
         }
-        response = self.send_http(payload)
-        return response{% endfor %}   
-"""
-)
-
-__TEMPLATE_SERVICE__ = jinja2.Template(
-    """import threading
-from apis.{{ class_name }} import Define{{ class_name | title}}
+        content = temp.render(data)
+        with open(f'{api_dir}/{key}.py', mode='w', encoding='utf-8') as f:
+            f.write(content)
 
 
-class {{ class_name | title}}(Define{{ class_name | title}}):
-    _instance_lock = threading.Lock()
-    
-    def __new__(cls, *args, **kwargs):
-        if not hasattr({{ class_name | title}}, '_instance'):
-            with cls._instance_lock:
-                if not hasattr({{ class_name | title}}, '_instance'):
-                    cls._instance = super().__new__(cls)
-        return cls._instance    
-    {% for func,v in func_list.items() %}
-    def {{func}}(self):{% if v.method != 'get'%}
-        body = {{ v.body }}
-        res = self.get_resp_json(self.api_{{ func }}(body)){% else %}
-        res = self.get_resp_json(self.api_{{ func }}()){% endif %}
-        return res
-    {% endfor %}   
-"""
-)
-
-__RESTFUL_TEMPLATE_API__ = jinja2.Template(
-    """from common.base_api import BaseApi
-
-
-class Define{{ class_name}}(BaseApi):
-    {% for func,v in func_list.items() %}
-    def api_{{func}}(self, req_params):
-        \"""{{v.summary}}""\"
-        payload = {
-            'url': f'{getattr(self, "host")}{getattr(self, "base_path")}',
-            'method': 'POST',
-            'headers': getattr(self, 'headers'),
-            'parameters': req_params.get('query'),
-            'json': req_params.get('body')
-        }
-        header_params = req_params.get('header')
-        if header_params:
-            payload['headers'].update(header_params)
-        {% if v.var %}path_params = req_params.get('path')
-        payload['headers']['X-Path'] = f'{{v.path}}'{% else %}payload['headers']['X-Path'] = '{{v.path}}'{% endif %}
-        payload['headers']['X-Method'] = '{{v.method}}'
-        response = self.send_http(payload)
-        return response
-        {% endfor %}   
-"""
-)
-
-__RESTFUL_TEMPLATE_SERVICE__ = jinja2.Template(
-    """import threading
-from apis.{{ module_name }} import Define{{ class_name }}
-
-
-class {{ class_name }}(Define{{ class_name}}):
-    _instance_lock = threading.Lock()
-
-    def __new__(cls, *args, **kwargs):
-        if not hasattr({{ class_name }}, '_instance'):
-            with cls._instance_lock:
-                if not hasattr({{ class_name }}, '_instance'):
-                    cls._instance = super().__new__(cls)
-        return cls._instance    
-    {% for func,v in func_list.items() %}
-    def {{func}}(self):
-        \"""{{v.summary}}""\"
-        req_params = {{v.req_params}}
-        res = self.get_resp_json(self.api_{{ func }}(req_params))
-        return res
-    {% endfor %}   
-"""
-)
-
-
-def make_api_file(parm):
-    main_swagger2yaml(parm)
+def make_api_file(parm, style):
+    """
+    通过swagger生成api和ao文件
+    :param parm: swagger's url or json file
+    :param style: qingcloud or restful,default restful
+    :return:
+    """
+    main_swagger2yaml(parm, style)
     yaml_path = 'swagger.yaml'
     yaml_data = yaml.safe_load(open(yaml_path, mode='r', encoding='utf-8'))
     # 创建api目录
     workspace = os.getcwd()
-    api_dir = os.path.join(workspace, 'apis')
-    if not os.path.exists(api_dir):
-        os.mkdir(api_dir)
-        with open(f'{api_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
+    api_dir = create_api_dir(workspace)
     # 生成api文件
-    for key, value in yaml_data.items():
-        data = {
-            "class_name": key,
-            "func_list": value,
-        }
-        content = __TEMPLATE_API__.render(data)
-        with open(f'{api_dir}/{key}.py', mode='w', encoding='utf-8') as f:
-            f.write(content)
+    create_api_file(yaml_data, Temp.TEMP_HPC_API, api_dir)
     # 创建service目录
-    service_dir: str = os.path.join(workspace, 'service')
-    if not os.path.exists(service_dir):
-        os.mkdir(service_dir)
-        with open(f'{service_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
     # 创建service_api目录
-    service_api_dir = os.path.join(service_dir, 'service_api')
-    if not os.path.exists(service_api_dir):
-        os.mkdir(service_api_dir)
-        with open(f'{service_api_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
+    service_api_dir = create_service_api_dir(workspace)
     # 生成service_api文件
-    for key, value in yaml_data.items():
+    create_api_file(yaml_data, Temp.TEMP_HPC_AO, service_api_dir)
+
+
+def make_api_file_from_yaml(req_data_list: list):
+    """
+    通过testcase_yaml生成api和ao文件以及追加api类没有的方法
+    args:
+        'req_data_list': [
+                {'class_name': 'cluster',
+                 'method_name': 'list',
+                 'request': {'url': 'https://aomaker.com', 'method': 'POST', 'data': {'params': ''},
+                    'method': 'GET'}
+                    },
+                 {'class_name': 'job',
+                 'method_name': 'list',
+                 'request': {'url': 'https://aomaker.com', 'method': 'POST', 'data': {'params': ''},
+                    'method': 'GET'}
+                    }
+                 ]
+    """
+    def convert_ao_to_the_same_class(ao_li, filed):
+        """
+        args:
+            ao_li = [
+                    {"country": "China", "name": "Ace"},
+                    {"country": "China", "name": "Ale"},
+                    {"country": "USA", "name": "Jhon"},
+                    {"country": "China", "name": "Lee"},
+                    {"country": "USA", "name": "Mark"},
+                    {"country": "UK", "name": "Bruce"},
+                    ]
+            filed = "country"
+        return:
+                    {
+                    "China": [{"country": "China", "name": "Ace"},
+                              {"country": "China", "name": "Ale"}, {"country": "China", "name": "Lee"}],
+                    "USA": [{"country": "USA", "name": "Jhon"}, {"country": "USA", "name": "Mark"}],
+                    "UK": [{"country": "UK", "name": "Bruce"}, ]
+                    }
+        """
+        new_dic = {}
+        country_list = set([i.get(filed) for i in ao_li])
+        for i in country_list:
+            new_dic[f'{i}'] = []
+        for i in ao_li:
+            key = i.get(filed)
+            new_dic[key].append(i)
+        return new_dic
+    req_data_dic = convert_ao_to_the_same_class(req_data_list, "class_name")
+    # 1.create api folder
+    workspace = os.getcwd()
+    api_dir = create_api_dir(workspace)
+    # 2.create api definition file
+    for module_name, req_data_list in req_data_dic.items():
         data = {
-            "class_name": key,
-            "func_list": value,
+            "module_name": module_name,
+            "ao_list": req_data_list
         }
-        content = __TEMPLATE_SERVICE__.render(data)
-        with open(f'{service_api_dir}/{key}.py', mode='w', encoding='utf-8') as f:
-            f.write(content)
+        # 判断是否存在该模块，模块中是否存在该类，该类中是否存在该方法，如果存在该方法，在data中删除该条
+        # 如果不存在，将追加模板渲染进去
+        if os.path.exists(f'{api_dir}/{module_name}.py'):
+            # TODO: 类名不一定都是一个单词，有可能是多个单词组成
+            class_name = module_name.capitalize()
+            exec(f'from apis.{module_name} import Define{class_name}')
+            class_type = locals()[f"Define{class_name}"]
+            for req_data_list in req_data_list:
+                if not hasattr(class_type, f'api_{req_data_list["method_name"]}'):
+                    content = Temp.TEMP_ADDITIONAL_API.render(req_data_list)
+                    with open(f'{api_dir}/{module_name}.py', mode='a', encoding='utf-8') as f:
+                        f.write(content)
+                        logger.info(f'make apis/{module_name}.py successfully!')
+        else:
+            content = Temp.TEMP_HAR_API.render(data)
+            # print(content)
+            with open(f'{api_dir}/{module_name}.py', mode='w', encoding='utf-8') as f:
+                f.write(content)
+                logger.info(f'make apis/{module_name}.py successfully!')
+    # 3.create ao folder
+    # 创建service_api目录
+    service_api_dir = create_service_api_dir(workspace)
+    # 4.create ao file
+    for module_name, req_data_list in req_data_dic.items():
+        data = {
+            "module_name": module_name,
+            "ao_list": req_data_list
+        }
+        # 判断是否存在该模块，模块中是否存在该类，该类中是否存在该方法，如果存在该方法，在data中删除该条
+        # 如果不存在，将追加模板渲染进去
+        if os.path.exists(f'{service_api_dir}/{module_name}.py'):
+            class_name = module_name.capitalize()
+            exec(f'from service.service_api.{module_name} import {class_name}')
+            class_type = locals()[class_name]
+            for req_data_list in req_data_list:
+                if not hasattr(class_type, f'{req_data_list["method_name"]}'):
+                    content = Temp.TEMP_ADDITIONAL_AO.render(req_data_list)
+                    with open(f'{service_api_dir}/{module_name}.py', mode='a', encoding='utf-8') as f:
+                        f.write(content)
+                        logger.info(f'make service_api/{module_name}.py successfully!')
+        else:
+            content = Temp.TEMP_HAR_AO.render(data)
+            # print(content)
+            with open(f'{service_api_dir}/{module_name}.py', mode='w', encoding='utf-8') as f:
+                f.write(content)
+                logger.info(f'make service_api/{module_name}.py successfully!')
 
 
 def _parse_yaml_data(dir, template, yaml_data):
@@ -192,33 +213,24 @@ def _parse_yaml_data(dir, template, yaml_data):
 
 
 def make_api_file_restful(parm):
+    """
+    通过标准restful风格的swagger生成api和ao文件
+    :param parm: swagger's url or json file
+    :return:
+    """
     main_swagger2yaml(parm)
     yaml_path = 'swagger.yaml'
     yaml_data = yaml.safe_load(open(yaml_path, mode='r', encoding='utf-8'))
     # 创建api目录
     workspace = os.getcwd()
-    api_dir = os.path.join(workspace, 'apis')
-    if not os.path.exists(api_dir):
-        os.mkdir(api_dir)
-        with open(f'{api_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
-
+    api_dir = create_api_dir(workspace)
     # 生成api文件
-    _parse_yaml_data(api_dir, __RESTFUL_TEMPLATE_API__, yaml_data)
+    _parse_yaml_data(api_dir, Temp.TEMP_RESTFUL_API, yaml_data)
     # 创建service目录
-    service_dir: str = os.path.join(workspace, 'service')
-    if not os.path.exists(service_dir):
-        os.mkdir(service_dir)
-        with open(f'{service_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
     # 创建service_api目录
-    service_api_dir = os.path.join(service_dir, 'service_api')
-    if not os.path.exists(service_api_dir):
-        os.mkdir(service_api_dir)
-        with open(f'{service_api_dir}/__init__.py', mode='w', encoding='utf-8') as f:
-            f.write('')
+    service_api_dir = create_service_api_dir(workspace)
     # 生成service_api文件
-    _parse_yaml_data(service_api_dir, __RESTFUL_TEMPLATE_SERVICE__, yaml_data)
+    _parse_yaml_data(service_api_dir, Temp.TEMP_RESTFUL_AO, yaml_data)
 
 
 def main_make(param, style='restful'):
@@ -226,7 +238,7 @@ def main_make(param, style='restful'):
         if style == 'restful':
             make_api_file_restful(param)
         elif style == 'qingcloud':
-            make_api_file(param)
+            make_api_file(param, style)
         else:
             print('Currently, only two styles(restful and qingcloud) are supported!please input correct style!')
             sys.exit(1)
@@ -254,4 +266,25 @@ def init_make_parser(subparsers):
     )
     return parser
 
-# main_make('swagger.yaml')
+
+# main_make('iot_swagger.json')
+# p = {'ao_list': [{'class_name': 'cluster', 'method_name': 'list',
+#                   'request': {'url': 'https://console.shanhe.com/portal_api/', 'params': {'action': 'cluster/list'},
+#                               'method': 'POST', 'data': {
+#                           'params': '{"service":"hpc","action":"cluster/list","status":["pending","active","stopped","suspended"],"sort_key":"create_time","verbose":1,"limit":10,"offset":0,"reverse":1,"cluster_type":"hpc","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
+#                           'method': 'GET'}}},
+#                  {'class_name': 'cluster', 'method_name': 'list_nodes',
+#                   'request': {'url': 'https://console.shanhe.com/portal_api/',
+#                               'params': {'action': 'cluster/listNodes'}, 'method': 'POST', 'data': {
+#                           'params': '{"action":"cluster/listNodes","service":"hpc","status":["active","stopped","pending"],"sort_key":"role","reverse":1,"verbose":1,"limit":10,"offset":0,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
+#                           'method': 'GET'}}}, {'class_name': 'job', 'method_name': 'list',
+#                                                'request': {'url': 'https://console.shanhe.com/portal_api/',
+#                                                            'params': {'action': 'job/list'}, 'method': 'POST', 'data': {
+#                                                        'params': '{"service":"hpc","action":"job/list","run_user":"usr-80hTTYpe","limit":10,"offset":0,"job_status":["running","pending","finished","exited","stopped","unknown"],"sort_key":"submitted_time","reverse":1,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
+#                                                        'method': 'GET'}}},
+#                  {'class_name': 'queue', 'method_name': 'get_current_queue',
+#                   'request': {'url': 'https://console.shanhe.com/portal_api/',
+#                               'params': {'action': 'queue/getCurrentQueue'}, 'method': 'POST', 'data': {
+#                           'params': '{"service":"hpc","action":"queue/getCurrentQueue","user_id":"usr-80hTTYpe","limit":10,"offset":0,"sort_key":"create_time","reverse":1,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","owner":"usr-80hTTYpe"}',
+#                           'method': 'GET'}}}]}
+# make_api_file_from_har()
