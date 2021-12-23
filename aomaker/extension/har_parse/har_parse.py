@@ -5,24 +5,34 @@ import sys
 from json import JSONDecodeError
 from typing import Text, Dict, List
 
-import black
-import yaml
-from jinja2 import Template, DebugUndefined
 from loguru import logger
 import urllib.parse as urlparse
 from urllib.parse import unquote
-from aomaker.make import make_api_file_from_yaml
-import utils
+
+from aomaker.field import API, EXCLUDE_HEADER
+from aomaker import utils
 
 
 class HarParser:
-    def __init__(self, har_file_path, filter_str=None, exclude_str=None, platform='pc'):
+    def __init__(
+            self,
+            har_file_path,
+            yaml_file_path,
+            filter_str=None,
+            exclude_str=None,
+            save_response=True,
+            save_headers=False
+    ):
         self.har_file_path = utils.ensure_file_path(har_file_path)
+        self.yaml_file_path = utils.ensure_file_path(yaml_file_path, file_type='YAML')
         self.filter_str = filter_str
         self.exclude_str = exclude_str or ""
-        self.platform = platform
+        self.exclude_request_header = EXCLUDE_HEADER
+        self.save_response = save_response
+        self.save_headers = save_headers
 
-    def __make_request_url(self, req_data_dict, entry_json):
+    @staticmethod
+    def __make_request_url(req_data_dict, entry_json):
         """ parse HAR entry request url and queryString, and make teststep url and params
 
         Args:
@@ -53,35 +63,63 @@ class HarParser:
         request_params = utils.convert_list_to_dict(
             entry_json["request"].get("queryString", [])
         )
-
         url = entry_json["request"].get("url")
         if not url:
             logger.exception("url missed in request.")
             sys.exit(1)
-        # ParseResult(scheme='https', netloc='console.shanhe.com', path='/portal_api/', params='', query='action=cluster/list', fragment='')
+        # ParseResult(scheme='https', netloc='console.shanhe.com', path='/portal_api/', params='',
+        # query='action=cluster/list', fragment='')
         parsed_object = urlparse.urlparse(url)
         # host = parsed_object.scheme + "://" + parsed_object.netloc
         path = parsed_object.path
-        if self.platform == 'pc':
-            action: str = request_params.get('action')
-            action_list = action.split('/')
-            class_name = action_list[0]
-            method_name = action_list[-1]
-            for i in method_name:
-                if i.isupper():
-                    method_name = method_name.replace(i, f'_{i.lower()}')
-            # TODO：class_name和method_name不一定是cluster/list这种形式
-            req_data_dict["class_name"] = class_name
-            req_data_dict["method_name"] = method_name
-        # check whether query string is in url
-        req_data_dict["request"].update({"url_path": path})
-        if request_params:
-            # parsed_object = parsed_object._replace(query="")
-            # TODO: check path whether is api gate
-            req_data_dict["request"]["params"] = request_params
-        # parsed_object.params
+        req_data_dict["class_name"] = ''
+        req_data_dict["method_name"] = ''
+        if '?' in url:
+            req_data_dict['params'] = request_params
+            # 处理请求参数是action的情况
+            action_fields = request_params.get('action')
+            if action_fields and path == '/api':
+                utils.handle_class_method_name(API, action_fields, req_data_dict)
 
-    def __make_request_method(self, req_data_dict, entry_json):
+        req_data_dict["request"].update({"url_path": path})
+
+    def __make_request_headers(self, req_data_dict, entry_json):
+        """ parse HAR entry request headers, and make teststep headers.
+            header in IGNORE_REQUEST_HEADERS will be ignored.
+
+        Args:
+            entry_json (dict):
+                {
+                    "request": {
+                        "headers": [
+                            {"name": "Host", "value": "aomaker.top"},
+                            {"name": "Content-Type", "value": "application/json"},
+                            {"name": "User-Agent", "value": "iOS/10.3"}
+                        ],
+                    },
+                    "response": {}
+                }
+
+        Returns:
+            {
+                "request": {
+                    headers: {"Content-Type": "application/json"}
+            }
+
+        """
+        teststep_headers = {}
+        for header in entry_json["request"].get("headers", []):
+            if header["name"] == "cookie" or header["name"].startswith(":"):
+                continue
+            if header["name"] in self.exclude_request_header:
+                continue
+            teststep_headers[header["name"]] = header["value"]
+
+        if teststep_headers:
+            req_data_dict["request"]["headers"] = teststep_headers
+
+    @staticmethod
+    def __make_request_method(req_data_dict, entry_json):
         """ parse HAR entry request method, and make ao_params method.
         """
         method = entry_json["request"].get("method")
@@ -91,7 +129,8 @@ class HarParser:
 
         req_data_dict["request"]["method"] = method
 
-    def __make_request_data(self, req_data_dict, entry_json):
+    @staticmethod
+    def __make_request_data(req_data_dict, entry_json):
         """ parse HAR entry request data, and make teststep request data
 
         Args:
@@ -148,12 +187,13 @@ class HarParser:
 
             req_data_dict["request"][request_data_key] = post_data
 
-    def __make_response_content(self, resp_data_dict, entry_json):
+    @staticmethod
+    def __make_response_content(resp_data_dict, entry_json):
         response = entry_json["response"].get("content")
         if not response:
             logger.exception("response content missed.")
             sys.exit(1)
-        resp_data_dict["response"] = response.get('text')
+        resp_data_dict["response"] = json.loads(response.get('text'))
 
     def _prepare_req_data(self, entry_json):
         """ extract info from entry dict and make req_data
@@ -181,11 +221,12 @@ class HarParser:
         self.__make_request_url(req_data_dict, entry_json)
         self.__make_request_method(req_data_dict, entry_json)
         # self.__make_request_cookies(ao_params_dict, entry_json)
-        # self.__make_request_headers(ao_params_dict, entry_json)
+        if self.save_headers:
+            self.__make_request_headers(req_data_dict, entry_json)
         self.__make_request_data(req_data_dict, entry_json)
-        self.__make_response_content(req_data_dict, entry_json)
-        # self._make_validate(ao_params_dict, entry_json)
-        # print(req_data_dict)
+        if self.save_response:
+            self.__make_response_content(req_data_dict, entry_json)
+
         try:
             json_params = req_data_dict.get('request').get('data').get('params')
             if json_params:
@@ -225,32 +266,31 @@ class HarParser:
 
     def _make_testcase(self):
         logger.info("Extract info from HAR file and prepare for testcases.")
-        testcase = {"name": "", "steps": []}
+        testcase = {
+            "testcase_class_name": "",
+            "description": "",
+            "testcase_name": "",
+            "steps": []
+        }
         req_data_list = self._prepare_req_data_list()
         for req in req_data_list:
-            req_dic = {}
+            req_dic = dict()
             req_dic['class_name'] = req.get('class_name')
             req_dic['method_name'] = req.get('method_name')
             req_dic['request'] = req.get('request')
-            req_dic['response'] = eval(req.get('response'))
-            # data = req['request'].get('data')
-            # if data:
-            #     req_dic['req_data'] = data
+            if self.save_response:
+                # print(req.get('response'))
+                req_dic['response'] = req.get('response')
             testcase['steps'].append(req_dic)
         return testcase
 
     def har2yaml_testcase(self):
         logger.info(f"Start to generate YAML testcases from {self.har_file_path}")
-        harfile = os.path.splitext(self.har_file_path)[0]
         testcase = self._make_testcase()
-
         # 生成yaml文件
-        print(testcase)
-        output_testcase_file = f"{harfile}.yaml"
+        output_testcase_file = self.yaml_file_path
         utils.dump_yaml(testcase, output_testcase_file)
 
 
-har = HarParser('ehpc_user.har', filter_str='action')
-# har.fill_ao_by_testcase()
-
-# har.gen_yaml_testcase()
+har = HarParser('../../console.shanhe.com2.har', 'har_yaml.yaml', filter_str='action', save_response=False)
+har.har2yaml_testcase()

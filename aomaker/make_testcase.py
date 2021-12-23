@@ -54,5 +54,4 @@ def init_make_case_parser(subparsers):
 
     return parser
 
-
 # main_make_case('job_datas.yaml')

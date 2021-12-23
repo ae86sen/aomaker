@@ -1,7 +1,6 @@
 from typing import List, Text, Dict, Any, Mapping
 from pydantic import BaseModel, Field, conlist, validator
 
-
 AssertField = conlist(Any, min_items=2, max_items=3)
 
 
@@ -34,6 +33,7 @@ class RequestData(BaseModel):
     params: Dict = {}
     data: Dict = {}
     json_data: Dict = Field({}, alias='json')
+    headers: Dict = {}
 
 
 class ExtractField(BaseModel):
@@ -48,6 +48,7 @@ class Steps(BaseModel):
     request: RequestData
     extract: List[ExtractField] = []
     assert_: List[Mapping[Text, AssertField]] = Field([], alias='assert')
+    data_driven: Mapping[Text, List] = {}
 
     @validator('assert_')
     def check_assert_field(cls, v):
@@ -64,7 +65,6 @@ class YamlTestcase(BaseModel):
     testcase_name: Text
     description: Text = ''
     steps: List[Steps]
-
 
 # data = {
 #     'testcase_class_name': 123,

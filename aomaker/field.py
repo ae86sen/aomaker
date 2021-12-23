@@ -26,9 +26,24 @@ API = {
     'Summary': 'Summary'
 }
 
+EXCLUDE_HEADER = [
+            'User-Agent',
+            'Origin',
+            'Referer',
+            'Accept-Encoding',
+            'Accept-Language',
+            'Proxy-Connection',
+            'Content-Length',
+            'Connection',
+            'Cache-Control',
+            'Pragma',
+            'sec-ch-ua-mobile',
+            'User-Agent',
+            'sec-ch-ua-platform',
+            'Sec-Fetch-Site',
+            'Sec-Fetch-Mode',
+            'Sec-Fetch-Dest',
+            'sec-ch-ua'
+        ]
 
-if __name__ == '__main__':
-    s = ['paris','join','addjob']
-    for i in s:
-        if 'job' in i:
-            print('sssssss')
+EXCLUDE_SUFFIX = ['.js', '.css', '.woff', '.woff2', '.png', '.svg', '.ico', '.vue', '.jpeg']

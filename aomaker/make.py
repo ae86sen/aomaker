@@ -267,24 +267,3 @@ def init_make_parser(subparsers):
     return parser
 
 
-# main_make('iot_swagger.json')
-# p = {'ao_list': [{'class_name': 'cluster', 'method_name': 'list',
-#                   'request': {'url': 'https://console.shanhe.com/portal_api/', 'params': {'action': 'cluster/list'},
-#                               'method': 'POST', 'data': {
-#                           'params': '{"service":"hpc","action":"cluster/list","status":["pending","active","stopped","suspended"],"sort_key":"create_time","verbose":1,"limit":10,"offset":0,"reverse":1,"cluster_type":"hpc","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
-#                           'method': 'GET'}}},
-#                  {'class_name': 'cluster', 'method_name': 'list_nodes',
-#                   'request': {'url': 'https://console.shanhe.com/portal_api/',
-#                               'params': {'action': 'cluster/listNodes'}, 'method': 'POST', 'data': {
-#                           'params': '{"action":"cluster/listNodes","service":"hpc","status":["active","stopped","pending"],"sort_key":"role","reverse":1,"verbose":1,"limit":10,"offset":0,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
-#                           'method': 'GET'}}}, {'class_name': 'job', 'method_name': 'list',
-#                                                'request': {'url': 'https://console.shanhe.com/portal_api/',
-#                                                            'params': {'action': 'job/list'}, 'method': 'POST', 'data': {
-#                                                        'params': '{"service":"hpc","action":"job/list","run_user":"usr-80hTTYpe","limit":10,"offset":0,"job_status":["running","pending","finished","exited","stopped","unknown"],"sort_key":"submitted_time","reverse":1,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","user_id":"usr-80hTTYpe","owner":"usr-80hTTYpe"}',
-#                                                        'method': 'GET'}}},
-#                  {'class_name': 'queue', 'method_name': 'get_current_queue',
-#                   'request': {'url': 'https://console.shanhe.com/portal_api/',
-#                               'params': {'action': 'queue/getCurrentQueue'}, 'method': 'POST', 'data': {
-#                           'params': '{"service":"hpc","action":"queue/getCurrentQueue","user_id":"usr-80hTTYpe","limit":10,"offset":0,"sort_key":"create_time","reverse":1,"cluster_id":"hpc-qj2hwiy0","zone":"jn1","owner":"usr-80hTTYpe"}',
-#                           'method': 'GET'}}}]}
-# make_api_file_from_har()

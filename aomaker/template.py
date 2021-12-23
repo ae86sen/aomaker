@@ -94,16 +94,22 @@ class {{ class_name }}(Define{{ class_name}}):
     {% endfor %}   
     """)
     TEMP_ADDITIONAL_API = jinja2.Template("""
-    {% if request.method != 'GET'%}def api_{{method_name}}(self, body):{% else %}def api_{{method_name}}(self):{% endif %}
+    {% if request.data or request.json -%}
+    def api_{{method_name}}(self, body):{% else %}def api_{{method_name}}(self):{% endif %}
         payload = {
             'url': f'{getattr(self, "host")}{{request.url_path}}',
             'method': '{{request.method}}',
             'headers': getattr(self, 'headers'),
+            {% if request.params -%}
             'params': {{request.params}},
-            {% if request.method != 'GET'%}'data': {
+            {% endif -%}
+            {% if request.data %}'data': {
                 'params': json.dumps(body),
                 {% if request.data.method %}'method': '{{request.data.method}}'{% endif %}
-            }{% endif %}
+            }{% endif -%}
+            {% if request.json -%}
+            'json': body
+            {% endif -%}
         }
         response = self.send_http(payload)
         return response
@@ -111,7 +117,12 @@ class {{ class_name }}(Define{{ class_name}}):
 """)
     TEMP_ADDITIONAL_AO = jinja2.Template("""
     {% set sp= '{{' -%}{% set ep= '}}' -%}
-    def {{method_name}}(self):{% if request.data %}
+    {% if data_driven -%}
+    def {{method_name}}(self, test_data: dict):
+    {% else -%}
+    def {{method_name}}(self):
+    {% endif -%}
+    {% if request.data or request.json -%}
         body = "{{sp}} {{method_name}}_params {{ep}}"
         res = self.get_resp_json(self.api_{{ method_name }}(body)){% else %}
         res = self.get_resp_json(self.api_{{ method_name }}()){% endif %}
@@ -124,17 +135,26 @@ from common.base_api import BaseApi
 
 class Define{{ module_name | title}}(BaseApi):
     {% for ao in ao_list %}
-    {% if ao.request.data %}def api_{{ao.method_name}}(self, body):{% else %}def api_{{ao.method_name}}(self):{% endif %}
+    {% if ao.request.data or ao.request.json -%}
+    def api_{{ao.method_name}}(self, body):{% else %}def api_{{ao.method_name}}(self):{% endif %}
         payload = {
             'url': f'{getattr(self, "host")}{{ao.request.url_path}}',
             'method': '{{ao.request.method}}',
             'headers': getattr(self, 'headers'),
+            {% if ao.request.params -%}
             'params': {{ao.request.params}},
+            {% endif -%}
             {% if ao.request.data %}'data': {
                 'params': json.dumps(body),
                 {% if ao.request.data.method %}'method': '{{ao.request.data.method}}'{% endif %}
-            }{% endif %}
+            }{% endif -%}
+            {% if ao.request.json -%}
+            'json': body
+            {% endif -%}
         }
+        {% if ao.request.headers -%}
+        payload['headers'].update({{ ao.request.headers }})
+        {% endif -%}
         response = self.send_http(payload)
         return response
         {% endfor %}    
@@ -156,7 +176,9 @@ class {{ module_name | title}}(Define{{ module_name | title}}):
                     cls._instance = super().__new__(cls)
         return cls._instance    
     {% for ao in ao_list %}
-    def {{ao.method_name}}(self):{% if ao.request.data %}
+    {% if ao.data_driven -%}
+    def {{ao.method_name}}(self, test_data: dict):{% else %}def {{ao.method_name}}(self):{% endif %}
+    {%- if ao.request.data or ao.request.json %}
         body = "{{sp}} {{ao.method_name}}_params {{ep}}"
         res = self.get_resp_json(self.api_{{ ao.method_name }}(body)){% else %}
         res = self.get_resp_json(self.api_{{ ao.method_name }}()){% endif %}
@@ -171,48 +193,120 @@ import pytest
 import yaml
 
 from service.service_api.{{api}} import {{api | capitalize}}
-from common.base_api import BaseApi
+from common.base_testcase import BaseTestcase
 from common.handle_path import DATA_DIR
 
 case_data_path = os.path.join(DATA_DIR, '{{api}}_datas.yaml')
 datas = yaml.safe_load(open(case_data_path, encoding='utf-8'))
 
 
-class Test{{api | capitalize}}:
+class Test{{api | capitalize}}(BaseTestcase):
     {{api}} = {{api | capitalize}}()
     {% for case in case_list %}
-    @pytest.mark.parametrize('data', datas['{{api}}']['{{case}}'])
-    def test_{{case}}(self, data):
-        res = self.{{api}}.{{case}}(data['variables'])
-        assert res['ret_code'] == data['expected']
+    @pytest.mark.parametrize('test_data', datas['{{api}}']['{{case}}'])
+    def test_{{case}}(self, test_data):
+        res = self.{{api}}.{{case}}(test_data['variables'])
+        assert res['ret_code'] == test_data['expected']
     {% endfor %}
     """
     )
+    TEMP_API_CASE2 = jinja2.Template(
+        """import pytest
+from jsonpath import jsonpath
+from aomaker.data_maker import data_maker
 
+{% for class in import_list -%}
+from service.service_api.{{class}} import {{class | capitalize}}
+{% endfor -%}
+from common.base_testcase import BaseTestcase
+
+
+class Test{{ test_class | capitalize}}(BaseTestcase):
+    {% for class in import_list -%}
+    {{class}} = {{class | capitalize}}()
+    {% endfor -%}
+    {% for method in method_list %}
+    @pytest.mark.parametrize('test_data', data_maker('{{test_class}}', '{{method}}', '{{test_class}}.yaml', model='api'))
+    def test_{{method}}(self, test_data):
+        {% for k,aos in steps.items() -%}
+        {% if k==method -%}
+        {% for ao in aos -%}
+        {%if ao.extract or ao.assert is defined -%}
+        {% if ao.test_data -%}
+        # test api
+        res = self.{{ao.ao}}.{{ao.method}}(test_data)
+        {% else -%}
+        res = self.{{ao.ao}}.{{ao.method}}()
+        {% endif -%}
+        {%else-%}
+        {% if ao.test_data -%}
+        # test api
+        self.{{ao.ao}}.{{ao.method}}(test_data)
+        {% else -%}
+        self.{{ao.ao}}.{{ao.method}}()
+        {% endif -%}
+        {%endif-%}
+        {%for extract in ao.extract-%}
+        {%if extract.index is defined -%}
+        self.extract_set_vars(res, '{{extract.var_name}}', '{{extract.expr}}', {{extract.index}})
+        {%else-%}
+        self.extract_set_vars(res, '{{extract.var_name}}', '{{extract.expr}}')
+        {%endif-%}
+        {%endfor-%}
+        {%if ao.assert-%}
+        {%for assert in ao.assert-%}
+        assert_content = jsonpath(res, '{{assert.expr}}')[{{assert.index}}]
+        {%if assert.expect is string -%}
+        self.{{assert.comparator}}(assert_content, '{{assert.expect}}')
+        {%else-%}
+        self.{{assert.comparator}}(assert_content, {{assert.expect}})
+        {%endif-%}
+        {%endfor-%}
+        {%endif-%}
+        {%endfor-%}
+        {%endif-%}
+        {%-endfor-%}
+    {% endfor %}
+    """
+    )
     TEMP_SCENARIO_CASE = jinja2.Template(
         """import os
 
 import pytest
 import yaml
 from jsonpath import jsonpath
+from aomaker.data_maker import data_maker
 
 from common.base_testcase import BaseTestcase
 from service.params_pool import ParamsPool
+
 {% for class in class_list-%}
 from service.service_api.{{class}} import {{class | capitalize}}
-{%endfor%}
+{%endfor-%}
+
 
 class Test{{class_name | capitalize}}(BaseTestcase):
     {%for class in class_list%}{{class}} = {{class | capitalize}}()
     {%endfor%}
-    def test_{{testcase_name}}(self):
+    {% if test_step_datas -%}
+    @pytest.mark.parametrize('test_data', data_maker('{{class_name}}', '{{testcase_name}}', '{{class_name}}.yaml'))
+    def test_{{testcase_name}}(self, test_data: dict):{% else %}
+    def test_{{testcase_name}}(self):{% endif %}
         \"""{{description}}""\"
         {%for ao in call_ao_list -%}
         # step{{loop.index}}
         {%if ao.extract or ao.assert is defined -%}
+        {% if ao.test_data -%}
+        res = self.{{ao.ao}}.{{ao.method}}(test_data['{{ ao.method }}'])
+        {% else -%}
         res = self.{{ao.ao}}.{{ao.method}}()
+        {% endif -%}
         {%else-%}
+        {% if ao.test_data -%}
+        self.{{ao.ao}}.{{ao.method}}(test_data['{{ ao.method }}'])
+        {% else -%}
         self.{{ao.ao}}.{{ao.method}}()
+        {% endif -%}
         {%endif-%}
         {%for extract in ao.extract-%}
         {%if extract.index is defined -%}
@@ -235,5 +329,3 @@ class Test{{class_name | capitalize}}(BaseTestcase):
         {%-endfor-%}
     """
     )
-
-

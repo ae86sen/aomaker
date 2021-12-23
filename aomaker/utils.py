@@ -9,8 +9,9 @@ import yaml
 from loguru import logger
 from aomaker.models import Steps
 
+
 def dump_yaml(testcase, yaml_file):
-    """ dump HAR entries to yaml testcases
+    """ dump HAR entries to yaml
     """
     logger.info("dump testcases to YAML format.")
 
@@ -67,14 +68,17 @@ def ensure_file_path(path: Text, file_type='HAR') -> Text:
             logger.error("HAR file not specified.")
             sys.exit(1)
     elif file_type == 'YAML':
-        if not path or not (path.endswith(".yaml") or path.endswith(".yml")):
+        if not path:
+            with open(path, mode='w', encoding='utf-8') as f:
+                yaml.dump('', f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        if not (path.endswith(".yaml") or path.endswith(".yml")):
             logger.error("YAML file not specified.")
             sys.exit(1)
 
     path = ensure_path_sep(path)
-    if not os.path.isfile(path):
-        logger.error(f"{file_type} file not exists: {path}")
-        sys.exit(1)
+    # if not os.path.isfile(path):
+    #     logger.error(f"{file_type} file not exists: {path}")
+    #     sys.exit(1)
 
     if not os.path.isabs(path):
         path = os.path.join(os.getcwd(), path)
@@ -156,3 +160,25 @@ def distinct_req(req_data_list: List[Dict]) -> List[Dict]:
             api_list.append(dic)
             new_req_data_list.append(req)
     return new_req_data_list
+
+
+def handle_class_method_name(api_action_dict: dict, action_fields: str, req_data_dic: dict):
+    for k, v in api_action_dict.items():
+        if isinstance(v, str):
+            if v in action_fields:
+                req_data_dic['class_name'] = k
+                req_data_dic['method_name'] = __handle_action_field(action_fields)
+        elif isinstance(v, list):
+            for i in v:
+                if i in action_fields:
+                    req_data_dic['class_name'] = k
+                    req_data_dic['method_name'] = __handle_action_field(action_fields)
+
+
+def __handle_action_field(field: str):
+    for index, s in enumerate(field):
+        if s.isupper():
+            if index == 0:
+                field = field.replace(s, f'{s.lower()}')
+            field = field.replace(s, f'_{s.lower()}')
+    return field
