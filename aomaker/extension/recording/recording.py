@@ -1,18 +1,24 @@
 import json
+import os
 from json import JSONDecodeError
 
 import yaml
-from mitmproxy import http, tcp, connection, ctx, flowfilter
-from mitmproxy.proxy import server_hooks
+from mitmproxy import http, ctx, flowfilter
 
 from aomaker.field import API, EXCLUDE_HEADER, EXCLUDE_SUFFIX
 from aomaker import utils
 
 
+def ensure_file_name(file_name: str):
+    if not (file_name.endswith(".yaml") or file_name.endswith(".yml")):
+        file_name = file_name + ".yaml"
+    return file_name
+
+
 class Record:
-    def __init__(self, filter_field, file_name, save_headers=False, save_response=True):
-        self.filter = filter_field
-        self.file_name = file_name
+    def __init__(self, file_name, filter_str=None, save_headers=False, save_response=True):
+        self.filter = filter_str
+        self.file_name = ensure_file_name(file_name)
         self.steps = []
         self.save_headers = save_headers
         self.save_response = save_response
@@ -24,31 +30,14 @@ class Record:
         self.exclude_suffix = EXCLUDE_SUFFIX
         self.exclude_request_header = EXCLUDE_HEADER
 
-    # def client_connected(self, client: connection.Client):
-    #     ctx.log.warn(f'客户端已建立连接**********************')
-    #
-    # def client_disconnected(self, client: connection.Client):
-    #     ctx.log.warn(f'客户端已关闭连接**********************')
-    #     # self.flow_to_yaml(self.yaml_dic)
-    #
-    # def server_connected(self, data: server_hooks.ServerConnectionHookData):
-    #     ctx.log.warn('服务端已连接')
-    #
-    # def server_disconnected(self, data: server_hooks.ServerConnectionHookData):
-    #     ctx.log.warn('服务端已断开连接')
-    #
-    # def tcp_start(self, flow: tcp.TCPFlow):
-    #     ctx.log.error('建立TCP连接***************')
-    #
-    # def tcp_end(self, flow: tcp.TCPFlow):
-    #     ctx.log.error('断开TCP连接***************')
-    #
-    #
-    # def done(self):
-    #     ctx.log.error('触发了done（）')
-
     def response(self, flow: http.HTTPFlow):
-        if self.filter in flow.request.host:
+        if "|" in self.filter:
+            filter_str = self.filter.split("|")
+            conditions = [flowfilter.match(fs, flow) for fs in filter_str]
+        else:
+            conditions = [flowfilter.match(self.filter, flow)]
+        if all(conditions):
+            # if self.filter in flow.request.url:
             if self.flow_filter(flow):
                 return
             flow_dic = dict()
@@ -72,7 +61,7 @@ class Record:
                 # 处理请求参数是action的情况
                 action_fields = query_fields.get('action')
                 if action_fields and flow_dic['request']['url_path'] == '/api/':
-                    utils.handle_class_method_name(API,action_fields,flow_dic)
+                    utils.handle_class_method_name(API, action_fields, flow_dic)
                     # self.handle_class_method_name(API, action_fields, flow_dic)
             if content_type:
                 if content_type == 'application/x-www-form-urlencoded':
@@ -103,7 +92,10 @@ class Record:
         # yaml.representer.ignore_aliases = lambda *data: True
         # with open(self.file_name, mode='w', encoding='utf-8') as f:
         #     yaml.dump(content, f)
-        with open(self.file_name, mode='w', encoding='utf-8') as f:
+        workspace = os.getcwd()
+        flow2yaml_dir = os.path.join(workspace, 'flow2yaml')
+        file_path = os.path.join(flow2yaml_dir, self.file_name)
+        with open(file_path, mode='w', encoding='utf-8') as f:
             yaml.dump(content, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
     def flow_filter(self, flow):
@@ -146,29 +138,3 @@ class Record:
             if key not in self.exclude_request_header:
                 headers_dic[str(content[0], 'utf-8')] = str(content[1], 'utf-8')
         return headers_dic
-
-    # def handle_class_method_name(self, api_action_dict: dict, action_fields: str, flow_dic: dict):
-    #     for k, v in api_action_dict.items():
-    #         if isinstance(v, str):
-    #             if v in action_fields:
-    #                 flow_dic['class_name'] = k
-    #                 flow_dic['method_name'] = self.handle_action_field(action_fields)
-    #         elif isinstance(v, list):
-    #             for i in v:
-    #                 if i in action_fields:
-    #                     flow_dic['class_name'] = k
-    #                     flow_dic['method_name'] = self.handle_action_field(action_fields)
-    #
-    # @staticmethod
-    # def handle_action_field(field: str):
-    #     for index, s in enumerate(field):
-    #         if s.isupper():
-    #             if index == 0:
-    #                 field = field.replace(s, f'{s.lower()}')
-    #             field = field.replace(s, f'_{s.lower()}')
-    #     return field
-
-
-addons = [
-    Record("iot.staging.com", 'iot.yaml', save_headers=True, save_response=False)
-]

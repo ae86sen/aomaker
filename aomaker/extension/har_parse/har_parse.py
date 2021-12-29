@@ -1,13 +1,10 @@
 import json
 import os
-import subprocess
 import sys
 from json import JSONDecodeError
-from typing import Text, Dict, List
 
 from loguru import logger
 import urllib.parse as urlparse
-from urllib.parse import unquote
 
 from aomaker.field import API, EXCLUDE_HEADER
 from aomaker import utils
@@ -193,7 +190,12 @@ class HarParser:
         if not response:
             logger.exception("response content missed.")
             sys.exit(1)
-        resp_data_dict["response"] = json.loads(response.get('text'))
+        try:
+            resp_data_dict["response"] = json.loads(response.get('text'))
+        except JSONDecodeError:
+            # logger.error(f'convert response to dict failed! \n'
+            #              f'response content: {response.get("text")}')
+            resp_data_dict["response"] = None
 
     def _prepare_req_data(self, entry_json):
         """ extract info from entry dict and make req_data
@@ -288,9 +290,13 @@ class HarParser:
         logger.info(f"Start to generate YAML testcases from {self.har_file_path}")
         testcase = self._make_testcase()
         # 生成yaml文件
-        output_testcase_file = self.yaml_file_path
-        utils.dump_yaml(testcase, output_testcase_file)
+        workspace = os.getcwd()
+        flow2yaml_dir = os.path.join(workspace, 'flow2yaml')
+        file_path = os.path.join(flow2yaml_dir, self.yaml_file_path)
+        if not os.path.exists(file_path):
+            utils.dump_yaml(testcase, file_path)
+        else:
+            print(f"{file_path} exists!")
 
-
-har = HarParser('../../console.shanhe.com2.har', 'har_yaml.yaml', filter_str='action', save_response=False)
-har.har2yaml_testcase()
+# har = HarParser('../../console.shanhe.com2.har', 'har_yaml.yaml', filter_str='action', save_response=False)
+# har.har2yaml_testcase()

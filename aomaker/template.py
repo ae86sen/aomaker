@@ -213,12 +213,12 @@ class Test{{api | capitalize}}(BaseTestcase):
     TEMP_API_CASE2 = jinja2.Template(
         """import pytest
 from jsonpath import jsonpath
-from aomaker.data_maker import data_maker
 
 {% for class in import_list -%}
 from service.service_api.{{class}} import {{class | capitalize}}
 {% endfor -%}
 from common.base_testcase import BaseTestcase
+from common.data_maker import data_maker
 
 
 class Test{{ test_class | capitalize}}(BaseTestcase):
@@ -275,9 +275,9 @@ class Test{{ test_class | capitalize}}(BaseTestcase):
 import pytest
 import yaml
 from jsonpath import jsonpath
-from aomaker.data_maker import data_maker
 
 from common.base_testcase import BaseTestcase
+from common.data_maker import data_maker
 from service.params_pool import ParamsPool
 
 {% for class in class_list-%}

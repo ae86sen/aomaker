@@ -54,13 +54,37 @@ def create_scaffold(project_name):
     create_folder(project_name)
     create_folder(os.path.join(project_name, "common"))
     create_file(os.path.join(project_name, "common", "__init__.py"))
+    data_maker_content = """import os
+
+import yaml
+from loguru import logger
+
+from common.handle_path import API_DATA_DIR, SCENARIO_DATA_DIR
+
+
+def _load_yaml(yaml_file):
+    with open(yaml_file, encoding='utf-8') as f:
+        yaml_testcase = yaml.safe_load(f)
+    return yaml_testcase
+
+
+def data_maker(class_name, method_name, file_path, model='scenario'):
+    api_data_path = API_DATA_DIR
+    scenario_data_path = SCENARIO_DATA_DIR
+    real_path = api_data_path if model == 'api' else scenario_data_path
+    yaml_path = os.path.join(real_path, file_path)
+    if not os.path.exists(yaml_path):
+        logger.error(f'{yaml_path} 不存在！')
+        raise
+    data = _load_yaml(yaml_path).get(class_name).get(method_name)
+    return data
+        """
+    create_file(os.path.join(project_name, "common", "data_maker.py"), data_maker_content)
     base_api_content = """import os
 import requests
 from loguru import logger
 
-from common.handle_path import CONF_DIR
 from common.utils import Utils
-from common.handle_assert import HandleAssert
 
 
 class BaseApi:
@@ -139,10 +163,8 @@ class BaseTestcase:
         :param index: jsonpath result index
         :return:
         \"""
-        if index:
-            extract_variable = jsonpath(res, expr)[index]
-        else:
-            extract_variable = jsonpath(res, expr)[0]
+        index = index if index else 0
+        extract_variable = jsonpath(res, expr)[index]
         setattr(ParamsPool().Vars, var_name, extract_variable)
 
     @staticmethod
@@ -232,6 +254,8 @@ CONF_DIR = os.path.join(BASEDIR, "conf")
 CONFIG_DIR = os.path.join(CONF_DIR, 'config.yaml')
 # 用例数据的目录
 DATA_DIR = os.path.join(BASEDIR, "data")
+API_DATA_DIR = os.path.join(DATA_DIR, "api_data")
+SCENARIO_DATA_DIR = os.path.join(DATA_DIR, "scenario_data")
 # 日志文件目录
 LOG_DIR = os.path.join(BASEDIR, "log")
 # 测试报告的路
@@ -283,21 +307,22 @@ class Utils:
     create_file(os.path.join(project_name, "common", "utils.py"), utils_content)
     wrapper_content = """from loguru import logger
 
-
-def api_call(func):
-    \"""
-    接口调用记录
-    :param func: 装饰的函数
-    :return:
-    \"""
-
-    def inner(*args, **kwargs):
-        logger.info(f"开始调用接口：{func.__name__}")
+def basic_assert(func):
+    \"""接口调用记录，基础断言""\"
+    def wrapper(*args, **kwargs):
+        func_name = func.__name__
+        logger.info(f"【开始调用接口：{func_name}】")
         res = func(*args, **kwargs)
-        logger.info(f"结束调用接口：{func.__name__}")
+        try:
+            assert res['ret_code'] == 0
+        except AssertionError as e:
+            logger.error(f'ret_code不为0，请检查.\nao:{func_name}\nresult:{res}')
+            raise e
+        finally:
+            logger.info(f"【结束调用接口：{func_name}】")
         return res
 
-    return inner
+    return wrapper
     """
     create_file(os.path.join(project_name, "common", "wrapper.py"), wrapper_content)
     mysql_content = """import os
@@ -346,8 +371,8 @@ class HandleMysql:
         self.con.close()
     """
     create_file(os.path.join(project_name, "common", "handle_mysql.py"), mysql_content)
+    create_folder(os.path.join(project_name, "flow2yaml"))
     create_folder(os.path.join(project_name, "apis"))
-    # TODO: check
     create_file(os.path.join(project_name, "apis", "__init__.py"))
     demo_api_content = """import json
     
@@ -445,7 +470,6 @@ def env_vars(conf):
         config = conf
         env = config['env']
         host = config[env]["host"]
-        base_path = config[env]["base_path"]
         account = config[env]["account"]
     return Env()
     """
@@ -462,10 +486,8 @@ from service.params_pool import ParamsPool
 def login(env_vars):
     logger.info('******************************开始配置全局前置条件******************************')
     host = env_vars.host
-    base_path = env_vars.base_path
     account = env_vars.account
     setattr(BaseApi, 'host', host)
-    setattr(BaseApi, 'base_path', base_path)
     setattr(BaseApi, 'account', account)
 
     resp_login = 1
@@ -488,18 +510,60 @@ def make_params():
     logger.info('******************************全局前置条件配置完成******************************')
     """
     create_file(os.path.join(project_name, "fixtures", "fixture_login.py"), fixture_login_content)
+    fixture_report_content = """from datetime import datetime
+
+import pytest
+from loguru import logger
+from py._xmlgen import html
+
+
+@pytest.mark.hookwrapper
+def pytest_runtest_makereport(item):
+    pytest_html = item.config.pluginmanager.getplugin('html')
+    outcome = yield
+    report = outcome.get_result()
+    extra = getattr(report, 'extra', [])
+    report.extra = extra
+    report.description = str(item.function.__doc__)
+    report.nodeid = report.nodeid.encode("utf-8").decode("unicode_escape")  # 设置编码显示中文
+
+
+@pytest.mark.optionalhook
+def pytest_html_results_summary(prefix, summary, postfix):
+    prefix.extend([html.p("测试人: Listen's Robot")])
+
+
+@pytest.mark.optionalhook
+def pytest_html_results_table_header(cells):
+    cells.insert(1, html.th('Description'))
+    cells.pop(2)
+    cells.insert(3, html.th('Time', class_='sortable time', col='time'))
+    cells.pop()
+
+
+@pytest.mark.optionalhook
+def pytest_html_results_table_row(report, cells):
+    if report.outcome == 'passed':
+        cells.clear()
+        return 
+    cells.insert(1, html.td(report.description))
+    cells.pop(2)
+    cells[2] = html.td(f"{report.duration:.2f}s")
+    cells.insert(3, html.td(datetime.now(), class_='col-time'))
+    cells.pop()
+    logger.warning(report.outcome)
+    """
+    create_file(os.path.join(project_name, "fixtures", "fixture_report.py"), fixture_report_content)
     create_folder(os.path.join(project_name, "conf"))
     config_content = """env: test
 test:
   host: 'https://test.aomaker.com'
-  base_path: '/portal_api/'
   account:
     user: 'aomaker'
     pwd: '123456'
 
 release:
   host: 'https://release.aomaker.com'
-  base_path: '/api/'
   account:
     user: 'aomaker'
     pwd: '123456'
@@ -521,8 +585,13 @@ for root, _, files in os.walk(FIXTURE_DIR):
                     pass
     """
     create_file(os.path.join(project_name, "conftest.py"), conftest_content)
-    run_content = """import pytest
-pytest.main(['-s', '-m demo'])
+    run_content = """import os
+    
+import pytest
+
+pytest.main(['-s', '-m demo', r"--alluredir=report/json", "--clean-alluredir", "--html=report/aomaker_report.html",
+             "--self-contained-html", "--capture=sys"])
+os.system('allure generate ./report/json -o ./report/html -c')
     """
     create_file(os.path.join(project_name, "run.py"), run_content)
     pytest_ini_content = """[pytest]
@@ -531,68 +600,71 @@ markers =
     regress: regress test
     """
     create_file(os.path.join(project_name, "pytest.ini"), pytest_ini_content)
-    create_folder(os.path.join(project_name, "data"))
-    datas_content = """job:
-  submit_hpc_job:
-    - title: '验证提交hpc作业-共享队列-sleep'
-      variables:
-        cmd_line_type: 'input'  # select
-        cmd_line: 'sleep 10'
-        name: 'sleep_auto'
-        core_limit: 5
-        software: ''
-        queue_type: 'share_queue'
-      expected: {"ret_code": 0}
-    - title: '验证提交hpc作业-共享队列-普通脚本'
-      variables:
-        cmd_line_type: 'select'  # select
-        input_file: 'work.sh'
-        stdout_redirect_path: ''
-        stderr_redirect_path: ''
-        name: 'script_auto'
-        core_limit: 5
-        software: ''
-        queue_type: 'share_queue'
-      expected: {"ret_code": 0}
-    """
-    create_file(os.path.join(project_name, "data", "job_datas.yaml"), datas_content)
-    datas_content = """hpc_smoke:
-  - title: 'hpc冒烟用例'
-    step:
-      create_hpc_cluster:
-        cluster_name: 'auto_hpc'
-      add_nodes:
-        cluster_type: 'hpc'
-        node_role: 'login'
-      submit_hpc_job:
-        'cmd_line_type': 'input'
-        'cmd_line': 'sleep 10'
-        'name': 'sleep_auto'
-        'core_limit': 5
-        'software': ''
-        'queue_type': 'share_queue'
-      
-ehpc_smoke:
-  - title: 'ehpc冒烟用例'
-    step:
-      create_ehpc_cluster:
-        cluster_name: 'auto_hpc'
-      add_nodes:
-        login:
-          cluster_type: 'ehpc'
-          node_role: 'login'
-        compute:
-          cluster_type: 'ehpc'
-          node_role: 'compute'
-      submit_ehpc_job:
-        'cmd_line_type': 'input'
-        'cmd_line': 'sleep 10'
-        'name': 'sleep_auto'
-        'core_limit': 5
-        'software': ''
-        'queue_type': 'share_queue'
-    """
-    create_file(os.path.join(project_name, "data", "case_datas.yaml"), datas_content)
+    data_path = os.path.join(project_name, "data")
+    create_folder(data_path)
+    create_folder(os.path.join(data_path, "api_data"))
+    create_folder(os.path.join(data_path, "scenario_data"))
+    #     datas_content = """job:
+    #   submit_hpc_job:
+    #     - title: '验证提交hpc作业-共享队列-sleep'
+    #       variables:
+    #         cmd_line_type: 'input'  # select
+    #         cmd_line: 'sleep 10'
+    #         name: 'sleep_auto'
+    #         core_limit: 5
+    #         software: ''
+    #         queue_type: 'share_queue'
+    #       expected: {"ret_code": 0}
+    #     - title: '验证提交hpc作业-共享队列-普通脚本'
+    #       variables:
+    #         cmd_line_type: 'select'  # select
+    #         input_file: 'work.sh'
+    #         stdout_redirect_path: ''
+    #         stderr_redirect_path: ''
+    #         name: 'script_auto'
+    #         core_limit: 5
+    #         software: ''
+    #         queue_type: 'share_queue'
+    #       expected: {"ret_code": 0}
+    #     """
+    #     create_file(os.path.join(project_name, "data", "job_datas.yaml"), datas_content)
+    #     datas_content = """hpc_smoke:
+    #   - title: 'hpc冒烟用例'
+    #     step:
+    #       create_hpc_cluster:
+    #         cluster_name: 'auto_hpc'
+    #       add_nodes:
+    #         cluster_type: 'hpc'
+    #         node_role: 'login'
+    #       submit_hpc_job:
+    #         'cmd_line_type': 'input'
+    #         'cmd_line': 'sleep 10'
+    #         'name': 'sleep_auto'
+    #         'core_limit': 5
+    #         'software': ''
+    #         'queue_type': 'share_queue'
+    #
+    # ehpc_smoke:
+    #   - title: 'ehpc冒烟用例'
+    #     step:
+    #       create_ehpc_cluster:
+    #         cluster_name: 'auto_hpc'
+    #       add_nodes:
+    #         login:
+    #           cluster_type: 'ehpc'
+    #           node_role: 'login'
+    #         compute:
+    #           cluster_type: 'ehpc'
+    #           node_role: 'compute'
+    #       submit_ehpc_job:
+    #         'cmd_line_type': 'input'
+    #         'cmd_line': 'sleep 10'
+    #         'name': 'sleep_auto'
+    #         'core_limit': 5
+    #         'software': ''
+    #         'queue_type': 'share_queue'
+    #     """
+    #     create_file(os.path.join(project_name, "data", "case_datas.yaml"), datas_content)
     create_folder(os.path.join(project_name, "report"))
 
     return 0

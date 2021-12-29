@@ -66,17 +66,3 @@ class YamlTestcase(BaseModel):
     description: Text = ''
     steps: List[Steps]
 
-# data = {
-#     'testcase_class_name': 123,
-#     'testcase_name': 'add',
-#     'description': '123',
-#     'steps': [
-#         {'class_name': 'cluster', 'method_name': 'add',
-#          'request': {'url_path': '/api/', 'method': 'post', 'params': {'action': '123'}},
-#          'extract': [{'var_name': 'asdasd', 'expr': '123'}],
-#          'assert': [{'eq': ['asdsa',3]}],
-#          'response': {'b': 123}}]
-# }
-# # assert_ = [{'eq': ['123', 1, 3]}]
-# ass = YamlTestcase(**data)
-# print(ass.dict(by_alias=True))

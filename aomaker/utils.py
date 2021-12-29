@@ -7,7 +7,6 @@ from urllib.parse import unquote
 
 import yaml
 from loguru import logger
-from aomaker.models import Steps
 
 
 def dump_yaml(testcase, yaml_file):

@@ -8,7 +8,7 @@ from jinja2 import Template, DebugUndefined
 from loguru import logger
 
 from aomaker import utils
-from aomaker.make import make_api_file_from_yaml
+from aomaker.make_api import make_api_file_from_yaml
 from aomaker.models import YamlTestcase
 from aomaker.template import Template as Temp
 
@@ -79,74 +79,74 @@ class YamlParse:
         testcase_file_path = f'{test_module_path}.py'
         scenario_data_file_path = os.path.join(scenario_data_dir, f'{class_name}.yaml')
         # 如果测试模块不存在，进行创建
-        if not os.path.exists(testcase_file_path):
-            # 2.确定有哪些ao
-            #  剔除重复的请求
-            ao_list = utils.distinct_req(self.steps)
-            ao_class_list = []
-            call_ao_list = []
-            # 存放业务场景的数据驱动数据
-            test_step_data = dict()
-            # 存放单接口的数据驱动数据
-            api_datas = dict()
-            api_render_data = dict()
-            new_call_ao_list = []
-            for ao in ao_list:
-                ao_method = dict()
-                ao_class_list.append(ao['class_name'])
-                ao_method['ao'] = ao['class_name']
-                ao_method['method'] = ao['method_name']
-                is_extract = ao.get('extract')
-                is_assert = ao.get('assert')
-                is_data_driven = ao.get('data_driven')
-                if is_extract:
-                    ao_method['extract'] = is_extract
-                if is_assert:
-                    ao_method['assert'] = self._handle_assert(is_assert)
-                if is_data_driven:
-                    ao_method['test_data'] = True
-                    # 每个step转换成一个列表嵌套字典
-                    # method_name可能重复
-                    data_list = self._handle_data_driven(is_data_driven)
-                    ao_data = {
-                        ao['method_name']: data_list
-                    }
-                    test_step_data.update(ao_data)
-                    # 生成单接口数据
-                    self.__handle_api_datas(api_datas, ao['class_name'], ao['method_name'], data_list)
-                    # 准备生成单接口用例文件数据
-                    ao['ao'] = ao['class_name']
-                    ao['method'] = ao['method_name']
-                    ao['test_data'] = True
-                    ao['assert'] = self._handle_assert(is_assert)
-                    self._prepare_api_testcase_data(ao, call_ao_list, api_render_data, new_call_ao_list)
-                call_ao_list.append(ao_method)
-            render_data = dict()
-            if test_step_data:
-                # 得到一个大列表，test_datas
-                test_step_datas = self._handle_data_driven(test_step_data)
-                # 生成场景接口数据文件
-                self._write_scenario_data(class_name, testcase_name, test_step_datas, scenario_data_file_path)
-                render_data['test_step_datas'] = test_step_datas
-                # 生成单接口数据文件
-                for key in api_datas.keys():
-                    self._write_api_data(key, api_datas[key], api_data_dir)
-            import_ao_class_list = list(set(ao_class_list))
-            render_data['class_list'] = import_ao_class_list
-            render_data['call_ao_list'] = call_ao_list
-            render_data['class_name'] = class_name
-            render_data['testcase_name'] = testcase_name
-            if description:
-                render_data['description'] = description
-
-            # 单接口用例文件生成
-            self._make_api_testcase_file(api_render_data, test_api_dir)
-            # 场景用例文件生成
-            self._make_scenario_testcase_file(render_data,testcase_file_path)
-            # logger.info(f'make {testcase_file_path} successfully!')
-        else:
-            # 不支持追加用例
-            logger.warning(f'make {testcase_file_path} failed, the file already exists!')
+        # if not os.path.exists(testcase_file_path):
+        # 2.确定有哪些ao
+        #  剔除重复的请求
+        ao_list = utils.distinct_req(self.steps)
+        ao_class_list = []
+        call_ao_list = []
+        # 存放业务场景的数据驱动数据
+        test_step_data = dict()
+        # 存放单接口的数据驱动数据
+        api_datas = dict()
+        api_render_data = dict()
+        new_call_ao_list = []
+        for ao in ao_list:
+            ao_method = dict()
+            ao_class_list.append(ao['class_name'])
+            ao_method['ao'] = ao['class_name']
+            ao_method['method'] = ao['method_name']
+            is_extract = ao.get('extract')
+            is_assert = ao.get('assert')
+            is_data_driven = ao.get('data_driven')
+            if is_extract:
+                ao_method['extract'] = is_extract
+            if is_assert:
+                ao_method['assert'] = self._handle_assert(is_assert)
+            if is_data_driven:
+                ao_method['test_data'] = True
+                # 每个step转换成一个列表嵌套字典
+                # method_name可能重复
+                data_list = self._handle_data_driven(is_data_driven)
+                ao_data = {
+                    ao['method_name']: data_list
+                }
+                test_step_data.update(ao_data)
+                # 生成单接口数据
+                self.__handle_api_datas(api_datas, ao['class_name'], ao['method_name'], data_list)
+                # 准备生成单接口用例文件数据
+                ao['ao'] = ao['class_name']
+                ao['method'] = ao['method_name']
+                ao['test_data'] = True
+                ao['assert'] = self._handle_assert(is_assert)
+                self._prepare_api_testcase_data(ao, call_ao_list, api_render_data, new_call_ao_list)
+            call_ao_list.append(ao_method)
+        render_data = dict()
+        if api_datas:
+            # 生成单接口数据文件
+            for key in api_datas.keys():
+                self._write_api_data(key, api_datas[key], api_data_dir)
+        if test_step_data:
+            # 得到一个大列表，test_datas
+            test_step_datas = self._handle_data_driven(test_step_data)
+            # 生成场景接口数据文件
+            self._write_scenario_data(class_name, testcase_name, test_step_datas, scenario_data_file_path)
+            render_data['test_step_datas'] = test_step_datas
+        import_ao_class_list = list(set(ao_class_list))
+        render_data['class_list'] = import_ao_class_list
+        render_data['call_ao_list'] = call_ao_list
+        render_data['class_name'] = class_name
+        render_data['testcase_name'] = testcase_name
+        if description:
+            render_data['description'] = description
+        # 单接口用例文件生成
+        self._make_api_testcase_file(api_render_data, test_api_dir)
+        # 场景用例文件生成
+        self._make_scenario_testcase_file(render_data, testcase_file_path)
+        # logger.info(f'make {testcase_file_path} successfully!')
+        # else:
+        #     # 不支持追加用例
+        #     logger.warning(f'make {testcase_file_path} failed, the file already exists!')
 
         logger.info('All done!')
 
@@ -216,10 +216,13 @@ class YamlParse:
 
     @staticmethod
     def _make_scenario_testcase_file(render_data, testcase_file_path):
-        content = Temp.TEMP_SCENARIO_CASE.render(render_data)
-        with open(testcase_file_path, mode='w', encoding='utf-8') as f:
-            f.write(content)
-        subprocess.run(f'black {testcase_file_path}')
+        if not os.path.exists(testcase_file_path):
+            content = Temp.TEMP_SCENARIO_CASE.render(render_data)
+            with open(testcase_file_path, mode='w', encoding='utf-8') as f:
+                f.write(content)
+            subprocess.run(f'black {testcase_file_path}')
+        else:
+            print(f'{testcase_file_path} 已存在！')
 
     @staticmethod
     def _handle_data_driven(step_data: Mapping[Text, List]) -> List[Dict]:
@@ -344,12 +347,11 @@ class YamlParse:
         return data
 
 
+def init_yaml_parse(file_path: Text):
+    yp = YamlParse(file_path)
+    return yp
+
+
 if __name__ == '__main__':
-    # if os.path.exists(r'D:\项目列表\aomaker\aomaker\testcases\test_s`cenario\test_demo.py'):
-    #     print(1)
     yml = YamlParse('../hpc.yaml')
-    # print(yml.yaml_file_path)
-    # yml.make_ao_file()
-    # yml.render_ao_file()
-    # yml.render_ao_file()
     yml.make_testcase_file()

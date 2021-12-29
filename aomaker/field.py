@@ -38,7 +38,6 @@ EXCLUDE_HEADER = [
             'Cache-Control',
             'Pragma',
             'sec-ch-ua-mobile',
-            'User-Agent',
             'sec-ch-ua-platform',
             'Sec-Fetch-Site',
             'Sec-Fetch-Mode',
