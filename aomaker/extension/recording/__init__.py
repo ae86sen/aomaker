@@ -1,6 +1,5 @@
 import argparse
 import os
-import subprocess
 import jinja2
 
 filter_expression = """
@@ -77,7 +76,9 @@ def main_record(args):
     log_level = args.level
     try:
         print('AoMaker开始录制')
-        subprocess.run(f'mitmdump -p {port} -s {addons_file_path} --flow-detail {log_level}')
+        from mitmproxy.tools.main import mitmdump
+        mitmdump([f'-p {port}', f'--flow-detail {log_level}', f'-s {addons_file_path}'])
+        # os.system(f'mitmdump -p {port} -s {addons_file_path} --flow-detail {log_level}')
     except KeyboardInterrupt:
         print('AoMaker录制完成')
 
