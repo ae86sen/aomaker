@@ -316,7 +316,7 @@ def basic_assert(func):
         try:
             assert res['ret_code'] == 0
         except AssertionError as e:
-            logger.error(f'ret_code不为0，请检查.\nao:{func_name}\nresult:{res}')
+            logger.error(f'ret_code不为0，请检查.ao:{func_name},result:{res}')
             raise e
         finally:
             logger.info(f"【结束调用接口：{func_name}】")

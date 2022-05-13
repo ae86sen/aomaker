@@ -1,4 +1,6 @@
 import os
+import sys
+import re
 
 import yaml
 from loguru import logger
@@ -126,6 +128,11 @@ def make_api_file_from_yaml(req_data_list: list):
         if os.path.exists(f'{api_dir}/{module_name}.py'):
             # TODO: 类名不一定都是一个单词，有可能是多个单词组成
             class_name = module_name.capitalize()
+            # 获取当前工程根目录
+            project_root_path = os.getcwd()
+            if project_root_path not in sys.path:
+                # 将当前工程根目录加到导包路径中
+                sys.path.insert(0, project_root_path)
             exec(f'from apis.{module_name} import Define{class_name}')
             class_type = locals()[f"Define{class_name}"]
             for req_data_list in req_data_list:
@@ -192,7 +199,6 @@ def _parse_yaml_data(dir, template, yaml_data):
             # 处理方法中的path有{}变量的情况
             path = v.get('path')
             if '{' in path:
-                import re
                 # 将{}中的内容提取出来，放到data['var']中
                 var: list = re.findall(r'[{](.*?)[}]', path)
                 for i in var:

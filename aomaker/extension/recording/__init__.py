@@ -77,7 +77,7 @@ def main_record(args):
     try:
         print('AoMaker开始录制')
         from mitmproxy.tools.main import mitmdump
-        mitmdump([f'-p {port}', f'--flow-detail {log_level}', f'-s {addons_file_path}'])
+        mitmdump([f'-p {port}', f'-s {addons_file_path}', f'--flow-detail {log_level}'])
         # os.system(f'mitmdump -p {port} -s {addons_file_path} --flow-detail {log_level}')
     except KeyboardInterrupt:
         print('AoMaker录制完成')

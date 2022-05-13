@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import logging
 
 import pytest
 import yaml
@@ -41,10 +42,16 @@ def set_conf_file(env):
 
 
 def main_run(extra_args):
+    # attachment log into allure report
+    class PropogateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+
+    logger.add(PropogateHandler(), format="| {time:YYYY-MM-DD HH:mm:ss} | {message}")
     logger.info("start to run")
-    if "--pytest-tmreport-name=report/test_report.html" not in extra_args:
-        extra_args.append("--pytest-tmreport-path=report/")
-        extra_args.append("--pytest-tmreport-name=test_report.html")
+    # if "--pytest-tmreport-name=report/test_report.html" not in extra_args:
+    #     extra_args.append("--pytest-tmreport-path=report/")
+    #     extra_args.append("--pytest-tmreport-name=test_report.html")
     extra_args.append("--html=report/aomaker_report.html")
     extra_args.append("--self-contained-html")
     extra_args.append("--capture=sys")

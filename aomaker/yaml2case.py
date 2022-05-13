@@ -59,7 +59,11 @@ class YamlParse:
             if step_len - 1 == index:
                 for module in module_flag_list:
                     logger.info(f'render {module} successfully!')
-                    subprocess.run(f'black {module}')
+                    try:
+                        # 有些操作系统可能会出现文件找不到的报错，需要加shell=True这个参数
+                        subprocess.run(fr'black {module}')
+                    except Exception:
+                        os.system(fr'black {module}')
         logger.info(f"All done!")
 
     def make_testcase_file(self):

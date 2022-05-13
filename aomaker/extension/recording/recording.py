@@ -64,7 +64,7 @@ class Record:
                     utils.handle_class_method_name(API, action_fields, flow_dic)
                     # self.handle_class_method_name(API, action_fields, flow_dic)
             if content_type:
-                if content_type == 'application/x-www-form-urlencoded':
+                if 'application/x-www-form-urlencoded' in content_type:
                     urlencoded_form_data = self.handle_urlencoded_form(flow.request.urlencoded_form.fields)
                     flow_dic['request']['data'] = urlencoded_form_data
                 elif 'application/json' in content_type:
