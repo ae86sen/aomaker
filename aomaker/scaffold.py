@@ -1,7 +1,10 @@
 import os
 import sys
 
-from loguru import logger
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
+from aomaker.extension.database.sqlite import SQLiteDB
+from aomaker._constants import DataBase as DB
 
 
 class ExtraArgument:
@@ -40,7 +43,6 @@ def create_scaffold(project_name):
 
     # logger.info(f"Create new project: {project_name}")
 
-
     def create_folder(path):
         os.makedirs(path)
         msg = f"创建目录: {path}"
@@ -51,6 +53,26 @@ def create_scaffold(project_name):
             f.write(file_content)
         msg = f"创建文件: {path}"
         print(msg)
+
+    def create_table(db_object: SQLiteDB, table_name: str):
+        table_attr = get_table_attribute(table_name)
+        key = table_attr.get('key')
+        value = table_attr.get('value')
+        sql = f"""create table {table_name}({key} text,{value} text);"""
+        sql2 = f"""create unique index {table_name}_{key}_uindex on {table_name} ({key});"""
+        db_object.execute_sql(sql)
+        db_object.execute_sql(sql2)
+        msg = f"创建数据表：{table_name}"
+        print(msg)
+
+    def get_table_attribute(table_name: str):
+        tables_attr = {
+            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE},
+            DB.CONFIG_TABLE: {'key': DB.CONFIG_KEY, 'value': DB.CONFIG_VALUE},
+            DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA}
+        }
+        return tables_attr.get(table_name)
+
     print("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
     create_folder(os.path.join(project_name, "flow2yaml"))
@@ -134,6 +156,13 @@ markers =
     create_folder(os.path.join(data_path, "scenario_data"))
     create_folder(os.path.join(project_name, "reports"))
     create_folder(os.path.join(project_name, "logs"))
+    db_dir_path = os.path.join(project_name, "database")
+    create_folder(db_dir_path)
+    db_file_path = os.path.join(db_dir_path, DB.DB_NAME)
+    db = SQLiteDB(db_path=db_file_path)
+    create_table(db, DB.CONFIG_TABLE)
+    create_table(db, DB.CACHE_TABLE)
+    create_table(db, DB.SCHEMA_TABLE)
     print("---------------------脚手架创建完成---------------------")
 
     return 0
@@ -145,4 +174,4 @@ def main_scaffold(args):
 
 
 if __name__ == '__main__':
-    create_scaffold('cli.py')
+    create_scaffold('tttttttt')

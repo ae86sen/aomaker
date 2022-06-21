@@ -1,4 +1,7 @@
 # --coding:utf-8--
+# debug使用
+import sys
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 from functools import wraps
 from typing import Callable, Text
 

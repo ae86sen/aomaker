@@ -1,18 +1,21 @@
 # --coding:utf-8--
+# debug使用
+import sys
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import sqlite3
 import json
 
 from jsonpath import jsonpath
 
 from aomaker.extension.database.sqlite import SQLiteDB
-from aomaker._constants import CONFIG_TABLE, CACHE_TABLE, SCHEMA_TABLE
+from aomaker._constants import DataBase
 from aomaker.log import logger
 
 
 class Config(SQLiteDB):
     def __init__(self):
         super(Config, self).__init__()
-        self.table = CONFIG_TABLE
+        self.table = DataBase.CONFIG_TABLE
 
     def set(self, key: str, value):
         sql = f"""insert into {self.table}(key,value) values (:key,:value)"""
@@ -51,7 +54,7 @@ class Config(SQLiteDB):
 class Schema(SQLiteDB):
     def __init__(self):
         super(Schema, self).__init__()
-        self.table = SCHEMA_TABLE
+        self.table = DataBase.SCHEMA_TABLE
 
     def set(self, key: str, value):
         sql = f"""insert into {self.table} (api_name,schema) values (:key,:value)"""
@@ -76,7 +79,7 @@ class Schema(SQLiteDB):
 class Cache(SQLiteDB):
     def __init__(self):
         super(Cache, self).__init__()
-        self.table = CACHE_TABLE
+        self.table = DataBase.CACHE_TABLE
 
     def set(self, key: str, value):
         sql = f"""insert into {self.table} (key,value) values (:key,:value)"""

@@ -1,13 +1,15 @@
 # --coding:utf-8--
 import os
 import sys
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import logging
 from loguru import logger as uru_logger
 
 from aomaker.path import LOG_DIR
-from aomaker._constants import LOG_NAME
+from aomaker._constants import Log
 
-log_path = os.path.join(LOG_DIR, LOG_NAME)
+log_path = os.path.join(LOG_DIR, Log.LOG_NAME)
 
 
 class PropogateHandler(logging.Handler):

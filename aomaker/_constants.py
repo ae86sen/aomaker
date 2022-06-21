@@ -1,10 +1,18 @@
 # --coding:utf-8--
 # database
-DB_NAME = "aomaker.db"
-CONFIG_TABLE = 'config'
-CACHE_TABLE = 'cache'
-SCHEMA_TABLE = 'schema'
+class DataBase:
+    DB_NAME = "aomaker.db"
+    CONFIG_TABLE = 'config'
+    CACHE_TABLE = 'cache'
+    SCHEMA_TABLE = 'schema'
+    CACHE_VAR_NAME = 'var_name'
+    CACHE_RESPONSE = 'response'
+    CONFIG_KEY = 'key'
+    CONFIG_VALUE = 'value'
+    SCHEMA_API_NAME = 'api_name'
+    SCHEMA_SCHEMA = 'schema'
+
 
 # log
-
-LOG_NAME = "log.log"
+class Log:
+    LOG_NAME = "log.log"

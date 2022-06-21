@@ -1,14 +1,16 @@
 import os
 import sqlite3
 import threading
-
+import sys
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 # from seldom.db_operation.base_db import SQLBase
 
 from aomaker.extension.database.base_db import SQLBase
-from aomaker import _constants
+from aomaker._constants import DataBase
 from aomaker.path import DB_DIR
 
-DB_PATH = os.path.join(DB_DIR, _constants.DB_NAME)
+DB_PATH = os.path.join(DB_DIR, DataBase.DB_NAME)
 
 lock = threading.RLock()
 
@@ -28,10 +30,6 @@ class SQLiteDB(SQLBase):
         Close the database connection
         """
         self.connection.close()
-
-    def create_table(self):
-        sql = """create table cache(var_name text,response text);"""
-        sql2 = """create unique index cache_var_name_uindex on cache (var_name);"""
 
     def execute_sql(self, sql, *args, **kwargs):
         """
