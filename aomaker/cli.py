@@ -1,11 +1,14 @@
 import argparse
 import os
 import sys
+
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import logging
 
 import pytest
 import yaml
-from loguru import logger
+# from loguru import logger
 
 from aomaker import __version__, __description__, __image__
 from aomaker.scaffold import init_parser_scaffold, main_scaffold
@@ -13,14 +16,48 @@ from aomaker.make import init_make_parser, main_make
 from aomaker.make_testcase import init_make_case_parser, main_make_case, init_case_parser, main_case
 from aomaker.extension.har_parse import init_har2yaml_parser, main_har2yaml
 from aomaker.extension.recording import init_record_parser, main_record
+from aomaker.runner import tr, Runner
+from aomaker.log import logger
 
 
 def init_parser_run(subparsers):
     sub_parser_run = subparsers.add_parser(
-        "run", help="Make AOMaker testcases and run with pytest."
+        "run", help="Make testcases and run with aomaker."
     )
     sub_parser_run.add_argument(
         "-e", "--env", dest="env", help="switch test environment "
+    )
+    group = sub_parser_run.add_argument_group("multi-run")
+    group.add_argument(
+        "-mp",
+        "--multi-process",
+        dest="mp",
+        action="store_true",
+        help="specifies a multi-process running mode."
+    )
+    group.add_argument(
+        "-mt",
+        "--multi-thread",
+        dest="mt",
+        action="store_true",
+        help="specifies a multi-thread running mode."
+    )
+    group.add_argument(
+        "--dist-suite",
+        dest="dist_suite",
+        help="specifies a dist mode for per worker."
+    )
+    group.add_argument(
+        "--dist-file",
+        dest="dist_file",
+        help="specifies a dist mode for per worker."
+    )
+    group.add_argument(
+        "--dist-mark",
+        dest="dist_mark",
+        # 将传入参数值放到一个list中且至少需要传入一个值
+        nargs="+",
+        help="specifies a dist mode for per worker."
     )
     return sub_parser_run
 
@@ -43,20 +80,15 @@ def set_conf_file(env):
 
 def main_run(extra_args):
     # attachment log into allure report
-    class PropogateHandler(logging.Handler):
-        def emit(self, record):
-            logging.getLogger(record.name).handle(record)
-
-    logger.add(PropogateHandler(), format="| {time:YYYY-MM-DD HH:mm:ss} | {message}")
+    # class PropogateHandler(logging.Handler):
+    #     def emit(self, record):
+    #         logging.getLogger(record.name).handle(record)
+    #
+    # logger.add(PropogateHandler(), format="| {time:YYYY-MM-DD HH:mm:ss} | {message}")
     logger.info("start to run")
-    # if "--pytest-tmreport-name=report/test_report.html" not in extra_args:
-    #     extra_args.append("--pytest-tmreport-path=report/")
-    #     extra_args.append("--pytest-tmreport-name=test_report.html")
-    extra_args.append("--html=report/aomaker_report.html")
-    extra_args.append("--self-contained-html")
-    extra_args.append("--capture=sys")
     logger.info(f"start to run tests with pytest. AOMaker version: {__version__}")
-    return pytest.main(extra_args)
+    return Runner().run(extra_args)
+    # return pytest.main(extra_args)
 
 
 def main():
@@ -166,7 +198,16 @@ def main():
         main_record(args)
     elif sys.argv[1] == "run":
         if sys.argv[2] == "-e":
-            set_conf_file(sys.argv[3])
+            set_conf_file(args.env)
+        if args.mp or args.mt:
+            if "--dist-mark" in sys.argv:
+                mark_list = [f"-m {mark}" for mark in args.dist_mark]
+                sys.exit(tr.run(mark_list, extra_args=extra_args))
+            elif "--dist-suite" in sys.argv:
+                sys.exit(tr.run(args.dist_suite, extra_args=extra_args))
+            elif "--dist-file" in sys.argv:
+                sys.exit(tr.run({"path": args.dist_file}, extra_args=extra_args))
+
         sys.exit(main_run(extra_args))
 
 

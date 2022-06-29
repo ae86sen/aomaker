@@ -19,7 +19,7 @@ class PropogateHandler(logging.Handler):
 
 class AoMakerLogger:
     # log level: TRACE < DEBUG < INFO < SUCCESS < WARNING < ERROR
-    def __init__(self, level: str = "DEBUG", log_file_path=log_path):
+    def __init__(self, level: str = Log.DEFAULT_LEVEL, log_file_path=log_path):
         self.logger = uru_logger
         # 清空所有设置
         self.logger.remove()

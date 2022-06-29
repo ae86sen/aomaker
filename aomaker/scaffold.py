@@ -41,8 +41,6 @@ def create_scaffold(project_name):
         )
         return 1
 
-    # logger.info(f"Create new project: {project_name}")
-
     def create_folder(path):
         os.makedirs(path)
         msg = f"创建目录: {path}"

@@ -82,7 +82,7 @@ class Cache(SQLiteDB):
         self.table = DataBase.CACHE_TABLE
 
     def set(self, key: str, value):
-        sql = f"""insert into {self.table} (key,value) values (:key,:value)"""
+        sql = f"""insert into {self.table} (var_name,response) values (:key,:value)"""
         try:
             self.execute_sql(sql, (key, json.dumps(value)))
         except sqlite3.IntegrityError as ie:
@@ -90,7 +90,7 @@ class Cache(SQLiteDB):
             self.connection.commit()
 
     def get(self, key: str):
-        sql = f"""select value from {self.table} where key=:key"""
+        sql = f"""select response from {self.table} where var_name=:key"""
         query_res = self.query_sql(sql, (key,))
         try:
             res = query_res[0][0]

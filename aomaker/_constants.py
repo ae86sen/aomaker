@@ -16,3 +16,10 @@ class DataBase:
 # log
 class Log:
     LOG_NAME = "log.log"
+    DEFAULT_LEVEL = "debug"
+
+
+# config
+class Conf:
+    CONF_NAME = "config.yaml"
+    CURRENT_ENV_KEY = 'env'
