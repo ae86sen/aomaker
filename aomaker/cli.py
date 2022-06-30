@@ -16,8 +16,9 @@ from aomaker.make import init_make_parser, main_make
 from aomaker.make_testcase import init_make_case_parser, main_make_case, init_case_parser, main_case
 from aomaker.extension.har_parse import init_har2yaml_parser, main_har2yaml
 from aomaker.extension.recording import init_record_parser, main_record
-from aomaker.runner import tr, Runner
-from aomaker.log import logger
+from aomaker.runner import run, threads_run, processes_run
+from aomaker._constants import Conf
+from aomaker.log import AoMakerLogger
 
 
 def init_parser_run(subparsers):
@@ -25,18 +26,27 @@ def init_parser_run(subparsers):
         "run", help="Make testcases and run with aomaker."
     )
     sub_parser_run.add_argument(
-        "-e", "--env", dest="env", help="switch test environment "
+        "-e", "--env", dest="env", help="switch test environment."
     )
+    sub_parser_run.add_argument(
+        "-l",
+        # "--log-level",
+        dest="level",
+        choices=["trace", "debug", "info", "success", "warning", "error", "critical"],
+        default="debug",
+        help="set log level."
+    )
+
     group = sub_parser_run.add_argument_group("multi-run")
     group.add_argument(
-        "-mp",
+        "--mp",
         "--multi-process",
         dest="mp",
         action="store_true",
         help="specifies a multi-process running mode."
     )
     group.add_argument(
-        "-mt",
+        "--mt",
         "--multi-thread",
         dest="mt",
         action="store_true",
@@ -63,32 +73,21 @@ def init_parser_run(subparsers):
 
 
 def set_conf_file(env):
-    if os.path.exists('conf/config.yaml'):
-        with open('conf/config.yaml') as f:
+    # todo:测试
+    conf_path = f"tttttttt/{Conf.CONF_DIR}{Conf.CONF_NAME}"
+    if os.path.exists(conf_path):
+        with open(conf_path) as f:
             doc = yaml.safe_load(f)
         doc['env'] = env
         if not doc.get(env):
-            logger.error(f'测试环境-{env}还未在配置文件中配置！')
+            print(f'测试环境-{env}还未在配置文件中配置！')
             sys.exit(1)
-        with open('conf/config.yaml', 'w') as f:
+        with open(conf_path, 'w') as f:
             yaml.safe_dump(doc, f, default_flow_style=False)
-        logger.info(f'Current Test Env: {env}')
+        print(f'<AoMaker> 当前测试环境: {env}')
     else:
-        logger.error('配置文件conf/config.yaml不存在')
+        print(f'配置文件{conf_path}不存在')
         sys.exit(1)
-
-
-def main_run(extra_args):
-    # attachment log into allure report
-    # class PropogateHandler(logging.Handler):
-    #     def emit(self, record):
-    #         logging.getLogger(record.name).handle(record)
-    #
-    # logger.add(PropogateHandler(), format="| {time:YYYY-MM-DD HH:mm:ss} | {message}")
-    logger.info("start to run")
-    logger.info(f"start to run tests with pytest. AOMaker version: {__version__}")
-    return Runner().run(extra_args)
-    # return pytest.main(extra_args)
 
 
 def main():
@@ -199,16 +198,28 @@ def main():
     elif sys.argv[1] == "run":
         if sys.argv[2] == "-e":
             set_conf_file(args.env)
-        if args.mp or args.mt:
+        # if "--log-level" in sys.argv or "-l" in sys.argv:
+        if "-l" in sys.argv:
+            AoMakerLogger.change_level(args.level)
+        if args.mp:
+            # 多进程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(tr.run(mark_list, extra_args=extra_args))
+                sys.exit(processes_run(mark_list, extra_args=extra_args))
             elif "--dist-suite" in sys.argv:
-                sys.exit(tr.run(args.dist_suite, extra_args=extra_args))
+                sys.exit(processes_run(args.dist_suite, extra_args=extra_args))
             elif "--dist-file" in sys.argv:
-                sys.exit(tr.run({"path": args.dist_file}, extra_args=extra_args))
-
-        sys.exit(main_run(extra_args))
+                sys.exit(processes_run({"path": args.dist_file}, extra_args=extra_args))
+        if args.mt:
+            # 多线程
+            if "--dist-mark" in sys.argv:
+                mark_list = [f"-m {mark}" for mark in args.dist_mark]
+                sys.exit(threads_run(mark_list, extra_args=extra_args))
+            elif "--dist-suite" in sys.argv:
+                sys.exit(threads_run(args.dist_suite, extra_args=extra_args))
+            elif "--dist-file" in sys.argv:
+                sys.exit(threads_run({"path": args.dist_file}, extra_args=extra_args))
+        sys.exit(run(extra_args))
 
 
 def main_arun_alias():

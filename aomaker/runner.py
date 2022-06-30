@@ -8,14 +8,15 @@ from functools import singledispatchmethod
 
 sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import os
+import shutil
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
 
-from aomaker.utils.handle_conf import HandleConf
 from aomaker.fixture import SetUpSession, TearDownSession
-from aomaker.log import logger
+from aomaker.log import logger, AoMakerLogger
+from aomaker._constants import Allure
 
 
 def fixture_session(func):
@@ -24,6 +25,7 @@ def fixture_session(func):
     def wrapper(*args, **kwargs):
         # 前置
         SetUpSession().set_session_vars()
+        shutil.rmtree("tttttttt/reports/json", ignore_errors=True)
         r = func(*args, **kwargs)
         TearDownSession().clear_env()
         return r
@@ -32,14 +34,30 @@ def fixture_session(func):
 
 
 class Runner:
+    def __init__(self):
+        # todo: 测试
+        self.pytest_args = ["-s",
+                            "--alluredir=tttttttt/reports/json",
+                            "--show-capture=no",  # 控制台不显示pytest的捕获日志
+                            "--log-format=%(asctime)s %(message)s",
+                            "--log-date-format=%Y-%m-%d %H:%M:%S"
+                            ]
+
     @fixture_session
     def run(self, args: list):
-        print('run args:', args)
+        # 配置allure报告中显示日志
+        AoMakerLogger().allure_handler('debug')
+        args.extend(self.pytest_args)
         pytest.main(args)
         self.gen_allure()
 
     @staticmethod
     def make_testsuite_path(path: str) -> list:
+        """
+        构建测试套件路径列表
+        :param path: 测试套件所在目录
+        :return: 测试套件路径列表
+        """
         path_list = [path for path in os.listdir(path) if "__" not in path]
         testsuite = []
         for p in path_list:
@@ -51,13 +69,17 @@ class Runner:
 
     @staticmethod
     def make_testfile_path(path: str) -> list:
+        """
+        构建测试文件路径列表
+        :param path: 测试文件所在目录
+        :return: 测试文件路径列表
+        """
         path_list = [path for path in os.listdir(path) if "__" not in path]
         testfile_path_list = []
         for p in path_list:
             testfile_path = os.path.join(path, p)
             if os.path.isfile(testfile_path):
                 testfile_path_list.append(testfile_path)
-        print(testfile_path_list)
         return testfile_path_list
 
     @singledispatchmethod
@@ -84,24 +106,33 @@ class Runner:
     @staticmethod
     def gen_allure(is_clear=True):
         # todo: 测试
-        cmd = 'allure generate ./tttttttt/reports/json -o ./tttttttt/reports/html'
+        cmd = f'allure generate ./tttttttt/{Allure.JSON_DIR} -o ./tttttttt/{Allure.HTML_DIR}'
         if is_clear:
             cmd = cmd + ' -c'
         os.system(cmd)
 
+    @staticmethod
+    def clean_allure_json(allure_json_path: str):
+        shutil.rmtree(allure_json_path, ignore_errors=True)
+
 
 class ProcessesRunner(Runner):
 
-    def main_task(self, args):
-        print('run args:', args)
-        pytest.main([f'-m {args}'])
-
     @fixture_session
     def run(self, task_args, extra_args=None):
+        """
+        多进程启动pytest任务
+        :param task_args:
+                list：mark标记列表
+                str：测试套件或测试文件所在目录路径
+        :param extra_args: pytest其它参数列表
+        :return:
+        """
+        # 配置allure报告中显示日志
+        AoMakerLogger().allure_handler('debug', is_processes=True)
         if extra_args is None:
             extra_args = []
-        # extra_args.append('--cache-clear')
-        extra_args.append('--alluredir=tttttttt/reports/json')
+        extra_args.extend(self.pytest_args)
         process_count = len(task_args)
         p = Pool(process_count)
         logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
@@ -111,21 +142,6 @@ class ProcessesRunner(Runner):
         p.join()
 
         self.gen_allure()
-
-    def _process_run(self, task_args):
-        print("task_args:", task_args)
-        p = Pool(len(task_args))
-        for task_arg in task_args:
-            p.apply_async(main_task, args=(task_arg,))
-        p.close()
-        p.join()
-        self.gen_allure()
-
-
-def main_task(args: list):
-    """pytest启动"""
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~pytest参数：", args)
-    pytest.main(args)
 
 
 class ThreadsRunner(Runner):
@@ -142,7 +158,7 @@ class ThreadsRunner(Runner):
         if extra_args is None:
             extra_args = []
 
-        extra_args.append('--alluredir=tttttttt/reports/json')
+        extra_args.extend(self.pytest_args)
         task_args = self.make_task_args(task_args)
         thread_count = len(task_args)
         tp = ThreadPoolExecutor(max_workers=thread_count)
@@ -152,6 +168,12 @@ class ThreadsRunner(Runner):
         tp.shutdown()
 
         self.gen_allure()
+
+
+def main_task(args: list):
+    """pytest启动"""
+    logger.info(f"<AoMaker> pytest的执行参数：{args}")
+    pytest.main(args)
 
 
 def make_args_group(args: list, extra_args: list):
@@ -168,25 +190,9 @@ def make_args_group(args: list, extra_args: list):
         yield pytest_args_group[-1]
 
 
-tr = ThreadsRunner()
-pr = ProcessesRunner()
-# import time
-# from multiprocessing import Pool
-#
-#
-# def main_task(task_arg):
-#     print(task_arg)
-#     time.sleep(1)
-#
-#
-# def process_run(task_args):
-#     p = Pool(len(task_args))
-#     for task_arg in task_args:
-#         p.apply_async(main_task, args=(task_arg,))
-#     p.close()
-#     p.join()
-
+run = Runner().run
+threads_run = ThreadsRunner().run
+processes_run = ProcessesRunner().run
 
 if __name__ == '__main__':
-
     ProcessesRunner().run(['-m hpc', '-m ehpc', '-m ehpc1', '-m hpc1'])

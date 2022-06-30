@@ -116,7 +116,6 @@ class BaseTestcase:
             raise SchemaNotFound(api_name)
         try:
             validate(instance, schema=json_schema)
-            logger.warning(f"instance:{instance}\nschema:{json_schema}")
         except ValidationError as msg:
             logger.error(msg)
             raise AssertionError

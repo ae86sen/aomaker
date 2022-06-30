@@ -1,4 +1,11 @@
 # --coding:utf-8--
+import sys
+
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
+from aomaker import path
+
+
 # database
 class DataBase:
     DB_NAME = "aomaker.db"
@@ -23,3 +30,10 @@ class Log:
 class Conf:
     CONF_NAME = "config.yaml"
     CURRENT_ENV_KEY = 'env'
+    CONF_DIR = "conf/"
+
+
+# allure
+class Allure:
+    JSON_DIR = "reports/json"
+    HTML_DIR = "reports/html"
