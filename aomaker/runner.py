@@ -48,6 +48,8 @@ class Runner:
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
+        logger.info(f"<AoMaker> 单进程启动")
+        logger.info(f"<AoMaker> pytest的执行参数：{args}")
         pytest.main(args)
         self.gen_allure()
 
