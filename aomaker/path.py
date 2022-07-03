@@ -3,6 +3,7 @@ import os
 
 # 项目根目录
 BASEDIR = os.path.dirname(os.getcwd())
+# BASEDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 配置文件的路径
 CONF_DIR = os.path.join(BASEDIR, "conf")
 # 用例数据的目录

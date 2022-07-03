@@ -25,6 +25,7 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
     :param out_kwargs: 依赖接口需要的参数
     :return:
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):

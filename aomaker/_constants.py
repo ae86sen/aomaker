@@ -29,6 +29,7 @@ class Log:
 # config
 class Conf:
     CONF_NAME = "config.yaml"
+    UTILS_CONF_NAME = "utils.yaml"
     CURRENT_ENV_KEY = 'env'
     CONF_DIR = "conf/"
 

@@ -124,7 +124,9 @@ class SetUpSession:
     def set_session_vars(self):
         logger.info('******************************开始初始化环境******************************')
         # 1.设置全局配置
-        conf_dict = EnvVars().current_env_conf
+        env_conf = EnvVars()
+        conf_dict = env_conf.current_env_conf
+        config.set("current_env", env_conf.current_env)
         for k, v in conf_dict.items():
             config.set(k, v)
         # 2.设置全局headers
