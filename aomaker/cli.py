@@ -178,24 +178,34 @@ def main():
         sys.exit(0)
 
     if sys.argv[1] == "startproject":
+        print(__image__)
         main_scaffold(args)
-        print('Project created successfully!')
+        print('<AoMaker> 项目脚手架创建完成')
     elif sys.argv[1] == "make":
+        print(__image__)
         if sys.argv[2] == '-t' and sys.argv[3] == 'qingcloud':
             main_make(args.file_path, template=args.template)
         else:
             main_make(args.file_path)
-        print('API object generated successfully!')
+        print('<AoMaker> api object渲染完成')
     elif sys.argv[1] == "case":
+        print(__image__)
         main_case(args.file_path)
+        print('<AoMaker> 用例脚本编写完成')
     elif sys.argv[1] == "mcase":
+        print(__image__)
         main_make_case(args.file_path)
-        print('Test cases generated successfully from test data!')
+        print('<AoMaker> 测试用例生成完成')
     elif sys.argv[1] == "har2y":
+        print(__image__)
         main_har2yaml(args)
+        print('<AoMaker> har转换yaml完成')
     elif sys.argv[1] == "record":
+        print(__image__)
         main_record(args)
+        print('<AoMaker> 录制用例完成')
     elif sys.argv[1] == "run":
+        print(__image__)
         if sys.argv[2] == "-e":
             set_conf_file(args.env)
         # if "--log-level" in sys.argv or "-l" in sys.argv:
