@@ -4,6 +4,7 @@ import sys
 # debug使用
 sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import re
+import copy
 import subprocess
 from typing import List, Dict, Mapping, Text
 from itertools import zip_longest
@@ -29,7 +30,7 @@ class YamlParse:
 
     def make_ao_file(self):
         logger.info(f"Start to make ao file...")
-        req_data_list = self.steps
+        req_data_list = copy.deepcopy(self.steps)
         req_data_list = utils.distinct_req(req_data_list)
         # 生成ao文件
         make_api_file_from_yaml(req_data_list)
