@@ -2,9 +2,7 @@
 # debug使用
 import sys
 sys.path.insert(0, 'D:\\项目列表\\aomaker')
-from typing import Text, NoReturn
 
-from jsonpath import jsonpath
 from jsonschema import validate, ValidationError
 
 from aomaker.log import logger
@@ -13,19 +11,6 @@ from aomaker.exceptions import SchemaNotFound
 
 
 class BaseTestcase:
-    @staticmethod
-    def extract_set_vars(res, var_name: Text, expr: Text, index=None) -> NoReturn:
-        """
-        提取响应结果中的变量并设置为参数池属性
-        :param res: the json-encoded content of response
-        :param var_name:
-        :param expr: jsonpath expr
-        :param index: jsonpath result index
-        :return:
-        """
-        index = index if index else 0
-        extract_variable = jsonpath(res, expr)[index]
-        # setattr(ParamsPool().Vars, var_name, extract_variable)
 
     @staticmethod
     def assert_eq(actual_value, expected_value):

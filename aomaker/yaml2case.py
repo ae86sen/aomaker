@@ -1,4 +1,8 @@
 import os
+import sys
+
+# debug使用
+sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import re
 import subprocess
 from typing import List, Dict, Mapping, Text
@@ -7,7 +11,7 @@ from itertools import zip_longest
 from jinja2 import Template, DebugUndefined
 from loguru import logger
 
-from aomaker import utils
+from aomaker.utils import utils
 from aomaker.make_api import make_api_file_from_yaml
 from aomaker.models import YamlTestcase
 from aomaker.template import Template as Temp
@@ -34,8 +38,7 @@ class YamlParse:
     def render_ao_file(self):
         logger.info(f"Start to render ao file...")
         root_dir = os.getcwd()
-        service_dir = os.path.join(root_dir, 'service')
-        service_api_dir = os.path.join(service_dir, 'service_api')
+        apis_dir = os.path.join(root_dir, 'apis')
         # 2.遍历steps
         module_flag_list = list()
         step_len = len(self.steps)
@@ -47,13 +50,15 @@ class YamlParse:
             method_name = step.get('method_name')
             data = req_data.get('data')
             json_data = req_data.get('json')
-            module = os.path.join(service_api_dir, f'{class_name}.py')
+            dependent_params = step.get('dependent_params')
+            module = os.path.join(apis_dir, f'{class_name}.py')
             if data:
                 params = data.get('params')
                 render_content = params if params else data
-                self._render_ao(module, method_name, render_content)
+                # print(render_content)
+                self._render_ao(module, method_name, render_content, dependent_params)
             if json_data:
-                self._render_ao(module, method_name, json_data)
+                self._render_ao(module, method_name, json_data, dependent_params)
             if module not in module_flag_list:
                 module_flag_list.append(module)
             if step_len - 1 == index:
@@ -100,11 +105,8 @@ class YamlParse:
             ao_class_list.append(ao['class_name'])
             ao_method['ao'] = ao['class_name']
             ao_method['method'] = ao['method_name']
-            is_extract = ao.get('extract')
             is_assert = ao.get('assert')
             is_data_driven = ao.get('data_driven')
-            if is_extract:
-                ao_method['extract'] = is_extract
             if is_assert:
                 ao_method['assert'] = self._handle_assert(is_assert)
             if is_data_driven:
@@ -124,7 +126,9 @@ class YamlParse:
                 ao['test_data'] = True
                 ao['assert'] = self._handle_assert(is_assert)
                 self._prepare_api_testcase_data(ao, call_ao_list, api_render_data, new_call_ao_list)
-            call_ao_list.append(ao_method)
+            dep_apis = remove_dependent_api(ao_list)
+            if {"module": ao_method['ao'], "api": ao_method['method']} not in dep_apis:
+                call_ao_list.append(ao_method)
         render_data = dict()
         if api_datas:
             # 生成单接口数据文件
@@ -203,7 +207,6 @@ class YamlParse:
         else:
             api_render_data.update(
                 {ao['class_name']: {ao['method_name']: [ao], 'import_list': [ao['class_name']]}})
-            # set(api_render_data[ao['class_name']][ao['method_name']])
 
     @staticmethod
     def _make_api_testcase_file(api_render_data, test_api_dir):
@@ -308,7 +311,7 @@ class YamlParse:
             assert_dict = dict()
             comparator = list(content_dict.keys())[0]
             assert_data: list = content_dict.get(comparator)
-            assert_dict['comparator'] = comparator
+            assert_dict['comparator'] = "assert_" + comparator
             assert_dict['expr'] = assert_data[0]
             assert_dict['expect'] = assert_data[-1]
             # 判断jsonpath是否有index，没有就默认为0
@@ -319,35 +322,40 @@ class YamlParse:
             new_assert_content.append(assert_dict)
         return new_assert_content
 
-    def _render_ao(self, module, method_name, content):
+    def _render_ao(self, module, method_name, content, dependent_params: List):
         with open(module) as f:
             template = f.read()
             if f'{{{{ {method_name}_params }}}}' in template:
                 temp = Template(template, undefined=DebugUndefined)
                 data = temp.render({f'{method_name}_params': content})
-                new_data = self.__replace_params(data)
+                new_data = self.__replace_params(data, dependent_params)
                 with open(module, mode='w+') as f:
                     f.write(new_data)
 
     @staticmethod
-    def __replace_params(data: str):
-        str_with_mark: list = re.findall('(\$.*?\$)', data)
-        str_without_mark: list = re.findall('\$(.*?)\$', data)
-        for replace_mark, replace_value in zip(str_with_mark, str_without_mark):
-            if '.' in replace_value:
-                value_list = replace_value.split('.')
-                # 处理测试数据
-                if value_list[0].lower() == 'test':
-                    replace_value = f"test_data['{value_list[1]}']"
+    def __replace_params(data: str, dependent_params: List):
+        # 有依赖参数才进行替换
+        if dependent_params:
+            str_with_mark: list = re.findall('(\$\w*?\$)', data)
+            str_without_mark: list = re.findall('\$(\w*?)\$', data)
+            for replace_mark, replace_value in zip(str_with_mark, str_without_mark):
                 # 处理依赖参数
-                else:
-                    replace_value = f'getattr(self.pp.{value_list[0]}, "{value_list[1]}")'
+                for dep in dependent_params:
+                    var = dep.get('params')
+                    if var == replace_value:
+                        jsonpath_expr = dep.get('jsonpath')
+                        expr_index = dep.get('index')
+                        if jsonpath_expr:
+                            replace_value = f'self.cache.get_by_jsonpath("{var}",jsonpath_expr="{jsonpath_expr}")'
+                            if expr_index is not None:
+                                replace_value = f'self.cache.get_by_jsonpath("{var}",jsonpath_expr="{jsonpath_expr}", expr_index={expr_index})'
+                        else:
+                            replace_value = f'self.cache.get({var.get()})'
+                        data = data.replace(f"'{replace_mark}'", replace_value)
+            data = data.replace('"{', '{').replace('}"', "}")
+            data = data.replace('"self.', 'self.').replace(')"', ')')
+            data = data.replace('"test_data', 'test_data').replace(']"', ']')
 
-            else:
-                # 处理公共参数
-                replace_value = f'getattr(self.pp, "{replace_value}")'
-            data = data.replace(f"'{replace_mark}'", replace_value)
-        data = data.replace('"{', '{', 1).replace('}"', "}", 1)
         return data
 
 
@@ -356,6 +364,20 @@ def init_yaml_parse(file_path: Text):
     return yp
 
 
+def remove_dependent_api(ao_list: list) -> list:
+    """在测试步骤接口列表中，去除被依赖的接口"""
+    dep_apis = []
+    for ao in ao_list:
+        dependent_api_list = ao.get("dependent_api")
+        if dependent_api_list is not None:
+            for dependent_api in dependent_api_list:
+                _, dep_module = dependent_api.get('module').split(".")
+                x = {"module": dep_module, "api": dependent_api["api"]}
+                if x not in dep_apis:
+                    dep_apis.append(x)
+    return dep_apis
+
+
 if __name__ == '__main__':
-    yml = YamlParse('../hpc.yaml')
-    yml.make_testcase_file()
+    yml = YamlParse(r'D:\项目列表\aomaker\ehpc\hpc.yaml')
+    yml.make_ao_file()

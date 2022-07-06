@@ -28,7 +28,7 @@ AssertField = conlist(Any, min_items=2, max_items=3)
 
 
 class RequestData(BaseModel):
-    url_path: Text
+    api_path: Text
     method: Text
     params: Dict = {}
     data: Dict = {}
@@ -42,11 +42,25 @@ class ExtractField(BaseModel):
     index: int = 0
 
 
+class DependentApiField(BaseModel):
+    module: Text
+    api: Text
+    extract: Text
+    api_params: Dict = {}
+
+
+class DependentParamsField(BaseModel):
+    params: Text
+    jsonpath: Text
+    index: int = 0
+
+
 class Steps(BaseModel):
     class_name: Text
     method_name: Text
+    dependent_api: List[DependentApiField] = []
+    dependent_params: List[DependentParamsField] = []
     request: RequestData
-    extract: List[ExtractField] = []
     assert_: List[Mapping[Text, AssertField]] = Field([], alias='assert')
     data_driven: Mapping[Text, List] = {}
 
@@ -64,5 +78,5 @@ class YamlTestcase(BaseModel):
     testcase_class_name: Text
     testcase_name: Text
     description: Text = ''
+    config: Dict = {}
     steps: List[Steps]
-

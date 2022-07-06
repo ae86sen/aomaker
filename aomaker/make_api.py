@@ -23,16 +23,6 @@ def create_api_dir(workspace):
     return api_dir
 
 
-def create_service_api_dir(workspace):
-    # 创建service目录
-    service_dir: str = os.path.join(workspace, 'service')
-    _create_dir(service_dir)
-    # 创建service_api目录
-    service_api_dir = os.path.join(service_dir, 'service_api')
-    _create_dir(service_api_dir)
-    return service_api_dir
-
-
 def create_api_file(yaml_data, temp, api_dir):
     for key, value in yaml_data.items():
         data = {
@@ -59,11 +49,6 @@ def make_api_file(parm, style):
     api_dir = create_api_dir(workspace)
     # 生成api文件
     create_api_file(yaml_data, Temp.TEMP_HPC_API, api_dir)
-    # 创建service目录
-    # 创建service_api目录
-    service_api_dir = create_service_api_dir(workspace)
-    # 生成service_api文件
-    create_api_file(yaml_data, Temp.TEMP_HPC_AO, service_api_dir)
 
 
 def make_api_file_from_yaml(req_data_list: list):
@@ -123,6 +108,23 @@ def make_api_file_from_yaml(req_data_list: list):
             "module_name": module_name,
             "ao_list": req_data_list
         }
+        for ao in req_data_list:
+            dependent_api = ao.get('dependent_api')
+            if dependent_api is not None:
+                for dep in dependent_api:
+                    module: str = dep.get('module')
+                    api: str = dep.get('api')
+                    extract: str = dep.get('extract')
+                    api_params: dict = dep.get('api_params')
+                    _, mod = module.split('.')
+                    dep['module'] = f"from {module} import {mod}"
+                    if api_params is None:
+                        decorator = f"@dependence({mod}.{api},'{extract}')"
+                    else:
+                        params_list = [f"{key}='{value}'" for key, value in api_params.items()]
+                        params_str = ",".join(params_list)
+                        decorator = f"@dependence({mod}.{api},'{extract}', {params_str})"
+                    dep['decorator'] = decorator
         # 判断是否存在该模块，模块中是否存在该类，该类中是否存在该方法，如果存在该方法，在data中删除该条
         # 如果不存在，将追加模板渲染进去
         if os.path.exists(f'{api_dir}/{module_name}.py'):
@@ -133,47 +135,19 @@ def make_api_file_from_yaml(req_data_list: list):
             if project_root_path not in sys.path:
                 # 将当前工程根目录加到导包路径中
                 sys.path.insert(0, project_root_path)
-            exec(f'from apis.{module_name} import Define{class_name}')
-            class_type = locals()[f"Define{class_name}"]
-            for req_data_list in req_data_list:
-                if not hasattr(class_type, f'api_{req_data_list["method_name"]}'):
-                    content = Temp.TEMP_ADDITIONAL_API.render(req_data_list)
+            exec(f'from apis.{module_name} import {class_name}')
+            class_type = locals()[f"{class_name}"]
+            for req_data in req_data_list:
+                if not hasattr(class_type, f'{req_data["method_name"]}'):
+                    content = Temp.TEMP_ADDITIONAL_API.render(req_data)
                     with open(f'{api_dir}/{module_name}.py', mode='a', encoding='utf-8') as f:
                         f.write(content)
                         logger.info(f'make apis/{module_name}.py successfully!')
         else:
             content = Temp.TEMP_HAR_API.render(data)
-            # print(content)
             with open(f'{api_dir}/{module_name}.py', mode='w', encoding='utf-8') as f:
                 f.write(content)
                 logger.info(f'make apis/{module_name}.py successfully!')
-    # 3.create ao folder
-    # 创建service_api目录
-    service_api_dir = create_service_api_dir(workspace)
-    # 4.create ao file
-    for module_name, req_data_list in req_data_dic.items():
-        data = {
-            "module_name": module_name,
-            "ao_list": req_data_list
-        }
-        # 判断是否存在该模块，模块中是否存在该类，该类中是否存在该方法，如果存在该方法，在data中删除该条
-        # 如果不存在，将追加模板渲染进去
-        if os.path.exists(f'{service_api_dir}/{module_name}.py'):
-            class_name = module_name.capitalize()
-            exec(f'from service.service_api.{module_name} import {class_name}')
-            class_type = locals()[class_name]
-            for req_data_list in req_data_list:
-                if not hasattr(class_type, f'{req_data_list["method_name"]}'):
-                    content = Temp.TEMP_ADDITIONAL_AO.render(req_data_list)
-                    with open(f'{service_api_dir}/{module_name}.py', mode='a', encoding='utf-8') as f:
-                        f.write(content)
-                        logger.info(f'make service_api/{module_name}.py successfully!')
-        else:
-            content = Temp.TEMP_HAR_AO.render(data)
-            # print(content)
-            with open(f'{service_api_dir}/{module_name}.py', mode='w', encoding='utf-8') as f:
-                f.write(content)
-                logger.info(f'make service_api/{module_name}.py successfully!')
 
 
 def _parse_yaml_data(dir, template, yaml_data):
@@ -231,8 +205,3 @@ def make_api_file_restful(parm):
     api_dir = create_api_dir(workspace)
     # 生成api文件
     _parse_yaml_data(api_dir, Temp.TEMP_RESTFUL_API, yaml_data)
-    # 创建service目录
-    # 创建service_api目录
-    service_api_dir = create_service_api_dir(workspace)
-    # 生成service_api文件
-    _parse_yaml_data(service_api_dir, Temp.TEMP_RESTFUL_AO, yaml_data)

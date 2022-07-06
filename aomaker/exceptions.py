@@ -31,3 +31,10 @@ class ConfKeyError(AoMakerException):
         return f'config.yaml配置文件中未找到key:{self.key_name}，请确保该key存在'
 
 
+class YamlKeyError(AoMakerException):
+    def __init__(self, file_path, key_name):
+        self.file_path = file_path
+        self.key_name = key_name
+
+    def __str__(self):
+        return f'测试数据文件（{self.file_path}）中未找到key:{self.key_name}，请确保该key存在'
