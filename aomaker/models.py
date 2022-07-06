@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Text, Dict, Any, Mapping
 from pydantic import BaseModel, Field, conlist, validator
 
@@ -25,6 +26,15 @@ AssertField = conlist(Any, min_items=2, max_items=3)
 #     HEAD = "HEAD"
 #     OPTIONS = "OPTIONS"
 #     PATCH = "PATCH"
+class AssertFieldEnum(Text, Enum):
+    eq = "eq"
+    neq = "neq"
+    gt = "gt"
+    lt = "lt"
+    ge = "ge"
+    le = "le"
+    contains = "contains"
+    schema = "schema"
 
 
 class RequestData(BaseModel):
@@ -61,7 +71,7 @@ class Steps(BaseModel):
     dependent_api: List[DependentApiField] = []
     dependent_params: List[DependentParamsField] = []
     request: RequestData
-    assert_: List[Mapping[Text, AssertField]] = Field([], alias='assert')
+    assert_: List[Mapping[AssertFieldEnum, AssertField]] = Field([], alias='assert')
     data_driven: Mapping[Text, List] = {}
 
     @validator('assert_')
