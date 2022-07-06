@@ -3,8 +3,9 @@ import sys
 
 # debug使用
 sys.path.insert(0, 'D:\\项目列表\\aomaker')
-from aomaker.extension.database.sqlite import SQLiteDB
+from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase as DB
+from aomaker._log import logger
 
 
 class ExtraArgument:
@@ -31,12 +32,12 @@ def create_scaffold(project_name):
     """ Create scaffold with specified project name.
     """
     if os.path.isdir(project_name):
-        print(
+        logger.error(
             f"项目目录：{project_name} 已存在, 请重新设置一个目录名称."
         )
         return 1
     elif os.path.isfile(project_name):
-        print(
+        logger.error(
             f"项目目录：{project_name} 存在同名文件，请重新设置一个目录名称"
         )
         return 1
@@ -44,13 +45,13 @@ def create_scaffold(project_name):
     def create_folder(path):
         os.makedirs(path)
         msg = f"创建目录: {path}"
-        print(msg)
+        logger.info(msg)
 
     def create_file(path, file_content=""):
         with open(path, "w", encoding="utf-8") as f:
             f.write(file_content)
         msg = f"创建文件: {path}"
-        print(msg)
+        logger.info(msg)
 
     def create_table(db_object: SQLiteDB, table_name: str):
         table_attr = get_table_attribute(table_name)
@@ -61,7 +62,7 @@ def create_scaffold(project_name):
         db_object.execute_sql(sql)
         db_object.execute_sql(sql2)
         msg = f"创建数据表：{table_name}"
-        print(msg)
+        logger.info(msg)
 
     def get_table_attribute(table_name: str):
         tables_attr = {
@@ -71,7 +72,7 @@ def create_scaffold(project_name):
         }
         return tables_attr.get(table_name)
 
-    print("---------------------开始创建脚手架---------------------")
+    logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
     create_folder(os.path.join(project_name, "flow2yaml"))
     create_folder(os.path.join(project_name, "apis"))
@@ -200,7 +201,7 @@ markers =
     create_table(db, DB.CONFIG_TABLE)
     create_table(db, DB.CACHE_TABLE)
     create_table(db, DB.SCHEMA_TABLE)
-    print("---------------------脚手架创建完成---------------------")
+    logger.info("---------------------脚手架创建完成---------------------")
 
     return 0
 

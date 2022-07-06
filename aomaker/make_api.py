@@ -3,11 +3,10 @@ import sys
 import re
 
 import yaml
-from loguru import logger
 
 from aomaker.swagger2yaml import main_swagger2yaml
 from aomaker.template import Template as Temp
-
+from aomaker._log import logger
 
 def _create_dir(dir_path):
     if not os.path.exists(dir_path):
@@ -142,12 +141,12 @@ def make_api_file_from_yaml(req_data_list: list):
                     content = Temp.TEMP_ADDITIONAL_API.render(req_data)
                     with open(f'{api_dir}/{module_name}.py', mode='a', encoding='utf-8') as f:
                         f.write(content)
-                        logger.info(f'make apis/{module_name}.py successfully!')
+                        logger.info(f'生成 apis/{module_name}.py 成功!')
         else:
             content = Temp.TEMP_HAR_API.render(data)
             with open(f'{api_dir}/{module_name}.py', mode='w', encoding='utf-8') as f:
                 f.write(content)
-                logger.info(f'make apis/{module_name}.py successfully!')
+                logger.info(f'生成 apis/{module_name}.py 成功!')
 
 
 def _parse_yaml_data(dir, template, yaml_data):

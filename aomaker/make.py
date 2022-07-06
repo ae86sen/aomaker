@@ -3,7 +3,7 @@ from typing import Text
 
 from aomaker.yaml2case import YamlParse, init_yaml_parse
 from aomaker.make_api import make_api_file, make_api_file_restful
-
+from aomaker._log import logger
 
 def make_ao(yp: YamlParse):
     yp.make_ao_file()
@@ -21,10 +21,10 @@ def main_make(file_path: Text, template='restful'):
         elif template == 'qingcloud':
             make_api_file(file_path, template)
         else:
-            print('Currently, only two styles(restful and qingcloud) are supported!please input correct style!')
+            logger.error('Currently, only two styles(restful and qingcloud) are supported!please input correct style!')
             sys.exit(1)
     else:
-        print('The file format is unsupported!')
+        logger.error('The file format is unsupported!')
         sys.exit(1)
 
 

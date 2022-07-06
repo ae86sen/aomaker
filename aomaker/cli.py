@@ -19,6 +19,7 @@ from aomaker.extension.recording import init_record_parser, main_record
 from aomaker.runner import run, threads_run, processes_run
 from aomaker._constants import Conf
 from aomaker.log import AoMakerLogger
+from aomaker._log import logger
 
 
 def init_parser_run(subparsers):
@@ -80,13 +81,13 @@ def set_conf_file(env):
             doc = yaml.safe_load(f)
         doc['env'] = env
         if not doc.get(env):
-            print(f'测试环境-{env}还未在配置文件中配置！')
+            logger.error(f'测试环境-{env}还未在配置文件中配置！')
             sys.exit(1)
         with open(conf_path, 'w') as f:
             yaml.safe_dump(doc, f, default_flow_style=False)
         print(f'<AoMaker> 当前测试环境: {env}')
     else:
-        print(f'配置文件{conf_path}不存在')
+        logger.error(f'配置文件{conf_path}不存在')
         sys.exit(1)
 
 
@@ -147,11 +148,11 @@ def main():
             sys.exit(0)
         elif sys.argv[1] == "run" and sys.argv[2] == "-e":
             # aomaker run -e xxx
-            print('please input env name in "conf/config.yaml"')
+            logger.error('please input env name in "conf/config.yaml"')
             sys.exit(0)
         elif sys.argv[1] == "make" and sys.argv[2] == "-t":
             # aomaker make -s xxx
-            print('please input file path(YAML or Swagger)')
+            logger.error('please input file path(YAML or Swagger)')
             # print('please input template:"qingcloud" or "restful".default template style:restful')
             sys.exit(0)
     # elif sys.argv[1] == "run" and sys.argv[2] == "-e":
@@ -161,11 +162,11 @@ def main():
     #
     #     set_conf_file(sys.argv[3])
     elif sys.argv[1] == "make" and sys.argv[2] == "-t" and sys.argv[3] not in ["qingcloud", "restful"]:
-        print('please input template style:qingcloud or restful')
+        logger.error('please input template style:qingcloud or restful')
         sys.exit(0)
     elif sys.argv[1] == "har2y":
         if not sys.argv[-1].endswith('.yaml') or sys.argv[-1].endswith('.har'):
-            print("please input YAML/HAR file path.")
+            logger.error("please input YAML/HAR file path.")
             sys.exit(1)
 
     extra_args = []
@@ -180,30 +181,30 @@ def main():
     if sys.argv[1] == "startproject":
         print(__image__)
         main_scaffold(args)
-        print('<AoMaker> 项目脚手架创建完成')
+        logger.info('项目脚手架创建完成')
     elif sys.argv[1] == "make":
         print(__image__)
         if sys.argv[2] == '-t' and sys.argv[3] == 'qingcloud':
             main_make(args.file_path, template=args.template)
         else:
             main_make(args.file_path)
-        print('<AoMaker> api object渲染完成')
+        logger.info('api object渲染完成')
     elif sys.argv[1] == "case":
         print(__image__)
         main_case(args.file_path)
-        print('<AoMaker> 用例脚本编写完成')
+        logger.info('用例脚本编写完成')
     elif sys.argv[1] == "mcase":
         print(__image__)
         main_make_case(args.file_path)
-        print('<AoMaker> 测试用例生成完成')
+        logger.info('测试用例生成完成')
     elif sys.argv[1] == "har2y":
         print(__image__)
         main_har2yaml(args)
-        print('<AoMaker> har转换yaml完成')
+        logger.info('har转换yaml完成')
     elif sys.argv[1] == "record":
         print(__image__)
         main_record(args)
-        print('<AoMaker> 录制用例完成')
+        logger.info('用例录制完成')
     elif sys.argv[1] == "run":
         print(__image__)
         if sys.argv[2] == "-e":

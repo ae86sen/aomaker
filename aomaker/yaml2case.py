@@ -10,12 +10,12 @@ from typing import List, Dict, Mapping, Text
 from itertools import zip_longest
 
 from jinja2 import Template, DebugUndefined
-from loguru import logger
 
 from aomaker.utils import utils
 from aomaker.make_api import make_api_file_from_yaml
 from aomaker.models import YamlTestcase
 from aomaker.template import Template as Temp
+from aomaker._log import logger
 
 
 class YamlParse:
@@ -29,15 +29,15 @@ class YamlParse:
         self.api_datas = {}
 
     def make_ao_file(self):
-        logger.info(f"Start to make ao file...")
+        logger.info(f"开始生成ao文件...")
         req_data_list = copy.deepcopy(self.steps)
         req_data_list = utils.distinct_req(req_data_list)
         # 生成ao文件
         make_api_file_from_yaml(req_data_list)
-        logger.info(f"All done!")
+        logger.info(f"全部完成!")
 
     def render_ao_file(self):
-        logger.info(f"Start to render ao file...")
+        logger.info(f"开始渲染ao文件...")
         root_dir = os.getcwd()
         apis_dir = os.path.join(root_dir, 'apis')
         # 2.遍历steps
@@ -64,16 +64,16 @@ class YamlParse:
                 module_flag_list.append(module)
             if step_len - 1 == index:
                 for module in module_flag_list:
-                    logger.info(f'render {module} successfully!')
+                    logger.info(f'渲染 {module} 成功!')
                     try:
                         # 有些操作系统可能会出现文件找不到的报错，需要加shell=True这个参数
                         subprocess.run(fr'black {module}')
                     except Exception:
                         os.system(fr'black {module}')
-        logger.info(f"All done!")
+        logger.info(f"全部渲染完成!")
 
     def make_testcase_file(self):
-        logger.info(f"Start to make scenario testcase file...")
+        logger.info(f"开始生成用例文件...")
         class_name = self.testcase_class_name
         testcase_name = self.testcase_name
         description = self.description
@@ -157,7 +157,7 @@ class YamlParse:
         #     # 不支持追加用例
         #     logger.warning(f'make {testcase_file_path} failed, the file already exists!')
 
-        logger.info('All done!')
+        logger.info('用例文件已全部生成!')
 
     @staticmethod
     def _prepare_api_testcase_data(ao, call_ao_list, api_render_data, new_call_ao_list):
@@ -275,10 +275,12 @@ class YamlParse:
 
     @staticmethod
     def _write_api_data(key, value, api_data_dir):
+        logger.info("开始生成YAML测试数据文件...")
         yaml_file = f'{api_data_dir}\\{key}.yaml'
         # 不覆盖同名文件
         if not os.path.exists(yaml_file):
             utils.dump_yaml({key: value}, yaml_file)
+        logger.info(f"YAML测试数据文件：{yaml_file} 已生成！")
 
     @staticmethod
     def _write_scenario_data(class_name, testcase_name, test_step_datas, scenario_data_file_path):

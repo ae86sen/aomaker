@@ -2,11 +2,12 @@ import os
 import sqlite3
 import threading
 import sys
+
 # debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
+sys.path.insert(0, '/')
 # from seldom.db_operation.base_db import SQLBase
 
-from aomaker.extension.database.base_db import SQLBase
+from aomaker.database.base_db import SQLBase
 from aomaker._constants import DataBase
 from aomaker.path import DB_DIR
 
@@ -22,6 +23,8 @@ class SQLiteDB(SQLBase):
         Connect to the sqlite database
         """
         # check_same_thread=False
+        # todo:测试
+        db_path = r'D:\项目列表\aomaker\aomaker\tttttttt\database\aomaker.db'
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.connection.cursor()
 
@@ -100,7 +103,6 @@ class SQLiteDB(SQLBase):
                 self.insert_data(table, data)
         self.close()
 
+
 if __name__ == '__main__':
     db = SQLiteDB()
-
-

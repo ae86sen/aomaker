@@ -7,7 +7,7 @@ import json
 
 from jsonpath import jsonpath
 
-from aomaker.extension.database.sqlite import SQLiteDB
+from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
 from aomaker.log import logger
 

@@ -6,21 +6,18 @@ from typing import Text, List, Dict
 from urllib.parse import unquote
 
 import yaml
-from loguru import logger
+
+from aomaker._log import logger
 
 
 def dump_yaml(testcase, yaml_file):
     """ dump HAR entries to yaml
     """
-    logger.info("dump testcases to YAML format.")
 
     with open(yaml_file, "w", encoding="utf-8") as outfile:
         yaml.dump(
             testcase, outfile, allow_unicode=True, default_flow_style=False, sort_keys=False
         )
-
-    logger.info("Generate YAML testcases successfully: {}".format(yaml_file))
-
 
 def load_yaml(yaml_file):
     with open(yaml_file, encoding='utf-8') as f:
@@ -28,7 +25,6 @@ def load_yaml(yaml_file):
     return yaml_testcase
 
 
-# TODO: 1.get entries list from har file.
 def load_har_log_entries(file_path):
     """ load HAR file and return log entries list
 
@@ -64,14 +60,14 @@ def load_har_log_entries(file_path):
 def ensure_file_path(path: Text, file_type='HAR') -> Text:
     if file_type == 'HAR':
         if not path or not path.endswith(f".har"):
-            logger.error("HAR file not specified.")
+            logger.error("没有指定HAR文件！")
             sys.exit(1)
     elif file_type == 'YAML':
         if not path:
             with open(path, mode='w', encoding='utf-8') as f:
                 yaml.dump('', f, allow_unicode=True, default_flow_style=False, sort_keys=False)
         if not (path.endswith(".yaml") or path.endswith(".yml")):
-            logger.error("YAML file not specified.")
+            logger.error("没有指定YAML文件！")
             sys.exit(1)
 
     path = ensure_path_sep(path)

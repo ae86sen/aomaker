@@ -2,7 +2,7 @@ import keyword
 import requests
 import yaml
 
-from loguru import logger
+from aomaker._log import logger
 
 
 def __parse_definitions(data_definitions: dict):
