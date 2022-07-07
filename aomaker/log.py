@@ -1,10 +1,8 @@
 # --coding:utf-8--
 import os
 import sys
-
-# debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import logging
+
 from loguru import logger as uru_logger
 
 from aomaker.path import LOG_DIR
@@ -47,9 +45,9 @@ class AoMakerLogger:
     def file_handler(self, level, log_file_path):
         """配置日志文件"""
         self.logger.add(log_file_path, level=level.upper(),
-                        format="{time:YYYY-MM-DD HH:mm:ss} " 
-                               "[{process.name}]-"  
-                               "[{thread.name}]-"  
+                        format="{time:YYYY-MM-DD HH:mm:ss} "
+                               "[{process.name}]-"
+                               "[{thread.name}]-"
                                "[{module}.{function}:{line}]-[{level}]:{message}",
                         rotation="10 MB")
 
@@ -82,3 +80,4 @@ class AoMakerLogger:
 
 
 logger = AoMakerLogger().logger
+
