@@ -3,11 +3,11 @@ import os
 import sys
 from json import JSONDecodeError
 
-from loguru import logger
 import urllib.parse as urlparse
 
 from aomaker.field import API, EXCLUDE_HEADER
-from aomaker import utils
+from aomaker.utils import utils
+from aomaker.log import logger
 
 
 class HarParser:

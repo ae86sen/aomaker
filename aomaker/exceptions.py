@@ -38,3 +38,7 @@ class YamlKeyError(AoMakerException):
 
     def __str__(self):
         return f'测试数据文件（{self.file_path}）中未找到key:{self.key_name}，请确保该key存在'
+
+class LoginError(AoMakerException):
+    def __str__(self):
+        return "用例启动函数run未传入Login对象"

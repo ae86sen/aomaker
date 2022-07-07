@@ -1,13 +1,8 @@
 # --coding:utf-8--
-import sys
-
-# debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import os
-import re
+from abc import ABCMeta, abstractmethod
 
 import yaml
-from requests import request
 
 from aomaker.path import CONF_DIR
 from aomaker.cache import cache, config
@@ -18,9 +13,7 @@ from aomaker._constants import Conf
 
 class ReadConfig:
     def __init__(self, conf_name=Conf.CONF_NAME):
-        # todo:测试
-        self.conf_path = r"D:/项目列表/aomaker/aomaker/tttttttt/conf/config.yaml"
-        # self.conf_path = os.path.join(CONF_DIR, conf_name)
+        self.conf_path = os.path.join(CONF_DIR, conf_name)
 
     @property
     def conf(self) -> dict:
@@ -51,7 +44,7 @@ class EnvVars:
         return current_env_conf
 
 
-class BaseLogin:
+class BaseLogin(metaclass=ABCMeta):
     env_vars = EnvVars()
 
     def __init__(self):
@@ -59,67 +52,18 @@ class BaseLogin:
         self.account = self.env_vars.current_env_conf.get('account')
         self.current_env = self.env_vars.current_env
 
-    def _pre_login(self):
-        data = {
-            'url': self.host + '/login',
-            'method': 'get',
-        }
-        resp = request(**data)
-        csrftoken = resp.cookies['csrftoken']
-        sid = resp.cookies['sid']
-        return {'csrftoken': csrftoken, 'sid': sid}
-
+    @abstractmethod
     def login(self):
-        submit_host = self.env_vars.current_env_conf.get('submit_host')
-        resp_login = self._pre_login()
-        payload = {
-            'verifyType': 'passwd',
-            'loginType': 'email',
-            'email': self.account['user'],
-            'passwd': self.account['pwd'],
-            'csrfmiddlewaretoken': resp_login["csrftoken"],
-            'login_account_email_postfix': '@xxx.com'
-        }
+        pass
 
-        if self.current_env in ['shanhe', 'nscc']:
-            del payload['verifyType']
-            del payload['loginType']
-            del payload['email']
-            payload['user'] = self.account['user']
-            submit_login_url = self.host + '/login/submit'
-        else:
-            submit_login_url = submit_host + "/login/api/submit/"
-        data = {
-            'url': submit_login_url,
-            'method': 'post',
-            'headers': {'Cookie': f'csrftoken={resp_login["csrftoken"]};sid={resp_login["sid"]}',
-                        "Referer": self.host, 'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-            'data': payload
-        }
-
-        resp_submit = request(**data)
-        # print(resp_submit.text)
-        if self.current_env in ['shanhe', 'nscc']:
-
-            sk = re.findall("sk: '(.+?)',", resp_submit.text)[0]
-        else:
-            sk = resp_submit.cookies.get('sk')
-        resp_login['sk'] = sk
-        resp_login['host'] = self.host
-        # print(resp_login)
-        return resp_login
-
-
-class Login(BaseLogin):
-    pass
+    @abstractmethod
+    def make_headers(self, resp_login: dict):
+        pass
 
 
 class SetUpSession:
-
-    def login(self):
-        resp = Login().login()
-        return resp
+    def __init__(self, login):
+        self.login_obj = login
 
     def set_session_vars(self):
         logger.info('******************************开始初始化环境******************************')
@@ -130,15 +74,9 @@ class SetUpSession:
         for k, v in conf_dict.items():
             config.set(k, v)
         # 2.设置全局headers
-        resp = self.login()
-        headers = self.make_headers(resp)
+        resp = self.login_obj.login()
+        headers = self.login_obj.make_headers()(resp)
         cache.set('headers', headers)
-
-    def make_headers(self, resp_login):
-        headers = {
-            'Cookie': f'csrftoken={resp_login["csrftoken"]};sid={resp_login["sid"]};sk={resp_login["sk"]};console_ver=3',
-            'X-CSRFToken': resp_login["csrftoken"], "Referer": resp_login['host']}
-        return headers
 
 
 class TearDownSession:

@@ -1,10 +1,9 @@
 import sys
 from typing import Text
 
-from loguru import logger
-
 from aomaker.yaml2case import YamlParse, init_yaml_parse
 from aomaker.make import make_ao
+from aomaker._log import logger
 
 
 def make_testcase(yp: YamlParse):

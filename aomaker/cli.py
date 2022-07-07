@@ -2,13 +2,8 @@ import argparse
 import os
 import sys
 
-# debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
-import logging
-
 import pytest
 import yaml
-# from loguru import logger
 
 from aomaker import __version__, __description__, __image__
 from aomaker.scaffold import init_parser_scaffold, main_scaffold
@@ -17,6 +12,7 @@ from aomaker.make_testcase import init_make_case_parser, main_make_case, init_ca
 from aomaker.extension.har_parse import init_har2yaml_parser, main_har2yaml
 from aomaker.extension.recording import init_record_parser, main_record
 from aomaker.runner import run, threads_run, processes_run
+from aomaker.path import CONF_DIR
 from aomaker._constants import Conf
 from aomaker.log import AoMakerLogger
 from aomaker._log import logger
@@ -74,8 +70,7 @@ def init_parser_run(subparsers):
 
 
 def set_conf_file(env):
-    # todo:测试
-    conf_path = f"tttttttt/{Conf.CONF_DIR}{Conf.CONF_NAME}"
+    conf_path = os.path.join(CONF_DIR, Conf.CONF_NAME)
     if os.path.exists(conf_path):
         with open(conf_path) as f:
             doc = yaml.safe_load(f)
@@ -213,24 +208,27 @@ def main():
         if "-l" in sys.argv:
             AoMakerLogger.change_level(args.level)
         if args.mp:
+            login_obj = _handle_login()
             # 多进程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(processes_run(mark_list, extra_args=extra_args))
+                sys.exit(processes_run(mark_list, login=login_obj, extra_args=extra_args))
             elif "--dist-suite" in sys.argv:
-                sys.exit(processes_run(args.dist_suite, extra_args=extra_args))
+                sys.exit(processes_run(args.dist_suite, login=login_obj, extra_args=extra_args))
             elif "--dist-file" in sys.argv:
-                sys.exit(processes_run({"path": args.dist_file}, extra_args=extra_args))
+                sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args))
         if args.mt:
+            login_obj = _handle_login()
             # 多线程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(threads_run(mark_list, extra_args=extra_args))
+                sys.exit(threads_run(mark_list, login=login_obj, extra_args=extra_args))
             elif "--dist-suite" in sys.argv:
-                sys.exit(threads_run(args.dist_suite, extra_args=extra_args))
+                sys.exit(threads_run(args.dist_suite, login=login_obj, extra_args=extra_args))
             elif "--dist-file" in sys.argv:
-                sys.exit(threads_run({"path": args.dist_file}, extra_args=extra_args))
-        sys.exit(run(extra_args))
+                sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args))
+        login_obj = _handle_login()
+        sys.exit(run(extra_args, login=login_obj))
 
 
 def main_arun_alias():
@@ -266,6 +264,13 @@ def main_record_alias():
     """
     sys.argv.insert(1, "record")
     main()
+
+
+def _handle_login():
+    sys.path.append(os.getcwd())
+    exec('from login import Login')
+    login_obj = locals()['Login']()
+    return login_obj
 
 
 if __name__ == '__main__':

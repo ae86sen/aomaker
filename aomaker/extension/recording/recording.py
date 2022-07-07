@@ -6,7 +6,7 @@ import yaml
 from mitmproxy import http, ctx, flowfilter
 
 from aomaker.field import API, EXCLUDE_HEADER, EXCLUDE_SUFFIX
-from aomaker import utils
+from aomaker.utils import utils
 
 
 def ensure_file_name(file_name: str):

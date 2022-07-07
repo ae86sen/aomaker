@@ -1,11 +1,8 @@
 # --coding:utf-8--
 import os
 from typing import List, Dict, Callable, Text
-# debug使用
-import sys
 from functools import wraps
 
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import yaml
 from jsonpath import jsonpath
 

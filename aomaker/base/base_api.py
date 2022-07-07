@@ -1,7 +1,4 @@
 # --coding:utf-8--
-import sys
-# debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import inspect
 
 import allure
