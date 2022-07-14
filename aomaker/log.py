@@ -9,6 +9,8 @@ from aomaker.path import LOG_DIR
 from aomaker._constants import Log
 
 log_path = os.path.join(LOG_DIR, Log.LOG_NAME)
+flag = 0
+handler_id = 1
 
 
 class AllureHandler(logging.Handler):
@@ -21,26 +23,32 @@ class AoMakerLogger:
 
     # log level: TRACE < DEBUG < INFO < SUCCESS < WARNING < ERROR < CRITICAL
     def __init__(self, level: str = Log.DEFAULT_LEVEL, log_file_path=log_path):
-        # 清空所有设置
-        self.logger.remove()
         self.stdout_handler(level=level)
-        self.file_handler(level=level, log_file_path='loggggg.log')
+        self.file_handler(level=level, log_file_path=log_file_path)
         # 多线程不开启allure日志，日志会被打乱
         # self.allure_handler(level=level)
 
     def stdout_handler(self, level):
         """配置控制台输出日志"""
+        global flag
         # 添加控制台输出的格式,sys.stdout为输出到屏幕;
-        self.logger.add(sys.stdout,
-                        level=level.upper(),
-                        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> "  # 颜色>时间
-                               "<m>[{process.name}]</m>-"  # 进程名
-                               "<m>[{thread.name}]</m>-"  # 进程名
-                               "<cyan>[{module}</cyan>.<cyan>{function}</cyan>"  # 模块名.方法名
-                               ":<cyan>{line}]</cyan>-"  # 行号
-                               "<level>[{level}]</level>: "  # 等级
-                               "<level>{message}</level>",  # 日志内容
-                        )
+        if flag != 0:
+            return
+            # 清空所有设置
+        self.logger.remove()
+        h_id = self.logger.add(sys.stdout,
+                               level=level.upper(),
+                               format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> "  # 颜色>时间
+                                      "<m>[{process.name}]</m>-"  # 进程名
+                                      "<m>[{thread.name}]</m>-"  # 进程名
+                                      "<cyan>[{module}</cyan>.<cyan>{function}</cyan>"  # 模块名.方法名
+                                      ":<cyan>{line}]</cyan>-"  # 行号
+                                      "<level>[{level}]</level>: "  # 等级
+                                      "<level>{message}</level>",  # 日志内容
+                               )
+        flag += 1
+        global handler_id
+        handler_id = h_id
 
     def file_handler(self, level, log_file_path):
         """配置日志文件"""
@@ -65,7 +73,7 @@ class AoMakerLogger:
     def change_level(cls, level):
         """更改stdout_handler级别"""
         # 清除stdout_handler配置
-        logger.remove(handler_id=1)
+        logger.remove(handler_id=handler_id)
         # 重新载入配置
         cls.logger.add(sys.stdout,
                        level=level.upper(),
@@ -80,4 +88,3 @@ class AoMakerLogger:
 
 
 logger = AoMakerLogger().logger
-

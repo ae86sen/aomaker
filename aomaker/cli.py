@@ -11,7 +11,6 @@ from aomaker.make import init_make_parser, main_make
 from aomaker.make_testcase import init_make_case_parser, main_make_case, init_case_parser, main_case
 from aomaker.extension.har_parse import init_har2yaml_parser, main_har2yaml
 from aomaker.extension.recording import init_record_parser, main_record
-from aomaker.runner import run, threads_run, processes_run
 from aomaker.path import CONF_DIR
 from aomaker._constants import Conf
 from aomaker.log import AoMakerLogger
@@ -207,6 +206,7 @@ def main():
         # if "--log-level" in sys.argv or "-l" in sys.argv:
         if "-l" in sys.argv:
             AoMakerLogger.change_level(args.level)
+        from aomaker.runner import run, threads_run, processes_run
         if args.mp:
             login_obj = _handle_login()
             # 多进程

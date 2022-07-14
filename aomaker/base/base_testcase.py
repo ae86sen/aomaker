@@ -90,7 +90,9 @@ class BaseTestcase:
     def assert_schema(instance, api_name):
         """
         Assert JSON Schema
-        doc: https://json-schema.org/
+        :param instance: 请求响应结果
+        :param api_name: 存放在schema表中的对应key名
+        :return:
         """
         json_schema = Schema().get(api_name)
         if json_schema is None:

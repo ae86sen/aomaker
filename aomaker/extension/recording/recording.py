@@ -93,7 +93,7 @@ class Record:
         # with open(self.file_name, mode='w', encoding='utf-8') as f:
         #     yaml.dump(content, f)
         workspace = os.getcwd()
-        flow2yaml_dir = os.path.join(workspace, 'flow2yaml')
+        flow2yaml_dir = os.path.join(workspace, 'yamlcase')
         file_path = os.path.join(flow2yaml_dir, self.file_name)
         with open(file_path, mode='w', encoding='utf-8') as f:
             yaml.dump(content, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

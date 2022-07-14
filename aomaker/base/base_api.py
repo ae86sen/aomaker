@@ -3,7 +3,6 @@ import inspect
 
 import allure
 import requests
-from genson import SchemaBuilder
 
 from aomaker.log import logger
 from aomaker.cache import Config, Cache, Schema
@@ -93,15 +92,7 @@ def request(func):
     return wrapper
 
 
-def _genson(data=None):
-    """
-    genson:
-    https://github.com/wolverdude/GenSON
-    """
-    builder = SchemaBuilder()
-    builder.add_object(data)
-    to_schema = builder.to_schema()
-    return to_schema
+
 
 
 class BaseApi:

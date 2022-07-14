@@ -75,7 +75,7 @@ class SetUpSession:
             config.set(k, v)
         # 2.设置全局headers
         resp = self.login_obj.login()
-        headers = self.login_obj.make_headers()(resp)
+        headers = self.login_obj.make_headers(resp)
         cache.set('headers', headers)
 
 

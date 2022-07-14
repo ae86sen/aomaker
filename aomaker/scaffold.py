@@ -1,9 +1,6 @@
 import os
 import sys
 
-# debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
-from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase as DB
 from aomaker._log import logger
 
@@ -53,7 +50,7 @@ def create_scaffold(project_name):
         msg = f"创建文件: {path}"
         logger.info(msg)
 
-    def create_table(db_object: SQLiteDB, table_name: str):
+    def create_table(db_object, table_name: str):
         table_attr = get_table_attribute(table_name)
         key = table_attr.get('key')
         value = table_attr.get('value')
@@ -74,7 +71,7 @@ def create_scaffold(project_name):
 
     logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
-    create_folder(os.path.join(project_name, "flow2yaml"))
+    create_folder(os.path.join(project_name, "yamlcase"))
     create_folder(os.path.join(project_name, "apis"))
     create_file(os.path.join(project_name, "apis", "__init__.py"))
     demo_api_content = """from aomaker.base.base_api import BaseApi
@@ -85,7 +82,7 @@ class DemoApi(BaseApi):
     def demo_get(self):
         \"""this is a demo get api\"""
         http_data = {
-            'api_path': '/test'
+            'api_path': '/test',
             'method': 'get',
             'params': {'name': 'aomaker'}
         }
@@ -99,7 +96,7 @@ class DemoApi(BaseApi):
             'version': 'v2'
         }
         http_data = {
-            'api_path': '/test'
+            'api_path': '/test',
             'method': 'get',
             'params': {'name': 'aomaker'},
             'data': body
@@ -134,6 +131,10 @@ release:
   user_id: 'usr-jaskdda'
 """
     create_file(os.path.join(project_name, "conf", "config.yaml"), config_content)
+    utils_config_content = """wechat: 
+    webhook:
+    """
+    create_file(os.path.join(project_name, "conf", "utils.yaml"), utils_config_content)
     conftest_content = """"""
     create_file(os.path.join(project_name, "conftest.py"), conftest_content)
     run_content = """\"""测试任务运行说明
@@ -158,11 +159,11 @@ run(["-s","-m demo","-e testing"])
             将启动三个子线程，分别执行标记为demo1,demo2,demo3的case
     2.dist-file: 根据测试文件来分配线程，每个文件下的case由独立线程运行
         example：
-            threads_run("testcases/test_api")
+            threads_run({"path":"testcases/test_api"})
             testcases/test_api目录下有多少个测试文件，就启动多少个子线程来运行
     3.dist-suite: 根据测试套件来分配线程，每个套件下的case由独立的线程运行
         example：
-            threads_run({"path":"testcases/test_api"})
+            threads_run("testcases/test_api")
             testcases/test_api目录下有多少个测试套件，就启动多少个子线程来运行
             
 ================================多进程启动================================
@@ -179,8 +180,10 @@ run(["-s","-m demo","-e testing"])
 \"""
 from aomaker.runner import run, processes_run, threads_run
 
+from login import Login
+
 if __name__ == '__main__':
-    run(['-m demo'])"""
+    run(['-m demo'], login=Login())"""
     create_file(os.path.join(project_name, "run.py"), run_content)
     pytest_ini_content = """[pytest]
 markers =
@@ -188,6 +191,23 @@ markers =
     regress: regress test
     """
     create_file(os.path.join(project_name, "pytest.ini"), pytest_ini_content)
+    login_content = """from requests import request
+
+from aomaker.fixture import BaseLogin
+
+
+class Login(BaseLogin):
+
+    def login(self) -> dict:
+        resp_login = {}
+        return resp_login
+
+    def make_headers(self, resp_login:dict) -> dict:
+        headers = {
+            'Cookie': f'csrftoken=aomakerniubility'}
+        return headers
+    """
+    create_file(os.path.join(project_name, "login.py"), login_content)
     data_path = os.path.join(project_name, "data")
     create_folder(data_path)
     create_folder(os.path.join(data_path, "api_data"))
@@ -196,6 +216,7 @@ markers =
     create_folder(os.path.join(project_name, "logs"))
     db_dir_path = os.path.join(project_name, "database")
     create_folder(db_dir_path)
+    from aomaker.database.sqlite import SQLiteDB
     db_file_path = os.path.join(db_dir_path, DB.DB_NAME)
     db = SQLiteDB(db_path=db_file_path)
     create_table(db, DB.CONFIG_TABLE)

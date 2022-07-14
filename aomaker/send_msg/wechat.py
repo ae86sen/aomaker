@@ -4,7 +4,7 @@ import os
 
 from aomaker.utils.gen_allure_report import CaseSummary
 from aomaker.utils.utils import load_yaml
-from aomaker.cache import config
+from aomaker.cache import Config
 from aomaker.path import CONF_DIR
 from aomaker._constants import Conf
 
@@ -28,7 +28,8 @@ class WeChatSend:
         self.broken = str(self.test_results.broken_count)
         self.passed_rate = self.test_results.passed_rate
         self.duration = self.test_results.duration
-        self.current_env = config.get('current_env')
+        self.config_db = Config()
+        self.current_env = self.config_db.get('current_env')
         self.tester = tester
         self.title = title
         self.report_address = report_address
@@ -116,8 +117,8 @@ class WeChatSend:
         if res.json()['errcode'] != 0:
             raise ValueError(f"企业微信「file类型」消息发送失败")
 
-    def send_wechat_notification(self):
-        # 发送企业微信通知
+    def send_msg(self):
+        """发送企业微信通知"""
         text = f"""【{self.title}】
                                     >测试环境：<font color=\"info\">{self.current_env}</font>
                                     >测试负责人：{self.tester}
@@ -134,6 +135,7 @@ class WeChatSend:
                                     >测试报告，点击查看>>[测试报告入口]({self.report_address})"""
 
         self.send_markdown(text)
+        self.config_db.close()
 
 
 if __name__ == '__main__':

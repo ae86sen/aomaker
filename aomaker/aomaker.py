@@ -5,6 +5,7 @@ from functools import wraps
 
 import yaml
 from jsonpath import jsonpath
+from genson import SchemaBuilder
 
 from aomaker.cache import Cache
 from aomaker.log import logger
@@ -128,6 +129,18 @@ def data_maker(file_path: str, class_name: str, method_name: str) -> List[Dict]:
     if method_data is None:
         raise YamlKeyError(file_path, method_name)
     return method_data
+
+
+def genson(data):
+    """
+    生成jsonschema
+    :param data: json格式数据
+    :return: jsonschema
+    """
+    builder = SchemaBuilder()
+    builder.add_object(data)
+    to_schema = builder.to_schema()
+    return to_schema
 
 
 def _extract_by_jsonpath(source: Text, jsonpath_expr: Text, index: int):

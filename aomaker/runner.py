@@ -1,15 +1,8 @@
 # --coding:utf-8--
-
-import sys
-from functools import singledispatchmethod
-
-# debug使用
-
-
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
 import os
 import shutil
 from multiprocessing import Pool
+from functools import singledispatchmethod
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
