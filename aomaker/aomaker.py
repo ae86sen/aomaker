@@ -97,8 +97,11 @@ def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0):
             logger.info(f"==========后置异步接口断言开始<{func.__name__}>: 轮询函数<{cycle_func.__name__}>==========")
             try:
                 job_id = jsonpath(r, jsonpath_expr)[expr_index]
+            except TypeError as te:
+                logger.error(f"响应异常，异步任务id提取失败\n响应：{r}")
+                raise te
             except IndexError as ie:
-                logger.error(f"异步任务id提取失败")
+                logger.error(f"索引异常，异步任务id提取失败\n索引：{expr_index}\n响应：{r}")
                 raise ie
             cycle_func(job_id)
             logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")

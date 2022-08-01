@@ -6,6 +6,7 @@ import requests
 
 from aomaker.log import logger
 from aomaker.cache import Config, Cache, Schema
+from aomaker.aomaker import genson
 
 
 def request(func):
@@ -60,7 +61,7 @@ def request(func):
         else:
             # 保存响应schema
             schema = Schema()
-            to_schema = _genson(resp)
+            to_schema = genson(resp)
             schema.set(api_name, to_schema)
             logger.info(f'接口{api_name}的响应jsonschema已保存到schema表中')
 
@@ -90,9 +91,6 @@ def request(func):
         return resp
 
     return wrapper
-
-
-
 
 
 class BaseApi:
