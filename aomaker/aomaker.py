@@ -78,7 +78,7 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
     return decorator
 
 
-def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0):
+def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0, *out_args, **out_kwargs):
     """
     异步接口装饰器
     目标接口请求完成后，根据jsonpath表达式从其响应结果中提取异步任务id，
@@ -103,7 +103,7 @@ def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0):
             except IndexError as ie:
                 logger.error(f"索引异常，异步任务id提取失败\n索引：{expr_index}\n响应：{r}")
                 raise ie
-            cycle_func(job_id)
+            cycle_func(job_id, *out_args, **out_kwargs)
             logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")
             return r
 

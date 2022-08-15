@@ -120,19 +120,19 @@ class WeChatSend:
     def send_msg(self):
         """发送企业微信通知"""
         text = f"""【{self.title}】
-                                    >测试环境：<font color=\"info\">{self.current_env}</font>
+                                   >测试环境：<font color=\"info\">{self.current_env}</font>
                                     >测试负责人：{self.tester}
                                     >
                                     > **执行结果**
-                                    ><font color=\"info\">成  功  率  : {self.passed_rate}</font>
-                                    >用例  总数：<font color=\"info\">{self.total}</font>
-                                    >成功用例数：<font color=\"info\">{self.passed}</font>
-                                    >失败用例数：`{self.failed}个`
-                                    >阻塞用例数：`{self.broken}个`
-                                    >跳过用例数：<font color=\"warning\">{self.skipped}个</font>
-                                    >用例执行时长：<font color=\"warning\">{self.duration}</font>
+                                    ><font color=\"info\">🎯成  功  率  : {self.passed_rate}</font>
+                                    >❤用例  总数：<font color=\"info\">{self.total}</font>
+                                    >😁成功用例数：<font color=\"info\">{self.passed}</font>
+                                    >😭失败用例数：`{self.failed}个`
+                                    >😡阻塞用例数：`{self.broken}个`
+                                    >😶跳过用例数：<font color=\"warning\">{self.skipped}个</font>
+                                    >🕓用例执行时长：<font color=\"warning\">{self.duration}</font>
                                     >
-                                    >测试报告，点击查看>>[测试报告入口]({self.report_address})"""
+                                    >测试报告，点击[查看>>测试报告]({self.report_address})"""
 
         self.send_markdown(text)
         self.config_db.close()

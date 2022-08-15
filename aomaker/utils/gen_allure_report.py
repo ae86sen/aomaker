@@ -4,7 +4,7 @@ import os
 
 from aomaker.path import REPORT_DIR, BASEDIR
 
-ALLURE_HTML_PATH = os.path.join(BASEDIR, "html")
+ALLURE_HTML_PATH = os.path.join(REPORT_DIR, "html")
 WIDGETS_PATH = os.path.join(ALLURE_HTML_PATH, "widgets")
 SUMMARY_JSON_PATH = os.path.join(WIDGETS_PATH, "summary.json")
 
