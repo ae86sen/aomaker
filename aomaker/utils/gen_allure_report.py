@@ -48,9 +48,9 @@ class CaseSummary:
 
     @property
     def passed_rate(self) -> str:
-        """用例成功率"""
+        """用例运行成功率：成功用例数/运行用例数（不计算跳过用例）"""
         try:
-            passed_rate = self.passed_count / self.total_count
+            passed_rate = self.passed_count / (self.total_count - self.skipped_count)
         except ZeroDivisionError:
             passed_rate = "0.00%"
         else:

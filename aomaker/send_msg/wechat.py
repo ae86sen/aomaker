@@ -124,9 +124,9 @@ class WeChatSend:
                                     >测试负责人：{self.tester}
                                     >
                                     > **执行结果**
-                                    ><font color=\"info\">🎯成  功  率  : {self.passed_rate}</font>
-                                    >❤用例  总数：<font color=\"info\">{self.total}</font>
-                                    >😁成功用例数：<font color=\"info\">{self.passed}</font>
+                                    ><font color=\"info\">🎯运行成功率: {self.passed_rate}</font>
+                                    >❤用例  总数：<font color=\"info\">{self.total}个</font>
+                                    >😁成功用例数：<font color=\"info\">{self.passed}个</font>
                                     >😭失败用例数：`{self.failed}个`
                                     >😡阻塞用例数：`{self.broken}个`
                                     >😶跳过用例数：<font color=\"warning\">{self.skipped}个</font>

@@ -73,6 +73,11 @@ class SetUpSession:
         config.set("current_env", env_conf.current_env)
         for k, v in conf_dict.items():
             config.set(k, v)
+        zone = config.get("zone")
+        if zone:
+            # 如果zone有多个，默认取第一个
+            if isinstance(zone, list):
+                config.set("zone", zone[0])
         # 2.设置全局headers
         resp = self.login_obj.login()
         headers = self.login_obj.make_headers(resp)

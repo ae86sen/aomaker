@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
 
+from aomaker.cache import config
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, AoMakerLogger
 from aomaker._constants import Allure
@@ -42,9 +43,11 @@ class Runner:
                             ]
 
     @fixture_session
-    def run(self, args: list, login: BaseLogin = None, is_gen_allure=True):
+    def run(self, args: list, login: BaseLogin = None, is_gen_allure=True, **kwargs):
         if login is None:
             raise LoginError
+        if kwargs.get("zone"):
+            config.set("zone", kwargs.get("zone"))
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
@@ -121,7 +124,7 @@ class Runner:
 class ProcessesRunner(Runner):
 
     @fixture_session
-    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True):
+    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, **kwargs):
         """
         多进程启动pytest任务
         :param task_args:
@@ -134,6 +137,8 @@ class ProcessesRunner(Runner):
         """
         if login is None:
             raise LoginError
+        if kwargs.get("zone"):
+            config.set("zone", kwargs.get("zone"))
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug', is_processes=True)
         if extra_args is None:
@@ -152,7 +157,7 @@ class ProcessesRunner(Runner):
 
 class ThreadsRunner(Runner):
     @fixture_session
-    def run(self, task_args: list or str, login: BaseLogin = None, extra_args=None, is_gen_allure=True):
+    def run(self, task_args: list or str, login: BaseLogin = None, extra_args=None, is_gen_allure=True, **kwargs):
         """
         多线程启动pytest任务
         :param task_args:
@@ -167,7 +172,8 @@ class ThreadsRunner(Runner):
             raise LoginError
         if extra_args is None:
             extra_args = []
-
+        if kwargs.get("zone"):
+            config.set("zone", kwargs.get("zone"))
         extra_args.extend(self.pytest_args)
         task_args = self.make_task_args(task_args)
         thread_count = len(task_args)

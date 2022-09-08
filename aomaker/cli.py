@@ -31,6 +31,11 @@ def init_parser_run(subparsers):
         help="dont't generate allure report."
     )
     sub_parser_run.add_argument(
+        "--zone",
+        dest="zone",
+        help="switch zone of test environment."
+    )
+    sub_parser_run.add_argument(
         "-l",
         # "--log-level",
         dest="level",
@@ -212,30 +217,39 @@ def main():
         # if "--log-level" in sys.argv or "-l" in sys.argv:
         if "-l" in sys.argv:
             AoMakerLogger.change_level(args.level)
-
+        kwargs = {}
+        if args.zone:
+            kwargs = {"zone": args.zone}
         from aomaker.runner import run, threads_run, processes_run
         if args.mp:
             login_obj = _handle_login()
             # 多进程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(processes_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
+                sys.exit(
+                    processes_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure,
+                                  **kwargs))
             elif "--dist-suite" in sys.argv:
-                sys.exit(processes_run(args.dist_suite, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
+                sys.exit(processes_run(args.dist_suite, login=login_obj, extra_args=extra_args,
+                                       is_gen_allure=args.gen_allure, **kwargs))
             elif "--dist-file" in sys.argv:
-                sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
+                sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args,
+                                       is_gen_allure=args.gen_allure, **kwargs))
         if args.mt:
             login_obj = _handle_login()
             # 多线程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(threads_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
+                sys.exit(threads_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure,
+                                     **kwargs))
             elif "--dist-suite" in sys.argv:
-                sys.exit(threads_run(args.dist_suite, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allures))
+                sys.exit(threads_run(args.dist_suite, login=login_obj, extra_args=extra_args,
+                                     is_gen_allure=args.gen_allures, **kwargs))
             elif "--dist-file" in sys.argv:
-                sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
+                sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args,
+                                     is_gen_allure=args.gen_allure, **kwargs))
         login_obj = _handle_login()
-        sys.exit(run(extra_args, login=login_obj, is_gen_allure=args.gen_allure))
+        sys.exit(run(extra_args, login=login_obj, is_gen_allure=args.gen_allure, **kwargs))
 
 
 def main_arun_alias():
