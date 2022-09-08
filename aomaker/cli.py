@@ -25,6 +25,12 @@ def init_parser_run(subparsers):
         "-e", "--env", dest="env", help="switch test environment."
     )
     sub_parser_run.add_argument(
+        "--not_gen",
+        dest="gen_allure",
+        action="store_false",
+        help="dont't generate allure report."
+    )
+    sub_parser_run.add_argument(
         "-l",
         # "--log-level",
         dest="level",
@@ -206,29 +212,30 @@ def main():
         # if "--log-level" in sys.argv or "-l" in sys.argv:
         if "-l" in sys.argv:
             AoMakerLogger.change_level(args.level)
+
         from aomaker.runner import run, threads_run, processes_run
         if args.mp:
             login_obj = _handle_login()
             # 多进程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(processes_run(mark_list, login=login_obj, extra_args=extra_args))
+                sys.exit(processes_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
             elif "--dist-suite" in sys.argv:
-                sys.exit(processes_run(args.dist_suite, login=login_obj, extra_args=extra_args))
+                sys.exit(processes_run(args.dist_suite, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
             elif "--dist-file" in sys.argv:
-                sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args))
+                sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
         if args.mt:
             login_obj = _handle_login()
             # 多线程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
-                sys.exit(threads_run(mark_list, login=login_obj, extra_args=extra_args))
+                sys.exit(threads_run(mark_list, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
             elif "--dist-suite" in sys.argv:
-                sys.exit(threads_run(args.dist_suite, login=login_obj, extra_args=extra_args))
+                sys.exit(threads_run(args.dist_suite, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allures))
             elif "--dist-file" in sys.argv:
-                sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args))
+                sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args, is_gen_allure=args.gen_allure))
         login_obj = _handle_login()
-        sys.exit(run(extra_args, login=login_obj))
+        sys.exit(run(extra_args, login=login_obj, is_gen_allure=args.gen_allure))
 
 
 def main_arun_alias():

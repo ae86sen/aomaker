@@ -107,7 +107,13 @@ class BaseApi:
         发送http请求
         :return:
         """
+        new_headers = http_data.get("headers")
         payload = self._payload_schema(**http_data)
+        if new_headers:
+            headers = self._headers
+            headers.update(new_headers)
+            payload["headers"] = headers
+            logger.debug(f"请求头【新增】 =====> {new_headers}")
         response = requests.request(**payload)
         # do something
 

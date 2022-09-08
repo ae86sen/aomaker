@@ -42,7 +42,7 @@ class Runner:
                             ]
 
     @fixture_session
-    def run(self, args: list, login: BaseLogin = None):
+    def run(self, args: list, login: BaseLogin = None, is_gen_allure=True):
         if login is None:
             raise LoginError
         # 配置allure报告中显示日志
@@ -51,7 +51,8 @@ class Runner:
         logger.info(f"<AoMaker> 单进程启动")
         logger.info(f"<AoMaker> pytest的执行参数：{args}")
         pytest.main(args)
-        self.gen_allure()
+        if is_gen_allure:
+            self.gen_allure()
 
     @staticmethod
     def make_testsuite_path(path: str) -> list:
@@ -120,7 +121,7 @@ class Runner:
 class ProcessesRunner(Runner):
 
     @fixture_session
-    def run(self, task_args, login: BaseLogin = None, extra_args=None):
+    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True):
         """
         多进程启动pytest任务
         :param task_args:
@@ -128,6 +129,7 @@ class ProcessesRunner(Runner):
                 str：测试套件或测试文件所在目录路径
         :param login: Login登录对象
         :param extra_args: pytest其它参数列表
+        :param is_gen_allure: 是否自动收集allure报告，默认收集
         :return:
         """
         if login is None:
@@ -144,13 +146,13 @@ class ProcessesRunner(Runner):
             p.apply_async(main_task, args=(arg,))
         p.close()
         p.join()
-
-        self.gen_allure()
+        if is_gen_allure:
+            self.gen_allure()
 
 
 class ThreadsRunner(Runner):
     @fixture_session
-    def run(self, task_args: list or str, login: BaseLogin = None, extra_args=None):
+    def run(self, task_args: list or str, login: BaseLogin = None, extra_args=None, is_gen_allure=True):
         """
         多线程启动pytest任务
         :param task_args:
@@ -158,6 +160,7 @@ class ThreadsRunner(Runner):
                 str：测试套件或测试文件所在目录路径
         :param login: Login登录对象
         :param extra_args: pytest其它参数列表
+        :param is_gen_allure: 是否自动收集allure报告，默认收集
         :return:
         """
         if login is None:
@@ -173,8 +176,8 @@ class ThreadsRunner(Runner):
         _ = [tp.submit(main_task, arg) for arg in make_args_group(task_args, extra_args)]
         wait(_, return_when=ALL_COMPLETED)
         tp.shutdown()
-
-        self.gen_allure()
+        if is_gen_allure:
+            self.gen_allure()
 
 
 def main_task(args: list):

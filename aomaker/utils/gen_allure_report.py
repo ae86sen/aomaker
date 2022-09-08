@@ -62,7 +62,14 @@ class CaseSummary:
         """用例执行时长"""
         total_duration = self.allure_summary['time'].get('duration') or 0
         run_time = round(total_duration / 1000, 2)
-        return f"{run_time}s"
+        return time_format(run_time)
+
+
+def time_format(seconds: int or float) -> str:
+    """将秒数转化为时分秒格式"""
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return "%02dh:%02dm:%02ds" % (h, m, s)
 
 
 if __name__ == '__main__':

@@ -47,6 +47,18 @@ class Config(SQLiteDB):
             dic[m[0]] = json.loads(m[1])
         return dic
 
+    def clear(self):
+        """清空表"""
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
+
 
 class Schema(SQLiteDB):
     def __init__(self):
@@ -71,6 +83,17 @@ class Schema(SQLiteDB):
         res = json.loads(res)
 
         return res
+
+    def clear(self):
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
 
 
 class Cache(SQLiteDB):
@@ -108,6 +131,13 @@ class Cache(SQLiteDB):
 
     def clear(self):
         sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
 
