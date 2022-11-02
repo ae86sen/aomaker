@@ -2,7 +2,7 @@
 import requests
 import os
 
-from aomaker.utils.gen_allure_report import CaseSummary
+from aomaker.utils.gen_allure_report import CaseSummary, get_allure_results
 from aomaker.utils.utils import load_yaml
 from aomaker.cache import Config
 from aomaker.path import CONF_DIR
@@ -134,6 +134,37 @@ class WeChatSend:
                                     >
                                     >测试报告，点击[查看>>测试报告]({self.report_address})"""
 
+        self.send_markdown(text)
+        self.config_db.close()
+
+    def send_detail_msg(self, sep="_"):
+        """通知中可根据标记分类显示通过率
+        sep: 标记分隔符
+        """
+        reports = get_allure_results(sep=sep)
+        if reports:
+            markdown_li = []
+            for product, result in reports.items():
+                format_ = f"><font color=\"info\">🎯「{product}」成功率: {result['passed_rate']}</font>"
+                markdown_li.append(format_)
+            format_product_rate = "\n".join(markdown_li)
+        else:
+            format_product_rate = ""
+        text = f"""【{self.title}】
+                                   >测试环境：<font color=\"info\">{self.current_env}</font>
+                                    >测试负责人：{self.tester}
+                                    >
+                                    > **执行结果**
+                                    ><font color=\"info\">🎯运行成功率: {self.passed_rate}</font>
+                                    {format_product_rate}
+                                    >❤用例  总数：<font color=\"info\">{self.total}个</font>
+                                    >😁成功用例数：<font color=\"info\">{self.passed}个</font>
+                                    >😭失败用例数：`{self.failed}个`
+                                    >😡阻塞用例数：`{self.broken}个`
+                                    >😶跳过用例数：<font color=\"warning\">{self.skipped}个</font>
+                                    >🕓用例执行时长：<font color=\"warning\">{self.duration}</font>
+                                    >
+                                    >测试报告，点击[查看>>测试报告]({self.report_address})"""
         self.send_markdown(text)
         self.config_db.close()
 

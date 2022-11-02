@@ -4,6 +4,7 @@ import sys
 from json import JSONDecodeError
 from typing import Text, List, Dict
 from urllib.parse import unquote
+from configparser import ConfigParser
 
 import yaml
 
@@ -18,6 +19,7 @@ def dump_yaml(testcase, yaml_file):
         yaml.dump(
             testcase, outfile, allow_unicode=True, default_flow_style=False, sort_keys=False
         )
+
 
 def load_yaml(yaml_file):
     with open(yaml_file, encoding='utf-8') as f:
@@ -177,3 +179,9 @@ def __handle_action_field(field: str):
                 field = field.replace(s, f'{s.lower()}')
             field = field.replace(s, f'_{s.lower()}')
     return field
+
+
+class HandleIni(ConfigParser):
+    def __init__(self, filenames):
+        super().__init__()
+        self.read(filenames=filenames, encoding='utf-8')

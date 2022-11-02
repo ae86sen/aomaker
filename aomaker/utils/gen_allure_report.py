@@ -1,10 +1,13 @@
 # --coding:utf-8--
 import json
 import os
+import time
+from typing import List, Dict
 
 from aomaker.path import REPORT_DIR, BASEDIR
 
 ALLURE_HTML_PATH = os.path.join(REPORT_DIR, "html")
+ALLURE_JSON_PATH = os.path.join(REPORT_DIR, "json")
 WIDGETS_PATH = os.path.join(ALLURE_HTML_PATH, "widgets")
 SUMMARY_JSON_PATH = os.path.join(WIDGETS_PATH, "summary.json")
 
@@ -14,6 +17,71 @@ def gen_allure_summary() -> dict:
     with open(SUMMARY_JSON_PATH, 'r', encoding='utf-8') as fp:
         allure_summary = json.load(fp)
     return allure_summary
+
+
+def get_allure_results(sep: str) -> dict:
+    """解析allure json"""
+    # 1.find all result.json file
+    results = {}
+    result_jsons = parse_allure_res_json()
+    for result_json in result_jsons:
+        with open(result_json, encoding="utf-8") as load_f:
+            load_dict = json.load(load_f)
+            keys = load_dict.keys()
+            # 判断是否有labels
+            if "labels" in keys and "status" in keys:
+                status = load_dict["status"]
+                tags = [label.get("value") for label in _handle_labels(load_dict['labels'])]
+                product_name = _handle_tags(tags, sep=sep)
+                if results.get(product_name) is None:
+                    results[product_name] = {"passed": 0, "failed": 0, "skipped": 0, "broken": 0}
+                results[product_name][status] += 1
+    results = _count_passed_rate(results)
+    return results
+
+
+def parse_allure_res_json():
+    res = []
+    for root, directory, files in os.walk(ALLURE_JSON_PATH):
+        for filename in files:
+            name, suf = os.path.splitext(filename)
+            if suf == ".json":
+                res.append(os.path.join(root, filename))
+    result_jsons = [data for data in res if "result.json" in data]
+    return result_jsons
+
+
+def _handle_labels(labels: list):
+    for label in labels:
+        if label.get('name') == "tag":
+            yield label
+
+
+def _handle_tags(tags: list, sep=None):
+    """将标记按照指定分隔符分割,默认按空格"""
+    for tag in tags:
+        if sep is None:
+            split_tag = tag.split()
+            return split_tag
+        split_tag = tag.split(sep)
+        if len(split_tag) > 0:
+            return split_tag[0]
+
+
+def _count_passed_rate(results: dict) -> dict:
+    new_results = results
+    for product, result in results.items():
+        passed_count = result["passed"]
+        failed_count = result["failed"]
+        broken_count = result["broken"]
+        try:
+            passed_rate = passed_count / (passed_count + failed_count + broken_count)
+        except ZeroDivisionError:
+            passed_rate = "0.00%"
+        else:
+            passed_rate = "{:.2%}".format(passed_rate)
+        new_results[product]["passed_rate"] = passed_rate
+    return new_results
 
 
 class CaseSummary:
@@ -58,11 +126,88 @@ class CaseSummary:
         return passed_rate
 
     @property
+    def failed_rate(self) -> str:
+        """用例运行失败率：失败用例数/运行用例数（不计算跳过用例）"""
+        try:
+            failed_rate = self.failed_count / (self.total_count - self.skipped_count)
+        except ZeroDivisionError:
+            failed_rate = "0.00%"
+        else:
+            failed_rate = "{:.2%}".format(failed_rate)
+        return failed_rate
+
+    @property
+    def skipped_rate(self) -> str:
+        """用例运行失败率：失败用例数/用例数"""
+        try:
+            skipped_rate = self.skipped_count / self.total_count
+        except ZeroDivisionError:
+            skipped_rate = "0.00%"
+        else:
+            skipped_rate = "{:.2%}".format(skipped_rate)
+        return skipped_rate
+
+    @property
+    def broken_rate(self) -> str:
+        """用例运行阻塞/错误率：阻塞/错误用例数/运行用例数（不计算跳过用例）"""
+        try:
+            broken_rate = self.broken_count / (self.total_count - self.skipped_count)
+        except ZeroDivisionError:
+            broken_rate = "0.00%"
+        else:
+            broken_rate = "{:.2%}".format(broken_rate)
+        return broken_rate
+
+    @property
     def duration(self):
         """用例执行时长"""
         total_duration = self.allure_summary['time'].get('duration') or 0
         run_time = round(total_duration / 1000, 2)
         return time_format(run_time)
+
+    @property
+    def start_time(self):
+        st = self.allure_summary['time'].get("start")
+        return timestamp_to_standard(st)
+
+    @property
+    def stop_time(self):
+        st = self.allure_summary['time'].get("stop")
+        return timestamp_to_standard(st)
+
+
+class CaseDetail:
+    def __init__(self):
+        self.result_jsons = parse_allure_res_json()
+
+    def case_detail_info(self) -> List[Dict]:
+        """解析所有allure-result.json"""
+        results = []
+        for result_json in self.result_jsons:
+            case_info = {}
+            with open(result_json, encoding="utf-8") as load_f:
+                load_dict = json.load(load_f)
+                keys = load_dict.keys()
+                if "status" in keys:
+                    # 用例执行结果
+                    case_info["result"] = load_dict['status']
+                if "statusDetails" in keys:
+                    case_info["logs"] = load_dict["statusDetails"]["trace"]
+                if "description" in keys:
+                    # 用例标题描述
+                    case_info["doc"] = load_dict['description']
+                if "start" and "stop" in keys:
+                    duration = load_dict['stop'] - load_dict['start']
+                    case_info["duration"] = round(duration / 1000, 2)
+                    case_info["f_duration"] = "%.2fs" % case_info["duration"]
+                    case_info["time"] = timestamp_to_standard(load_dict['start'])
+                if "fullName" in keys:
+                    full_name = load_dict["fullName"]
+                    case_info["test_class"], case_info["test_method"] = full_name.split("#")
+                if "testCaseId" in keys:
+                    case_info["case_id"] = load_dict["testCaseId"]
+                results.append(case_info)
+        return results
 
 
 def time_format(seconds: int or float) -> str:
@@ -72,8 +217,16 @@ def time_format(seconds: int or float) -> str:
     return "%02dh:%02dm:%02ds" % (h, m, s)
 
 
+def timestamp_to_standard(timestamp: int) -> str:
+    """将13位时间戳转换为年月日 时分秒标准时间格式"""
+    tup_time = time.localtime(float(timestamp / 1000))
+    standard_time = time.strftime("%Y-%m-%d %H:%M:%S", tup_time)
+    return standard_time
+
+
 if __name__ == '__main__':
     # print(CaseSummary().results)
-    print(BASEDIR)
-    print(REPORT_DIR)
-    print(SUMMARY_JSON_PATH)
+    # print(BASEDIR)
+    # print(REPORT_DIR)
+    # print(SUMMARY_JSON_PATH)
+    print(timestamp_to_standard(1664264521754))

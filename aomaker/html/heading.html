@@ -1,0 +1,169 @@
+<nav class="navbar navbar-light position-lg-sticky top-lg-0 d-none d-lg-block overlap-10 flex-none bg-white border-bottom px-0 py-3" id="topbar">
+    <div class="container-fluid">
+        <div class="hstack gap-2">
+            <a href="https://github.com/ae86sen/pytest-aoreporter">
+                <img src="https://s1.ax1x.com/2022/06/27/jE5MwD.png" style="height: 2.25rem;">
+            </a>
+        </div>
+        <div class="navbar-user d-none d-sm-block">
+            <div class="hstack gap-3 ms-4">
+                <h3 style="float: right;"> {{ title }} </h3>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div id="headContainer" class="container-fluid mm-active">
+    <div class="row">
+        <div class="col-12 col-lg-5 col-xl-4 d-flex" style="float:left">
+            <div class='card flex-fill'>
+                <div class="card-header">
+                    <div class="d-flex align-items-center">
+                        <h5 class="mb-0">概述</h5>
+                    </div>
+                </div>
+                <div class="card-body py-0 position-relative scrollable-y" style="max-height:300px">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item px-0 position-relative hstack flex-wrap head-list">
+                            <div class="flex-1">
+<!--                                <div class="d-flex align-items-center mb-1">测试人员</div>-->
+<!--                                <div class="d-flex align-items-center">-->
+<!--                                    <div class="text-sm text-muted line-clamp-1 me-auto">{{tester}}</div>-->
+<!--                                </div>-->
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0 position-relative hstack flex-wrap head-list">
+                            <div class="flex-1">
+                                <div class="d-flex align-items-center mb-1">开始时间 - 结束时间</div>
+                                <div class="d-flex align-items-center">
+                                    <div class="text-sm text-muted line-clamp-1 me-auto">{{ start_time }} - {{ end_time }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0 position-relative hstack flex-wrap head-list">
+                            <div class="flex-1">
+                                <div class="d-flex align-items-center mb-1">运行时长</div>
+                                <div class="d-flex align-items-center">
+                                    <div class="text-sm text-muted line-clamp-1 me-auto">{{duration}}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0 position-relative hstack flex-wrap head-list">
+                            <div class="flex-1">
+                                <div class="d-flex align-items-center mb-1">统计</div>
+                                <div class="d-flex align-items-center">
+                                    <div class="text-sm text-muted line-clamp-1 me-auto">
+                                        <span class="badge badge-pill bg-soft-success text-success me-2">通过:{{passed_count}}</span>
+                                        <span class="badge badge-pill bg-soft-warning text-warning me-2">失败:{{failed_count}}</span>
+                                        <span class="badge badge-pill bg-soft-danger text-danger me-2">错误:{{error_count}}</span>
+                                        <span class="badge badge-pill bg-soft-secondary text-secondary me-2">跳过:{{skipped_count}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-group-item px-0 position-relative hstack flex-wrap" style="padding-top: 5px;">
+                            <div class="flex-1">
+<!--                                <div class="d-flex align-items-center mb-1">描述</div>-->
+<!--                                <div class="d-flex align-items-center">-->
+<!--                                    <div class="text-sm text-muted me-auto">{{description}}</div>-->
+<!--                                </div>-->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="width: 20%">
+            <div class="card" style="height: 45%;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col"><span class="h6 font-semibold text-muted text-sm d-block mb-2">通过</span>
+                            <span class="h3 font-bold mb-0">{{passed_count}}</span>
+                        </div>
+                        <div class="col-auto">
+                            <div class="icon icon-shape bg-success text-white text-lg rounded-circle">P</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 mb-0 text-sm">
+                        <span class="badge badge-pill bg-soft-warning text-success me-2">{{passed_rate}}</span>
+                        <span class="text-nowrap text-xs text-muted">通过率</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="progress" style="width:70%; margin-top: 5px;">
+                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="83" aria-valuemin="0"
+                                aria-valuemax="100" style="width:{{passed_rate}}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="height: 45%; top: 10%;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col"><span class="h6 font-semibold text-muted text-sm d-block mb-2">失败</span>
+                            <span class="h3 font-bold mb-0">{{failed_count}}</span></div>
+                        <div class="col-auto">
+                            <div class="icon icon-shape bg-warning text-white text-lg rounded-circle">F</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 mb-0 text-sm">
+                        <span class="badge badge-pill bg-soft-warning text-warning me-2">{{failed_rate}}</span>
+                        <span class="text-nowrap text-xs text-muted">失败率</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="progress" style="width:70%; margin-top: 5px;">
+                            <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="83" aria-valuemin="0"
+                                aria-valuemax="100" style="width:{{failed_rate}}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="width: 20%">
+            <div class="card" style="height: 45%;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col"><span class="h6 font-semibold text-muted text-sm d-block mb-2">错误</span>
+                            <span class="h3 font-bold mb-0">{{error_count}}</span></div>
+                        <div class="col-auto">
+                            <div class="icon icon-shape bg-danger text-white text-lg rounded-circle">E</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 mb-0 text-sm">
+                        <span class="badge badge-pill bg-soft-danger text-danger me-2">{{error_rate}}</span>
+                        <span class="text-nowrap text-xs text-muted">错误率</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="progress" style="width:70%; margin-top: 5px;">
+                            <div class="progress-bar bg-danger" role="progressbar" aria-valuenow="83" aria-valuemin="0"
+                                aria-valuemax="100" style="width:{{error_rate}}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="height: 45%; top: 10%;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col">
+                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">跳过</span>
+                            <span class="h3 font-bold mb-0">{{skipped_count}}</span>
+                        </div>
+                        <div class="col-auto">
+                            <div class="icon icon-shape bg-secondary text-white text-lg rounded-circle">S</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 mb-0 text-sm">
+                        <span class="badge badge-pill bg-soft-secondary text-secondary me-2">{{skipped_rate}}</span>
+                        <span class="text-nowrap text-xs text-muted">跳过率</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="progress" style="width:70%; margin-top: 5px;">
+                            <div class="progress-bar bg-secondary" role="progressbar" aria-valuenow="83" aria-valuemin="0"
+                                aria-valuemax="100" style="width:{{skipped_rate}}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

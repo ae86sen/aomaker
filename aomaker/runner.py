@@ -12,7 +12,8 @@ from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, AoMakerLogger
 from aomaker._constants import Allure
 from aomaker.exceptions import LoginError
-from aomaker.path import REPORT_DIR
+from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
+from aomaker.report import gen_reports
 
 allure_json_dir = os.path.join(REPORT_DIR, "json")
 
@@ -51,11 +52,16 @@ class Runner:
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
+        pytest_opts = _get_pytest_ini()
         logger.info(f"<AoMaker> 单进程启动")
         logger.info(f"<AoMaker> pytest的执行参数：{args}")
+        if pytest_opts:
+            logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
         pytest.main(args)
         if is_gen_allure:
+            self.allure_env_prop()
             self.gen_allure()
+            gen_reports()
 
     @staticmethod
     def make_testsuite_path(path: str) -> list:
@@ -117,8 +123,31 @@ class Runner:
         os.system(cmd)
 
     @staticmethod
+    def allure_env_prop():
+        conf: dict = config.get_all()
+        if conf:
+            content = ""
+            for k, v in conf.items():
+                content += f"{k}={v}\n"
+            with open(os.path.join(allure_json_dir, "environment.properties"), mode='w', encoding='utf-8') as f:
+                f.write(content)
+
+    @staticmethod
     def clean_allure_json(allure_json_path: str):
         shutil.rmtree(allure_json_path, ignore_errors=True)
+
+
+def _get_pytest_ini() -> list:
+    from aomaker.utils.utils import HandleIni
+    from configparser import NoOptionError
+    conf = HandleIni(PYTEST_INI_DIR)
+    try:
+        pytest_opts = conf.get('pytest', 'addopts')
+    except NoOptionError:
+        pytest_opts = []
+    if pytest_opts:
+        pytest_opts = pytest_opts.split()
+    return pytest_opts
 
 
 class ProcessesRunner(Runner):
@@ -152,7 +181,9 @@ class ProcessesRunner(Runner):
         p.close()
         p.join()
         if is_gen_allure:
+            self.allure_env_prop()
             self.gen_allure()
+            gen_reports()
 
 
 class ThreadsRunner(Runner):
@@ -183,12 +214,17 @@ class ThreadsRunner(Runner):
         wait(_, return_when=ALL_COMPLETED)
         tp.shutdown()
         if is_gen_allure:
+            self.allure_env_prop()
             self.gen_allure()
+            gen_reports()
 
 
 def main_task(args: list):
     """pytest启动"""
-    logger.info(f"<AoMaker> pytest的执行参数：{args}")
+    pytest_opts = _get_pytest_ini()
+    logger.info(f"<AoMaker> pytest的执行参数：{list(set(pytest_opts))}")
+    if pytest_opts:
+        logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
     pytest.main(args)
 
 

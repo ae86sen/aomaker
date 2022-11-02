@@ -1,4 +1,4 @@
-__version__ = "2.0.5"
+__version__ = "2.0.6"
 __description__ = "Quickly Arrange,Quickly Test!"
 __image__ = fr"""
               :----.                                                             ::::

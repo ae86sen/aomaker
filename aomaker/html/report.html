@@ -1,0 +1,83 @@
+<div id="resultContainer" class="card">
+    <div class="card-header border-bottom">
+        <span style="float: left;">
+            <h5 class="mb-0">结果</h5>
+        </span>
+        <span style="float: right;">
+            <a href='javascript:showCase("passed")' class="btn btn-success btn-sm">通过</a>
+            <a href='javascript:showCase("failed")' class="btn btn-warning btn-sm">失败</a>
+            <a href='javascript:showCase("error")' class="btn btn-danger btn-sm">错误</a>
+            <a href='javascript:showCase("skipped")' class="btn btn-secondary btn-sm">跳过</a>
+            <a href='javascript:showCase("all")' class="btn btn-info btn-sm">所有</a>
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-nowrap">
+            <thead class="table-light">
+            <tr>
+                <th scope="col">测试类</th>
+                <th scope="col">测试用例</th>
+                <th scope="col">用例描述</th>
+                <th scope="col">时长</th>
+                <th scope="col">开始时间</th>
+                <th scope="col">运行结果</th>
+                <th scope="col">查看详情</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for case in case_list%}
+            <tr class="{{case.result}}Class">
+                <td>{{case.test_class}}</td>
+                <td>{{case.test_method}}</td>
+                <td>{{case.doc}}</td>
+                <td>{{case.f_duration}}</td>
+                <td>{{case.time}}</td>
+                <td>{{case.result}}</td>
+                <td><a class="popup_link" href="javascript:void(0)" onclick="showLog('{{case.case_id}}')">查看详情</a></td>
+                <div id="{{case.case_id}}" class="modal show" style="display: none; background-color: #000000c7;">
+                    <div class="modal-dialog modal-dialog-centered log_window">
+                        <div class="modal-content shadow-3">
+                            <div class="modal-header">
+                                <div>
+                                    <h5 class="mb-1">日志详情</h5>
+                                </div>
+<!--                                <div>-->
+<!--                                    <h5 class="mb-1">detailed log</h5>-->
+<!--                                </div>-->
+                                <div>
+                                    <button type="button"
+                                            class="btn btn-sm btn-square bg-tertiary bg-opacity-20 bg-opacity-100-hover text-tertiary text-white-hover"
+                                            data-bs-dismiss="modal" onclick="hideLog('{{case.case_id}}')">X
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="modal-body">
+                                <div>
+                                    <pre>{{case.logs}}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <td>&nbsp;</td>
+            </tr>
+            {% endfor%}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer border-0 py-5">
+        <span class="text-muted text-sm">用例总数:
+            <button type="button"
+                    class="btn btn-sm bg-dark bg-opacity-20 bg-opacity-100-hover text-dark text-white-hover">{{ total }}</button> =
+            <button type="button"
+                    class="btn btn-sm bg-success bg-opacity-20 bg-opacity-100-hover text-success text-white-hover">{{ passed_count }}</button> +
+            <button type="button"
+                    class="btn btn-sm bg-warning bg-opacity-20 bg-opacity-100-hover text-warning text-white-hover">{{ failed_count }}</button> +
+            <button type="button"
+                    class="btn btn-sm bg-danger bg-opacity-20 bg-opacity-100-hover text-danger text-white-hover">{{ error_count }}</button> +
+            <button type="button"
+                    class="btn btn-sm bg-secondary bg-opacity-20 bg-opacity-100-hover text-secondary text-white-hover">{{ skipped_count }}</button>
+        </span>
+    </div>
+</div>
+<div style="height:120px"></div>

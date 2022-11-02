@@ -16,3 +16,7 @@ REPORT_DIR = os.path.join(BASEDIR, "reports")
 CASE_DIR = os.path.join(BASEDIR, "testcases")
 # DB目录
 DB_DIR = os.path.join(BASEDIR, "database")
+# pytest.ini文件路径
+PYTEST_INI_DIR = os.path.join(BASEDIR, "pytest.ini")
+# aomaker html路径
+AOMAKER_HTML = os.path.join(REPORT_DIR, "aomaker.html")
