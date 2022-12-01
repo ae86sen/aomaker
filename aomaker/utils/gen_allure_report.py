@@ -63,6 +63,9 @@ def _handle_tags(tags: list, sep=None):
         if sep is None:
             split_tag = tag.split()
             return split_tag
+        if "dependency" in tag:
+            # 针对使用dependency插件的问题
+            continue
         split_tag = tag.split(sep)
         if len(split_tag) > 0:
             return split_tag[0]
@@ -168,11 +171,15 @@ class CaseSummary:
     @property
     def start_time(self):
         st = self.allure_summary['time'].get("start")
+        if st is None:
+            return ""
         return timestamp_to_standard(st)
 
     @property
     def stop_time(self):
         st = self.allure_summary['time'].get("stop")
+        if st is None:
+            return ""
         return timestamp_to_standard(st)
 
 

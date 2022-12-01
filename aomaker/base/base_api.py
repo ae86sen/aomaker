@@ -40,7 +40,7 @@ def request(func):
         response = func(*args, **kwargs)
 
         logger.info("-------------- Response ----------------")
-        if response.status_code < 400:
+        if response.status_code <= 400:
             logger.info(f"请求成功,状态码：{str(response.status_code)}")
         else:
             logger.warning(f"请求失败,状态码：{str(response.status_code)}")

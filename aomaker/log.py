@@ -2,7 +2,6 @@
 import os
 import sys
 import logging
-
 from loguru import logger as uru_logger
 
 from aomaker.path import LOG_DIR
@@ -11,6 +10,7 @@ from aomaker._constants import Log
 log_path = os.path.join(LOG_DIR, Log.LOG_NAME)
 flag = 0
 handler_id = 1
+file_log_handler_flag = 0
 
 
 class AllureHandler(logging.Handler):
@@ -52,12 +52,16 @@ class AoMakerLogger:
 
     def file_handler(self, level, log_file_path):
         """配置日志文件"""
-        self.logger.add(log_file_path, level=level.upper(),
-                        format="{time:YYYY-MM-DD HH:mm:ss} "
-                               "[{process.name}]-"
-                               "[{thread.name}]-"
-                               "[{module}.{function}:{line}]-[{level}]:{message}",
-                        rotation="10 MB")
+        global file_log_handler_flag
+        # 控制只添加一个file_handler
+        if file_log_handler_flag == 0:
+            self.logger.add(log_file_path, level=level.upper(),
+                            format="{time:YYYY-MM-DD HH:mm:ss} "
+                                   "[{process.name}]-"
+                                   "[{thread.name}]-"
+                                   "[{module}.{function}:{line}]-[{level}]:{message}",
+                            rotation="10 MB")
+            file_log_handler_flag += 1
 
     def allure_handler(self, level, is_processes=False):
         """日志输出到allure报告中"""
