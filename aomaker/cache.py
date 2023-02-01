@@ -95,6 +95,16 @@ class Schema(SQLiteDB):
             sql += ' where {};'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
+    def count(self):
+        """数量统计"""
+        sql = f"""select count(*) from {self.table}"""
+        try:
+            res = self.query_sql(sql)[0][0]
+        except IndexError:
+            logger.error("shema表数据统计失败！")
+            res = None
+        return res
+
 
 class Cache(SQLiteDB):
     def __init__(self):

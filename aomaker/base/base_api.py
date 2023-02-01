@@ -3,10 +3,12 @@ import inspect
 
 import allure
 import requests
+from json.decoder import JSONDecodeError
 
 from aomaker.log import logger
 from aomaker.cache import Config, Cache, Schema
 from aomaker.aomaker import genson
+from aomaker.exceptions import HttpRequestError
 
 
 def request(func):
@@ -44,7 +46,7 @@ def request(func):
             logger.info(f"请求成功,状态码：{str(response.status_code)}")
         else:
             logger.warning(f"请求失败,状态码：{str(response.status_code)}")
-            raise ValueError("请求失败")
+            raise HttpRequestError(str(response.status_code))
         duration = response.elapsed.total_seconds()
         logger.debug(f"请求耗时 =====> {duration}s")
 
@@ -52,7 +54,7 @@ def request(func):
         try:
             resp = response.json()
             logger.debug(f"请求响应 =====> {resp}")
-        except json.decoder.JSONDecodeError as msg:
+        except JSONDecodeError as msg:
             logger.debug(f"[warning]: failed to convert res to json, try to convert to text")
             logger.trace(f"[warning]: {msg} \n")
             logger.debug(f"[type]: text      [time]: {duration}\n")

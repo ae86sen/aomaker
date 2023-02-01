@@ -10,6 +10,7 @@ ALLURE_HTML_PATH = os.path.join(REPORT_DIR, "html")
 ALLURE_JSON_PATH = os.path.join(REPORT_DIR, "json")
 WIDGETS_PATH = os.path.join(ALLURE_HTML_PATH, "widgets")
 SUMMARY_JSON_PATH = os.path.join(WIDGETS_PATH, "summary.json")
+PYTEST_MARKS = ["dependency", "skip", "skipif", "xfail", "usefixtures", "filterwarnings"]
 
 
 def gen_allure_summary() -> dict:
@@ -24,18 +25,43 @@ def get_allure_results(sep: str) -> dict:
     # 1.find all result.json file
     results = {}
     result_jsons = parse_allure_res_json()
+    n = 0
+    all_results_json = []
+    status_list = []
     for result_json in result_jsons:
         with open(result_json, encoding="utf-8") as load_f:
             load_dict = json.load(load_f)
             keys = load_dict.keys()
             # 判断是否有labels
             if "labels" in keys and "status" in keys:
+                result = {
+                    "name": load_dict["name"],
+                    "full_name": load_dict["fullName"],
+                    "labels": load_dict["labels"],
+                    "case_id": load_dict['testCaseId']
+                }
                 status = load_dict["status"]
-                tags = [label.get("value") for label in _handle_labels(load_dict['labels'])]
-                product_name = _handle_tags(tags, sep=sep)
-                if results.get(product_name) is None:
-                    results[product_name] = {"passed": 0, "failed": 0, "skipped": 0, "broken": 0}
-                results[product_name][status] += 1
+                start_time = load_dict["start"]
+                status_dict = {"name": load_dict["name"], "status": status, "full_name": load_dict["fullName"],
+                               "start_time": start_time}
+                if result in all_results_json:
+
+                    index = all_results_json.index(result)
+                    elem = status_list[index]
+                    # 处理重试机制时，状态变更的情况，用最后一次状态
+                    if start_time > elem["start_time"]:
+                        elem["status"] = status
+                else:
+                    # 处理重试机制
+                    all_results_json.append(result)
+                    status_list.append(status_dict)
+    for load_dict, status_dict in zip(all_results_json, status_list):
+        status = status_dict["status"]
+        tags = [label.get("value") for label in _handle_labels(load_dict['labels'])]
+        product_name = _handle_tags(tags, sep=sep)
+        if results.get(product_name) is None:
+            results[product_name] = {"passed": 0, "failed": 0, "skipped": 0, "broken": 0}
+        results[product_name][status] += 1
     results = _count_passed_rate(results)
     return results
 
@@ -63,12 +89,18 @@ def _handle_tags(tags: list, sep=None):
         if sep is None:
             split_tag = tag.split()
             return split_tag
-        if "dependency" in tag:
-            # 针对使用dependency插件的问题
+        if __check_pytest_marks(tag) is False:
             continue
         split_tag = tag.split(sep)
         if len(split_tag) > 0:
             return split_tag[0]
+
+
+def __check_pytest_marks(tag: str):
+    for m in PYTEST_MARKS:
+        if m in tag:
+            return False
+    return True
 
 
 def _count_passed_rate(results: dict) -> dict:
