@@ -26,17 +26,17 @@ def request(func):
         data = payload.get("data")
         json = payload.get("json")
 
-        logger.debug(f"请求地址 =====> {host + api_path}")
-        logger.debug(f"请求方法 =====> {method}")
+        logger.info(f"请求地址 =====> {host + api_path}")
+        logger.info(f"请求方法 =====> {method}")
         if headers:
             logger.debug(f"请求头 =====> {headers}")
 
         if params:
-            logger.debug(f"请求参数 =====> {params}")
+            logger.info(f"请求参数 =====> {params}")
         if data:
-            logger.debug(f"请求体[data] =====> {data}")
+            logger.info(f"请求体[data] =====> {data}")
         if json:
-            logger.debug(f"请求体[json] =====> {json}")
+            logger.info(f"请求体[json] =====> {json}")
 
         # running function
         response = func(*args, **kwargs)
@@ -53,7 +53,7 @@ def request(func):
         api_name = inspect.stack()[1][3]
         try:
             resp = response.json()
-            logger.debug(f"请求响应 =====> {resp}")
+            logger.info(f"请求响应 =====> {resp}")
         except JSONDecodeError as msg:
             logger.debug(f"[warning]: failed to convert res to json, try to convert to text")
             logger.trace(f"[warning]: {msg} \n")
@@ -65,7 +65,7 @@ def request(func):
             schema = Schema()
             to_schema = genson(resp)
             schema.set(api_name, to_schema)
-            logger.info(f'接口{api_name}的响应jsonschema已保存到schema表中')
+            logger.debug(f'接口{api_name}的响应jsonschema已保存到schema表中')
 
         req_resp_info = f"""
         <request>\n

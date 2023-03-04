@@ -20,7 +20,7 @@ class Config(SQLiteDB):
         try:
             self.execute_sql(sql, (key, value))
         except sqlite3.IntegrityError as ie:
-            logger.debug(f"数据库插入同key数据，value已更新为最新值：{ie}")
+            logger.debug(f"config全局配置已加载=====>key: {key}, value: {value}")
             self.connection.commit()
             sql = "update {} set value=? where key=?".format(self.table)
             self.execute_sql(sql, (value, key))
@@ -70,7 +70,7 @@ class Schema(SQLiteDB):
         try:
             self.execute_sql(sql, (key, json.dumps(value)))
         except sqlite3.IntegrityError as ie:
-            logger.debug(f"数据库插入重复数据，已被忽略：{ie}")
+            logger.debug(f"Schema表插入重复数据，key: {key},已被忽略！")
             self.connection.commit()
 
     def get(self, key: str):
@@ -116,7 +116,7 @@ class Cache(SQLiteDB):
         try:
             self.execute_sql(sql, (key, json.dumps(value)))
         except sqlite3.IntegrityError as ie:
-            logger.debug(f"数据库插入重复数据，已被忽略：{ie}")
+            logger.debug(f"缓存插入重复数据, key:{key},已被忽略！")
             self.connection.commit()
 
     def get(self, key: str):

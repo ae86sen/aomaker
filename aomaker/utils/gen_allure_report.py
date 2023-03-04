@@ -10,7 +10,7 @@ ALLURE_HTML_PATH = os.path.join(REPORT_DIR, "html")
 ALLURE_JSON_PATH = os.path.join(REPORT_DIR, "json")
 WIDGETS_PATH = os.path.join(ALLURE_HTML_PATH, "widgets")
 SUMMARY_JSON_PATH = os.path.join(WIDGETS_PATH, "summary.json")
-PYTEST_MARKS = ["dependency", "skip", "skipif", "xfail", "usefixtures", "filterwarnings"]
+PYTEST_MARKS = ["dependency", "skip", "skipif", "xfail", "usefixtures", "filterwarnings", "flaky"]
 
 
 def gen_allure_summary() -> dict:

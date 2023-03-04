@@ -79,9 +79,13 @@ class SetUpSession:
             if isinstance(zone, list):
                 config.set("zone", zone[0])
         # 2.设置全局headers
-        resp = self.login_obj.login()
-        headers = self.login_obj.make_headers(resp)
+        headers = {}
+        if self.login_obj:
+            resp = self.login_obj.login()
+            headers = self.login_obj.make_headers(resp)
         cache.set('headers', headers)
+        logger.info(
+            '******************************环境初始化完成，所有全局配置已加载到config表******************************')
 
 
 class TearDownSession:
@@ -90,7 +94,7 @@ class TearDownSession:
         cache.clear()
         cache.close()
         config.close()
-        logger.info('清理cache完成')
+        logger.info('******************************清理环境完成******************************')
 
 
 if __name__ == '__main__':

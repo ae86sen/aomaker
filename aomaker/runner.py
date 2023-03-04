@@ -23,7 +23,7 @@ def fixture_session(func):
 
     def wrapper(*args, **kwargs):
         # Login登录类对象
-        login = kwargs['login']
+        login = kwargs.get('login')
         # 前置
         SetUpSession(login).set_session_vars()
         shutil.rmtree(allure_json_dir, ignore_errors=True)
@@ -45,10 +45,11 @@ class Runner:
 
     @fixture_session
     def run(self, args: list, login: BaseLogin = None, is_gen_allure=True, **kwargs):
-        if login is None:
-            raise LoginError
         if kwargs.get("zone"):
             config.set("zone", kwargs.get("zone"))
+        if kwargs.get("role"):
+            config.set("role", kwargs.get("role"))
+        config.set("no_lease", kwargs.get("no_lease"))
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
@@ -164,10 +165,12 @@ class ProcessesRunner(Runner):
         :param is_gen_allure: 是否自动收集allure报告，默认收集
         :return:
         """
-        if login is None:
-            raise LoginError
+
         if kwargs.get("zone"):
             config.set("zone", kwargs.get("zone"))
+        if kwargs.get("role"):
+            config.set("role", kwargs.get("role"))
+        config.set("no_lease", kwargs.get("no_lease"))
         # 配置allure报告中显示日志
         AoMakerLogger().allure_handler('debug', is_processes=True)
         if extra_args is None:
@@ -199,12 +202,13 @@ class ThreadsRunner(Runner):
         :param is_gen_allure: 是否自动收集allure报告，默认收集
         :return:
         """
-        if login is None:
-            raise LoginError
         if extra_args is None:
             extra_args = []
         if kwargs.get("zone"):
             config.set("zone", kwargs.get("zone"))
+        if kwargs.get("role"):
+            config.set("role", kwargs.get("role"))
+        config.set("no_lease", kwargs.get("no_lease"))
         extra_args.extend(self.pytest_args)
         task_args = self.make_task_args(task_args)
         thread_count = len(task_args)

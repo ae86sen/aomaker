@@ -31,19 +31,18 @@ def init_parser_run(subparsers):
         help="dont't generate allure report."
     )
     sub_parser_run.add_argument(
-        "--zone",
-        dest="zone",
-        help="switch zone of test environment."
-    )
-    sub_parser_run.add_argument(
-        "-l",
-        # "--log-level",
+        "--log_level",
         dest="level",
         choices=["trace", "debug", "info", "success", "warning", "error", "critical"],
-        default="debug",
+        default="info",
         help="set log level."
     )
-
+    sub_parser_run.add_argument(
+        "--no_login",
+        dest="no_login",
+        action="store_false",
+        help="don't login and make headers."
+    )
     group = sub_parser_run.add_argument_group("multi-run")
     group.add_argument(
         "--mp",
@@ -75,6 +74,25 @@ def init_parser_run(subparsers):
         # 将传入参数值放到一个list中且至少需要传入一个值
         nargs="+",
         help="specifies a dist mode for per worker."
+    )
+
+    group = sub_parser_run.add_argument_group("qingcloud")
+    group.add_argument(
+        "--zone",
+        dest="zone",
+        help="qingcloud:switch zone of test environment."
+    )
+    group.add_argument(
+        "--role",
+        dest="role",
+        default="user",
+        help="qingcloud:switch role of user,defalut value:'user'"
+    )
+    group.add_argument(
+        "--no_lease",
+        dest="no_lease",
+        action="store_false",
+        help="qingcloud:turn off lease"
     )
     return sub_parser_run
 
@@ -215,14 +233,19 @@ def main():
         if sys.argv[2] == "-e":
             set_conf_file(args.env)
         # if "--log-level" in sys.argv or "-l" in sys.argv:
-        if "-l" in sys.argv:
+        if args.level:
             AoMakerLogger.change_level(args.level)
         kwargs = {}
         if args.zone:
-            kwargs = {"zone": args.zone}
+            kwargs["zone"] = args.zone
+        if args.role:
+            kwargs["role"] = args.role
+        kwargs["no_lease"] = args.no_lease
+
         from aomaker.runner import run, threads_run, processes_run
+        login_obj = _handle_login(args.no_login)
         if args.mp:
-            login_obj = _handle_login()
+            # login_obj = _handle_login()
             # 多进程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
@@ -236,7 +259,7 @@ def main():
                 sys.exit(processes_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args,
                                        is_gen_allure=args.gen_allure, **kwargs))
         if args.mt:
-            login_obj = _handle_login()
+            # login_obj = _handle_login()
             # 多线程
             if "--dist-mark" in sys.argv:
                 mark_list = [f"-m {mark}" for mark in args.dist_mark]
@@ -248,7 +271,7 @@ def main():
             elif "--dist-file" in sys.argv:
                 sys.exit(threads_run({"path": args.dist_file}, login=login_obj, extra_args=extra_args,
                                      is_gen_allure=args.gen_allure, **kwargs))
-        login_obj = _handle_login()
+        # login_obj = _handle_login()
         sys.exit(run(extra_args, login=login_obj, is_gen_allure=args.gen_allure, **kwargs))
 
 
@@ -287,7 +310,9 @@ def main_record_alias():
     main()
 
 
-def _handle_login():
+def _handle_login(is_login: bool):
+    if is_login is False:
+        return
     sys.path.append(os.getcwd())
     exec('from login import Login')
     login_obj = locals()['Login']()
