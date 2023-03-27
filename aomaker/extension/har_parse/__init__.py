@@ -23,8 +23,8 @@ def main_har2yaml(args):
     hp = HarParser(har_path, yaml_path,
                    filter_str=args.filter_str,
                    exclude_str=args.exclude_str,
-                   save_response=bool_switch(args.save_response),
-                   save_headers=bool_switch(args.save_headers))
+                   save_response=args.save_response,
+                   save_headers=args.save_headers)
     hp.har2yaml_testcase()
 
 

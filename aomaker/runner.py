@@ -6,16 +6,23 @@ from functools import singledispatchmethod
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
+from emoji import emojize
 
 from aomaker.cache import config
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
-from aomaker.log import logger, AoMakerLogger
+from aomaker.log import logger, aomaker_logger
 from aomaker._constants import Allure
 from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
 from aomaker.report import gen_reports
+from aomaker.hook_manager import _cli_hook, _session_hook
 
 allure_json_dir = os.path.join(REPORT_DIR, "json")
+RUN_MODE = {
+    "Runner": "main",
+    "ProcessesRunner": "mp",
+    "ThreadsRunner": "mt"
+}
 
 
 def fixture_session(func):
@@ -25,8 +32,16 @@ def fixture_session(func):
         # Login登录类对象
         login = kwargs.get('login')
         # 前置
+        logger.info(emojize(
+            '******************************:puzzle_piece: 开始初始化环境 :puzzle_piece:******************************'))
+        method_of_class_name = func.__qualname__.split('.')[0]
+        config.set("run_mode", RUN_MODE[method_of_class_name])
         SetUpSession(login).set_session_vars()
         shutil.rmtree(allure_json_dir, ignore_errors=True)
+        _cli_hook.run()
+        _session_hook.run()
+        logger.info(emojize(
+            '*****************:beer_mug: 环境初始化完成，所有全局配置已加载到config表 :beer_mug:*****************'))
         r = func(*args, **kwargs)
         TearDownSession().clear_env()
         return r
@@ -35,23 +50,19 @@ def fixture_session(func):
 
 
 class Runner:
-    def __init__(self):
+    def __init__(self, is_processes=False):
         self.pytest_args = ["-s",
                             f"--alluredir={allure_json_dir}",
                             "--show-capture=no",  # 控制台不显示pytest的捕获日志
                             "--log-format=%(asctime)s %(message)s",
                             "--log-date-format=%Y-%m-%d %H:%M:%S"
                             ]
+        aomaker_logger.allure_handler("debug", is_processes=is_processes)
 
     @fixture_session
     def run(self, args: list, login: BaseLogin = None, is_gen_allure=True, **kwargs):
-        if kwargs.get("zone"):
-            config.set("zone", kwargs.get("zone"))
-        if kwargs.get("role"):
-            config.set("role", kwargs.get("role"))
-        config.set("no_lease", kwargs.get("no_lease"))
         # 配置allure报告中显示日志
-        AoMakerLogger().allure_handler('debug')
+        # AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
         pytest_opts = _get_pytest_ini()
         logger.info(f"<AoMaker> 单进程启动")
@@ -165,17 +176,12 @@ class ProcessesRunner(Runner):
         :param is_gen_allure: 是否自动收集allure报告，默认收集
         :return:
         """
-
-        if kwargs.get("zone"):
-            config.set("zone", kwargs.get("zone"))
-        if kwargs.get("role"):
-            config.set("role", kwargs.get("role"))
-        config.set("no_lease", kwargs.get("no_lease"))
         # 配置allure报告中显示日志
-        AoMakerLogger().allure_handler('debug', is_processes=True)
+        # AoMakerLogger().allure_handler('debug', is_processes=True)
         if extra_args is None:
             extra_args = []
         extra_args.extend(self.pytest_args)
+        task_args = self.make_task_args(task_args)
         process_count = len(task_args)
         p = Pool(process_count)
         logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
@@ -204,11 +210,6 @@ class ThreadsRunner(Runner):
         """
         if extra_args is None:
             extra_args = []
-        if kwargs.get("zone"):
-            config.set("zone", kwargs.get("zone"))
-        if kwargs.get("role"):
-            config.set("role", kwargs.get("role"))
-        config.set("no_lease", kwargs.get("no_lease"))
         extra_args.extend(self.pytest_args)
         task_args = self.make_task_args(task_args)
         thread_count = len(task_args)
@@ -248,7 +249,7 @@ def make_args_group(args: list, extra_args: list):
 
 run = Runner().run
 threads_run = ThreadsRunner().run
-processes_run = ProcessesRunner().run
+processes_run = ProcessesRunner(is_processes=True).run
 
 if __name__ == '__main__':
     ProcessesRunner().run(['-m hpc', '-m ehpc', '-m ehpc1', '-m hpc1'])

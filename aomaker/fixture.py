@@ -66,7 +66,6 @@ class SetUpSession:
         self.login_obj = login
 
     def set_session_vars(self):
-        logger.info('******************************开始初始化环境******************************')
         # 1.设置全局配置
         env_conf = EnvVars()
         conf_dict = env_conf.current_env_conf
@@ -84,8 +83,6 @@ class SetUpSession:
             resp = self.login_obj.login()
             headers = self.login_obj.make_headers(resp)
         cache.set('headers', headers)
-        logger.info(
-            '******************************环境初始化完成，所有全局配置已加载到config表******************************')
 
 
 class TearDownSession:

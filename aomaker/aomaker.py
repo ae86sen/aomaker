@@ -4,6 +4,7 @@ from typing import List, Dict, Callable, Text
 from functools import wraps
 
 import yaml
+import click
 from jsonpath import jsonpath
 from genson import SchemaBuilder
 
@@ -11,6 +12,7 @@ from aomaker.cache import Cache
 from aomaker.log import logger
 from aomaker.path import BASEDIR
 from aomaker.exceptions import FileNotFound, YamlKeyError
+from aomaker.hook_manager import _cli_hook, _session_hook
 
 
 def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, *out_args, **out_kwargs):
@@ -31,7 +33,6 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
         @wraps(func)
         def wrapper(*args, **kwargs):
             api_name = func.__name__
-
             cache = Cache()
             # 1.先判断是否调用过依赖
             if not cache.get(var_name):
@@ -69,7 +70,8 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
                 logger.info(f"==========存储全局变量{var_name}完成==========")
                 logger.info(f"==========<{api_name}>前置依赖<{depend_api_name}>结束==========")
             else:
-                logger.info(f"==========<{api_name}>前置依赖已被调用过，本次不再调用,依赖参数{var_name}直接从cache表中读取==========")
+                logger.info(
+                    f"==========<{api_name}>前置依赖已被调用过，本次不再调用,依赖参数{var_name}直接从cache表中读取==========")
             r = func(*args, **kwargs)
             return r
 
@@ -112,6 +114,31 @@ def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0, *out_args
     return decorator
 
 
+def command(name, **out_kwargs):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            from aomaker.cli import main, OptionHandler
+            cmd = main.get_command(None, 'run')
+            option_handler = OptionHandler()
+            option_handler.add_option(name, **out_kwargs)
+            cmd.params.append(click.Option(option_handler.options.pop("name"), **option_handler.options))
+            new_name = name.replace("-", "")
+            _cli_hook.register(func, new_name)
+
+        return wrapper
+
+    return decorator
+
+
+def hook(func):
+    @wraps(func)
+    def wrapper():
+        _session_hook.register(func)
+
+    return wrapper
+
+
 def data_maker(file_path: str, class_name: str, method_name: str) -> List[Dict]:
     """
     从测试数据文件中读取文件，构造数据驱动的列表参数
@@ -144,6 +171,7 @@ def genson(data):
     builder.add_object(data)
     to_schema = builder.to_schema()
     return to_schema
+
 
 
 def _extract_by_jsonpath(source: Text, jsonpath_expr: Text, index: int):

@@ -3,37 +3,31 @@ import os
 import jinja2
 
 filter_expression = """
-    The following operators are understood:
-
-        ~q          Request
-        ~s          Response
-
-    Headers:
-
-        Patterns are matched against "name: value" strings. Field names are
-        all-lowercase.
-
-        ~a          Asset content-type in response. Asset content types are:
-                        text/javascript
-                        application/x-javascript
-                        application/javascript
-                        text/css
-                        image/*
-                        application/x-shockwave-flash
-        ~h rex      Header line in either request or response
-        ~hq rex     Header in request
-        ~hs rex     Header in response
-
-        ~b rex      Expression in the body of either request or response
-        ~bq rex     Expression in the body of request
-        ~bs rex     Expression in the body of response
-        ~t rex      Shortcut for content-type header.
-
-        ~d rex      Request domain
-        ~m rex      Method
-        ~u rex      URL
-        ~c CODE     Response code.
-        rex         Equivalent to ~u rex
+    The following operators are understood:\n
+        ~q          Request\n
+        ~s          Response\n
+    Headers:\n
+        Patterns are matched against "name: value" strings. Field names are\n
+        all-lowercase.\n
+        ~a          Asset content-type in response. Asset content types are:\n
+                        text/javascript\n
+                        application/x-javascript\n
+                        application/javascript\n
+                        text/css\n
+                        image/*\n
+                        application/x-shockwave-flash\n
+        ~h rex      Header line in either request or response\n
+        ~hq rex     Header in request\n
+        ~hs rex     Header in response\n
+        ~b rex      Expression in the body of either request or response\n
+        ~bq rex     Expression in the body of request\n
+        ~bs rex     Expression in the body of response\n
+        ~t rex      Shortcut for content-type header.\n
+        ~d rex      Request domain\n
+        ~m rex      Method\n
+        ~u rex      URL\n
+        ~c CODE     Response code.\n
+        rex         Equivalent to ~u rex\n
 """
 temp = jinja2.Template(
     """from aomaker.extension.recording.recording import Record
@@ -62,8 +56,8 @@ def get_init_params(args, path):
     init_params = dict()
     init_params['file_name'] = args.file_name
     init_params['filter_str'] = args.filter_str
-    init_params['save_response'] = bool_switch(args.save_response)
-    init_params['save_headers'] = bool_switch(args.save_headers)
+    init_params['save_response'] = args.save_response
+    init_params['save_headers'] = args.save_headers
     content = temp.render(init_params)
     with open(path, mode='w', encoding='utf-8') as f:
         f.write(content)

@@ -1,9 +1,9 @@
 # --coding:utf-8--
-import sys
+# import sys
 
 # debug使用
-sys.path.insert(0, 'D:\\项目列表\\aomaker')
-from aomaker import path
+# sys.path.insert(0, 'D:\\项目列表\\aomaker')
+# from aomaker import path
 
 
 # database
@@ -14,6 +14,7 @@ class DataBase:
     SCHEMA_TABLE = 'schema'
     CACHE_VAR_NAME = 'var_name'
     CACHE_RESPONSE = 'response'
+    CACHE_WORKER = 'worker'
     CONFIG_KEY = 'key'
     CONFIG_VALUE = 'value'
     SCHEMA_API_NAME = 'api_name'

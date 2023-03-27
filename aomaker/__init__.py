@@ -1,6 +1,8 @@
-__version__ = "2.0.11"
+from emoji import emojize
+
+__version__ = "2.1.0"
 __description__ = "Quickly Arrange,Quickly Test!"
-__image__ = fr"""
+__image__ = emojize(fr"""
               :----.                                                             ::::
              .------            .:::::::::::::::::::::::::::::::::::::::::::::. :---:  ::::::::::::::::::::::::::
             .---::--:                                                           ----
@@ -12,6 +14,6 @@ __image__ = fr"""
         ---: :-.      ---:    .-------:.  :---:  .---:  .---:   .----------  :---. :----    :-------.  :---:
         ..  :.         ...       ...                               ..                          ...
            .
-                                                                                    {__description__}
+                                                                                    {__description__}:rocket::rocket::rocket:
                                                                                     version:{__version__}
-"""
+""")

@@ -54,7 +54,11 @@ def create_scaffold(project_name):
         table_attr = get_table_attribute(table_name)
         key = table_attr.get('key')
         value = table_attr.get('value')
-        sql = f"""create table {table_name}({key} text,{value} text);"""
+        worker = table_attr.get('worker')
+        if worker is not None:
+            sql = f"""create table {table_name}({key} text,{value} text,{worker} text);"""
+        else:
+            sql = f"""create table {table_name}({key} text,{value} text);"""
         sql2 = f"""create unique index {table_name}_{key}_uindex on {table_name} ({key});"""
         db_object.execute_sql(sql)
         db_object.execute_sql(sql2)
@@ -63,7 +67,7 @@ def create_scaffold(project_name):
 
     def get_table_attribute(table_name: str):
         tables_attr = {
-            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE},
+            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE, 'worker': DB.CACHE_WORKER},
             DB.CONFIG_TABLE: {'key': DB.CONFIG_KEY, 'value': DB.CONFIG_VALUE},
             DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA}
         }
@@ -208,6 +212,7 @@ class Login(BaseLogin):
         return headers
     """
     create_file(os.path.join(project_name, "login.py"), login_content)
+    create_file(os.path.join(project_name, "hook_manager.py"), "")
     data_path = os.path.join(project_name, "data")
     create_folder(data_path)
     create_folder(os.path.join(data_path, "api_data"))

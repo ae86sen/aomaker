@@ -23,7 +23,7 @@ class AoMakerLogger:
 
     # log level: TRACE < DEBUG < INFO < SUCCESS < WARNING < ERROR < CRITICAL
     def __init__(self, level: str = Log.DEFAULT_LEVEL, log_file_path=log_path):
-        self.stdout_handler(level=level)
+        self.stdout_handler(level="info")
         self.file_handler(level=level, log_file_path=log_file_path)
         # 多线程不开启allure日志，日志会被打乱
         # self.allure_handler(level=level)
@@ -91,4 +91,5 @@ class AoMakerLogger:
                        )
 
 
-logger = AoMakerLogger().logger
+aomaker_logger = AoMakerLogger()
+logger = aomaker_logger.logger

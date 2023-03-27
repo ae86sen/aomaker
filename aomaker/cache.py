@@ -3,6 +3,8 @@ import sqlite3
 import json
 
 from jsonpath import jsonpath
+from multiprocessing import current_process
+from threading import current_thread
 
 from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
@@ -41,7 +43,7 @@ class Config(SQLiteDB):
         获取config表所有数据
         :return: {key:value,...}
         """
-        all_data = self.select(self.table)
+        all_data = self.select_data(self.table)
         dic = {}
         for m in all_data:
             dic[m[0]] = json.loads(m[1])
@@ -69,7 +71,7 @@ class Schema(SQLiteDB):
         sql = f"""insert into {self.table} (api_name,schema) values (:key,:value)"""
         try:
             self.execute_sql(sql, (key, json.dumps(value)))
-        except sqlite3.IntegrityError as ie:
+        except sqlite3.IntegrityError:
             logger.debug(f"Schema表插入重复数据，key: {key},已被忽略！")
             self.connection.commit()
 
@@ -112,16 +114,29 @@ class Cache(SQLiteDB):
         self.table = DataBase.CACHE_TABLE
 
     def set(self, key: str, value):
-        sql = f"""insert into {self.table} (var_name,response) values (:key,:value)"""
+        sql = f"""insert into {self.table} (var_name,response,worker) values (:key,:value,:worker)"""
+        worker = _get_worker()
         try:
-            self.execute_sql(sql, (key, json.dumps(value)))
-        except sqlite3.IntegrityError as ie:
+            self.execute_sql(sql, (key, json.dumps(value), worker))
+        except sqlite3.IntegrityError:
             logger.debug(f"缓存插入重复数据, key:{key},已被忽略！")
             self.connection.commit()
 
+    def update(self, key, value):
+        key_value = {"response": json.dumps(value)}
+        worker = _get_worker()
+        condition = {"worker": worker, "var_name": key}
+        self.update_data(self.table, key_value, where=condition)
+        logger.info(f"缓存数据更新完成, 表：{self.table}, var_name: {key}, response: {value}, worker: {worker}")
+
     def get(self, key: str):
-        sql = f"""select response from {self.table} where var_name=:key"""
-        query_res = self.query_sql(sql, (key,))
+        worker = _get_worker()
+        if key == "headers":
+            sql = f"""select response from {self.table} where var_name=:key"""
+            query_res = self.query_sql(sql, (key,))
+        else:
+            sql = f"""select response from {self.table} where var_name=:key and worker=:worker"""
+            query_res = self.query_sql(sql, (key, worker))
         try:
             res = query_res[0][0]
         except IndexError:
@@ -149,6 +164,16 @@ class Cache(SQLiteDB):
         if where is not None:
             sql += ' where {};'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
+
+
+def _get_worker():
+    run_mode = config.get("run_mode")
+    worker = {
+        "main": "MainProcess",
+        "mt": current_thread().name,
+        "mp": current_process().name
+    }
+    return worker[run_mode]
 
 
 cache = Cache()
