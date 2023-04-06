@@ -116,11 +116,13 @@ class Cache(SQLiteDB):
     def set(self, key: str, value):
         sql = f"""insert into {self.table} (var_name,response,worker) values (:key,:value,:worker)"""
         worker = _get_worker()
+        if self.get(key) is not None:
+            logger.debug(f"缓存插入重复数据, key:{key}，worker:{worker}，已被忽略！")
+            return
         try:
             self.execute_sql(sql, (key, json.dumps(value), worker))
-        except sqlite3.IntegrityError:
-            logger.debug(f"缓存插入重复数据, key:{key},已被忽略！")
-            self.connection.commit()
+        except sqlite3.IntegrityError as e:
+            raise e
 
     def update(self, key, value):
         key_value = {"response": json.dumps(value)}

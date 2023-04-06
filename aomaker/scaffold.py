@@ -59,9 +59,10 @@ def create_scaffold(project_name):
             sql = f"""create table {table_name}({key} text,{value} text,{worker} text);"""
         else:
             sql = f"""create table {table_name}({key} text,{value} text);"""
-        sql2 = f"""create unique index {table_name}_{key}_uindex on {table_name} ({key});"""
         db_object.execute_sql(sql)
-        db_object.execute_sql(sql2)
+        if table_name != "cache":
+            sql2 = f"""create unique index {table_name}_{key}_uindex on {table_name} ({key});"""
+            db_object.execute_sql(sql2)
         msg = f"创建数据表：{table_name}"
         logger.info(msg)
 
