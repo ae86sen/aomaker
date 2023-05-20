@@ -7,7 +7,7 @@ from json.decoder import JSONDecodeError
 
 from aomaker.log import logger
 from aomaker.cache import Config, Cache, Schema
-from aomaker.aomaker import genson
+from aomaker._aomaker import genson
 from aomaker.exceptions import HttpRequestError
 
 

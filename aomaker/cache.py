@@ -113,14 +113,18 @@ class Cache(SQLiteDB):
         super(Cache, self).__init__()
         self.table = DataBase.CACHE_TABLE
 
-    def set(self, key: str, value):
+    def set(self, key: str, value, api_info=None):
         sql = f"""insert into {self.table} (var_name,response,worker) values (:key,:value,:worker)"""
         worker = _get_worker()
         if self.get(key) is not None:
             logger.debug(f"缓存插入重复数据, key:{key}，worker:{worker}，已被忽略！")
             return
         try:
-            self.execute_sql(sql, (key, json.dumps(value), worker))
+            if api_info:
+                sql = f"""insert into {self.table} (var_name,response,worker,api_info) values (:key,:value,:worker,:api_info)"""
+                self.execute_sql(sql, (key, json.dumps(value), worker, json.dumps(api_info)))
+            else:
+                self.execute_sql(sql, (key, json.dumps(value), worker))
         except sqlite3.IntegrityError as e:
             raise e
 
@@ -129,15 +133,15 @@ class Cache(SQLiteDB):
         worker = _get_worker()
         condition = {"worker": worker, "var_name": key}
         self.update_data(self.table, key_value, where=condition)
-        logger.info(f"缓存数据更新完成, 表：{self.table}, var_name: {key}, response: {value}, worker: {worker}")
+        logger.info(f"缓存数据更新完成, 表：{self.table},\n var_name: {key},\n response: {value},\n worker: {worker}")
 
-    def get(self, key: str):
+    def get(self, key: str, select_field="response"):
         worker = _get_worker()
         if key == "headers":
-            sql = f"""select response from {self.table} where var_name=:key"""
+            sql = f"""select {select_field} from {self.table} where var_name=:key"""
             query_res = self.query_sql(sql, (key,))
         else:
-            sql = f"""select response from {self.table} where var_name=:key and worker=:worker"""
+            sql = f"""select {select_field} from {self.table} where var_name=:key and worker=:worker"""
             query_res = self.query_sql(sql, (key, worker))
         try:
             res = query_res[0][0]

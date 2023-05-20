@@ -15,6 +15,7 @@ class DataBase:
     CACHE_VAR_NAME = 'var_name'
     CACHE_RESPONSE = 'response'
     CACHE_WORKER = 'worker'
+    CACHE_API_INFO = 'api_info'
     CONFIG_KEY = 'key'
     CONFIG_VALUE = 'value'
     SCHEMA_API_NAME = 'api_name'

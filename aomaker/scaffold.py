@@ -55,8 +55,9 @@ def create_scaffold(project_name):
         key = table_attr.get('key')
         value = table_attr.get('value')
         worker = table_attr.get('worker')
+        api_info = table_attr.get('api_info')
         if worker is not None:
-            sql = f"""create table {table_name}({key} text,{value} text,{worker} text);"""
+            sql = f"""create table {table_name}({key} text,{value} text,{worker} text,{api_info} text);"""
         else:
             sql = f"""create table {table_name}({key} text,{value} text);"""
         db_object.execute_sql(sql)

@@ -38,7 +38,8 @@ def fixture_session(func):
         config.set("run_mode", RUN_MODE[method_of_class_name])
         SetUpSession(login).set_session_vars()
         shutil.rmtree(allure_json_dir, ignore_errors=True)
-        _cli_hook.run()
+        if _cli_hook.custom_kwargs:
+            _cli_hook.run()
         _session_hook.run()
         logger.info(emojize(
             '*****************:beer_mug: 环境初始化完成，所有全局配置已加载到config表 :beer_mug:*****************'))
