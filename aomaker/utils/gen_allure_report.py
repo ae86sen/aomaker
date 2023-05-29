@@ -1,16 +1,17 @@
 # --coding:utf-8--
+import configparser
 import json
 import os
 import time
 from typing import List, Dict
 
-from aomaker.path import REPORT_DIR, BASEDIR
+from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
+from aomaker.utils.utils import HandleIni
 
 ALLURE_HTML_PATH = os.path.join(REPORT_DIR, "html")
 ALLURE_JSON_PATH = os.path.join(REPORT_DIR, "json")
 WIDGETS_PATH = os.path.join(ALLURE_HTML_PATH, "widgets")
 SUMMARY_JSON_PATH = os.path.join(WIDGETS_PATH, "summary.json")
-PYTEST_MARKS = ["dependency", "skip", "skipif", "xfail", "usefixtures", "filterwarnings", "flaky"]
 
 
 def gen_allure_summary() -> dict:
@@ -28,6 +29,7 @@ def get_allure_results(sep: str) -> dict:
     n = 0
     all_results_json = []
     status_list = []
+    marks_group = _get_marks_group_from_pytest_ini()
     for result_json in result_jsons:
         with open(result_json, encoding="utf-8") as load_f:
             load_dict = json.load(load_f)
@@ -38,30 +40,31 @@ def get_allure_results(sep: str) -> dict:
                     "name": load_dict["name"],
                     "full_name": load_dict["fullName"],
                     "labels": load_dict["labels"],
-                    "case_id": load_dict['testCaseId']
+                    "case_id": load_dict['testCaseId'],
+                    "parameters": load_dict.get("parameters")
                 }
                 status = load_dict["status"]
                 start_time = load_dict["start"]
                 status_dict = {"name": load_dict["name"], "status": status, "full_name": load_dict["fullName"],
                                "start_time": start_time}
                 if result in all_results_json:
-
+                    # 处理重试机制
                     index = all_results_json.index(result)
                     elem = status_list[index]
                     # 处理重试机制时，状态变更的情况，用最后一次状态
                     if start_time > elem["start_time"]:
                         elem["status"] = status
                 else:
-                    # 处理重试机制
                     all_results_json.append(result)
                     status_list.append(status_dict)
     for load_dict, status_dict in zip(all_results_json, status_list):
         status = status_dict["status"]
         tags = [label.get("value") for label in _handle_labels(load_dict['labels'])]
-        product_name = _handle_tags(tags, sep=sep)
-        if results.get(product_name) is None:
-            results[product_name] = {"passed": 0, "failed": 0, "skipped": 0, "broken": 0}
-        results[product_name][status] += 1
+        product_name = _handle_tags(tags, marks_group, sep=sep)
+        if product_name is not None:
+            if results.get(product_name) is None:
+                results[product_name] = {"passed": 0, "failed": 0, "skipped": 0, "broken": 0}
+            results[product_name][status] += 1
     results = _count_passed_rate(results)
     return results
 
@@ -77,30 +80,27 @@ def parse_allure_res_json():
     return result_jsons
 
 
+def _get_marks_group_from_pytest_ini() -> str:
+    pytest_config_parser = HandleIni(PYTEST_INI_DIR)
+    try:
+        marks_group = pytest_config_parser.get("pytest", "marks_group")
+    except (configparser.NoSectionError, configparser.NoOptionError):
+        marks_group = ""
+    return marks_group
+
+
 def _handle_labels(labels: list):
     for label in labels:
         if label.get('name') == "tag":
             yield label
 
 
-def _handle_tags(tags: list, sep=None):
+def _handle_tags(tags: list, marks_group, sep=None):
     """将标记按照指定分隔符分割,默认按空格"""
     for tag in tags:
-        if sep is None:
-            split_tag = tag.split()
-            return split_tag
-        if __check_pytest_marks(tag) is False:
-            continue
-        split_tag = tag.split(sep)
-        if len(split_tag) > 0:
-            return split_tag[0]
-
-
-def __check_pytest_marks(tag: str):
-    for m in PYTEST_MARKS:
-        if m in tag:
-            return False
-    return True
+        prefix_tag = tag.split(sep)[0]
+        if prefix_tag in marks_group:
+            return prefix_tag
 
 
 def _count_passed_rate(results: dict) -> dict:

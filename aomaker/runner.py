@@ -6,8 +6,8 @@ from functools import singledispatchmethod
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
-from emoji import emojize
 
+from aomaker._printer import printer
 from aomaker.cache import config
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, aomaker_logger
@@ -27,27 +27,26 @@ RUN_MODE = {
 
 def fixture_session(func):
     """全局夹具装饰器"""
-
     def wrapper(*args, **kwargs):
         # Login登录类对象
         login = kwargs.get('login')
-        # 前置
-        logger.info(emojize(
-            '******************************:puzzle_piece: 开始初始化环境 :puzzle_piece:******************************'))
-        method_of_class_name = func.__qualname__.split('.')[0]
-        config.set("run_mode", RUN_MODE[method_of_class_name])
-        SetUpSession(login).set_session_vars()
-        shutil.rmtree(allure_json_dir, ignore_errors=True)
-        if _cli_hook.custom_kwargs:
-            _cli_hook.run()
-        _session_hook.run()
-        logger.info(emojize(
-            '*****************:beer_mug: 环境初始化完成，所有全局配置已加载到config表 :beer_mug:*****************'))
+        _init(func, login)
         r = func(*args, **kwargs)
         TearDownSession().clear_env()
         return r
 
     return wrapper
+
+
+@printer("init_env")
+def _init(func, login):
+    method_of_class_name = func.__qualname__.split('.')[0]
+    config.set("run_mode", RUN_MODE[method_of_class_name])
+    SetUpSession(login).set_session_vars()
+    shutil.rmtree(allure_json_dir, ignore_errors=True)
+    if _cli_hook.custom_kwargs:
+        _cli_hook.run()
+    _session_hook.run()
 
 
 class Runner:

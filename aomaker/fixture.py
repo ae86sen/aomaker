@@ -4,9 +4,9 @@ from abc import ABCMeta, abstractmethod
 
 import yaml
 
+from aomaker._printer import printer
 from aomaker.path import CONF_DIR
 from aomaker.cache import cache, config
-from aomaker.log import logger
 from aomaker.exceptions import FileNotFound, ConfKeyError
 from aomaker._constants import Conf
 
@@ -86,12 +86,11 @@ class SetUpSession:
 
 
 class TearDownSession:
+    @printer("clean_env")
     def clear_env(self):
-        logger.info('******************************测试结束，开始清理环境******************************')
         cache.clear()
         cache.close()
         config.close()
-        logger.info('******************************清理环境完成******************************')
 
 
 if __name__ == '__main__':

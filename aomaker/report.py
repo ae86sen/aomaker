@@ -5,6 +5,7 @@ from jinja2 import Template
 
 from aomaker.utils.gen_allure_report import CaseSummary, CaseDetail
 from aomaker.path import AOMAKER_HTML
+from aomaker._printer import printer
 
 base_dir = os.path.dirname(__file__)
 base_html_path = os.path.join(base_dir, "html")
@@ -54,8 +55,8 @@ class HtmlMaker:
             f.write(temp_str)
 
 
+@printer("gen_rep")
 def gen_reports():
-    print("-----------测试结束, AoMaker开始收集报告-----------")
     case_summary = CaseSummary()
     case_detail = CaseDetail()
     summary = {
@@ -75,4 +76,3 @@ def gen_reports():
     }
     html_maker = HtmlMaker()
     html_maker.render_template_html(summary)
-    print(f"-----------AoMaker已完成测试报告!报告路径：{AOMAKER_HTML}-----------")
