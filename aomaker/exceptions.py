@@ -51,3 +51,12 @@ class HttpRequestError(AoMakerException):
 
     def __str__(self):
         return f'请求失败，状态码：{self.status_code}'
+
+
+class JsonPathExtractFailed(AoMakerException):
+    def __init__(self, res, jsonpath_expr):
+        self.res = res
+        self.jsonpath_expr = jsonpath_expr
+
+    def __str__(self):
+        return f'依赖数据提取失败\n 提取表达式：{self.jsonpath_expr}\n 数据源：{self.res}'

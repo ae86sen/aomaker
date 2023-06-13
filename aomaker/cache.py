@@ -8,6 +8,7 @@ from threading import current_thread
 
 from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
+from aomaker.exceptions import JsonPathExtractFailed
 from aomaker.log import logger
 
 
@@ -153,11 +154,10 @@ class Cache(SQLiteDB):
 
     def get_by_jsonpath(self, key: str, jsonpath_expr, expr_index: int = 0):
         res = self.get(key)
-        try:
-            extract_var = jsonpath(res, jsonpath_expr)[expr_index]
-        except TypeError as te:
-            logger.error(f'依赖数据提取失败，\n 数据源：{res}\n 提取表达式：{jsonpath_expr}\n 索引：{expr_index}')
-            raise te
+        extract_var = jsonpath(res, jsonpath_expr)
+        if extract_var is False:
+            raise JsonPathExtractFailed(res,jsonpath_expr)
+        extract_var = extract_var[expr_index]
         return extract_var
 
     def clear(self):
