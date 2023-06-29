@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import List, Text, Dict, Any, Mapping
+from typing import List, Text, Dict, Any, Mapping, Union
 from pydantic import BaseModel, Field, conlist, validator
+from pydantic.types import constr
 
 AssertField = conlist(Any, min_items=2, max_items=3)
 
@@ -90,3 +91,8 @@ class YamlTestcase(BaseModel):
     description: Text = ''
     config: Dict = {}
     steps: List[Steps]
+
+
+class AomakerYaml(BaseModel):
+    target: List
+    marks: Dict[constr(min_length=1), Union[Dict[Text, List[Text]], List[Text]]]

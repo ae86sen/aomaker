@@ -227,7 +227,7 @@ class ThreadsRunner(Runner):
 def main_task(args: list):
     """pytest启动"""
     pytest_opts = _get_pytest_ini()
-    logger.info(f"<AoMaker> pytest的执行参数：{list(set(pytest_opts))}")
+    logger.info(f"<AoMaker> pytest的执行参数：{args}")
     if pytest_opts:
         logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
     pytest.main(args)

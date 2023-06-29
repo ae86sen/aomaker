@@ -1,6 +1,8 @@
 # --coding:utf-8--
 import os
 import sys
+from typing import List, Text
+
 import click
 import inspect
 from importlib import import_module
@@ -12,7 +14,7 @@ from click_help_colors import HelpColorsGroup, version_option
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
 from aomaker.log import logger, AoMakerLogger
-from aomaker.path import CONF_DIR
+from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
 from aomaker.hook_manager import _cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.path import BASEDIR
@@ -21,6 +23,8 @@ from aomaker.make import main_make
 from aomaker.make_testcase import main_case, main_make_case
 from aomaker.extension.har_parse import main_har2yaml
 from aomaker.extension.recording import filter_expression, main_record
+from aomaker.utils.utils import load_yaml
+from aomaker.models import AomakerYaml
 
 SUBCOMMAND_RUN_NAME = "run"
 HOOK_MODULE_NAME = "hooks"
@@ -95,13 +99,16 @@ def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, 
     login_obj = _handle_login(no_login)
     from aomaker.runner import run as runner_run, processes_run, threads_run
     if mp:
+        click.echo("🚀<AoMaker> 多进程模式准备启动...")
         processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
                       is_gen_allure=no_gen)
         ctx.exit()
     elif mt:
+        click.echo("🚀<AoMaker> 多线程模式准备启动...")
         threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
                     is_gen_allure=no_gen)
         ctx.exit()
+    click.echo("🚀<AoMaker> 单进程模式准备启动...")
     runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
     ctx.exit()
 
@@ -245,11 +252,49 @@ def set_conf_file(env):
 def _handle_dist_mode(d_mark, d_file, d_suite):
     if d_mark:
         params = [f"-m {mark}" for mark in d_mark]
-    elif d_file:
+        mode_msg = "dist-mark"
+        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        return params
+
+    if d_file:
         params = {"path": d_file}
-    else:
+        mode_msg = "dist-file"
+        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        return params
+
+    if d_suite:
         params = d_suite
+        mode_msg = "dist-suite"
+        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        return params
+
+    params = _handle_aomaker_yaml()
+    mode_msg = "dist-mark(aomaker.yaml策略)"
+    click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
     return params
+
+
+def _handle_aomaker_yaml() -> List[Text]:
+    # 1.文件是否存在
+    if not os.path.exists(AOMAKER_YAML_PATH):
+        click.echo(emojize(f':confounded_face: aomaker策略文件{AOMAKER_YAML_PATH}不存在！'))
+        sys.exit(1)
+        # raise FileNotFound(AOMAKER_YAML_PATH)
+    yaml_data = load_yaml(AOMAKER_YAML_PATH)
+    # 2.格式校验
+    content = AomakerYaml(**yaml_data)
+    # 3.取值
+    targets = content.target
+    marks = content.marks
+    d_mark = []
+    for target in targets:
+        if "." in target:
+            target, strategy = target.split(".", 1)
+            marks_li = marks[target][strategy]
+        else:
+            marks_li = marks[target]
+        d_mark.extend([f"-m {mark}" for mark in marks_li])
+    return d_mark
 
 
 def main_arun_alias():

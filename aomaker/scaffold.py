@@ -173,7 +173,7 @@ run(["-s","-m demo","-e testing"])
             testcases/test_api目录下有多少个测试套件，就启动多少个子线程来运行
             
 ================================多进程启动================================
-****注意：windows下暂时不支持，linux支持****
+****注意：windows下暂时不支持，linux和mac支持****
 启动函数：processes_run()           
 参数：
     根据传入参数类型不同，启动不同的多线程分配模式
@@ -214,7 +214,8 @@ class Login(BaseLogin):
         return headers
     """
     create_file(os.path.join(project_name, "login.py"), login_content)
-    create_file(os.path.join(project_name, "hook_manager.py"), "")
+    create_file(os.path.join(project_name, "hooks.py"), "")
+    create_file(os.path.join(project_name, "aomaker.yaml"), "")
     data_path = os.path.join(project_name, "data")
     create_folder(data_path)
     create_folder(os.path.join(data_path, "api_data"))

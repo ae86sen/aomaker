@@ -12,6 +12,8 @@ class QuotedStrParamType(click.ParamType):
         value_repr = f"{value!r}"
         if value_repr.startswith("'") and value_repr.endswith("'"):
             return value.split(' ')
+        elif value is None:
+            return value
         else:
             self.fail(f"{value!r} is must be quoted", param, ctx)
 
