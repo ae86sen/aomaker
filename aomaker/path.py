@@ -21,4 +21,4 @@ PYTEST_INI_DIR = os.path.join(BASEDIR, "pytest.ini")
 # aomaker html路径
 AOMAKER_HTML = os.path.join(REPORT_DIR, "aomaker.html")
 
-AOMAKER_YAML_PATH = os.path.join(BASEDIR, "aomaker.yaml")
+AOMAKER_YAML_PATH = os.path.join(CONF_DIR, "aomaker.yaml")
