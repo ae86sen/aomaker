@@ -90,6 +90,26 @@ class AoMakerLogger:
                               "<level>{message}</level>",  # 日志内容
                        )
 
+    @classmethod
+    def get_level(cls, sink="<stdout>") -> int:
+        """
+        sink:
+            控制台：<stdout>
+            日志文件: 日志文件路径
+        level:
+            5: trace
+            10: debug
+            20: info
+            25: success
+            30: warning
+            40: error
+            50: critical
+        """
+        logger_handlers: dict = cls.logger.__dict__['_core'].__dict__['handlers']
+        for _, h_info in logger_handlers.items():
+            if h_info._name == sink:
+                return h_info._levelno
+
 
 aomaker_logger = AoMakerLogger()
 logger = aomaker_logger.logger

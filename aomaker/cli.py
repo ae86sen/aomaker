@@ -78,9 +78,10 @@ def main(ctx):
               help="Set running log level.")
 @click.option("--mp", "--multi-process", help="Enable multi-process running mode.", is_flag=True)
 @click.option("--mt", "--multi-thread", help="Enable multi-thread running mode.", is_flag=True)
-@click.option("--dist-suite", "d_suite", help="Specifies a dist mode for per worker.")
-@click.option("--dist-file", "d_file", help="Specifies a dist mode for per worker.")
-@click.option("--dist-mark", "d_mark", help="Specifies a dist mode for per worker.", type=QUOTED_STR)
+@click.option("--dist-suite", "d_suite",
+              help="Distribute each test package under the test suite to a different worker.")
+@click.option("--dist-file", "d_file", help="Distribute each test file under the test package to a different worker.")
+@click.option("--dist-mark", "d_mark", help="Distribute each test mark to a different worker.", type=QUOTED_STR)
 @click.option("--no_login", help="Don't login and make headers.", is_flag=True, flag_value=False, default=True)
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
 @click.pass_context
@@ -115,7 +116,7 @@ def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, 
 
 @main.command()
 @click.argument("project_name")
-def startproject(project_name):
+def create(project_name):
     """ Create a new project with template structure.
 
     Arguments:\n
@@ -211,6 +212,7 @@ def record(file_name, filter_str, port, flow_detail, save_response, save_headers
     Arguments:\n
     FILE_NAME: Specify YAML file name.
     """
+
     class Args:
         def __init__(self):
             self.file_name = file_name
@@ -275,15 +277,11 @@ def _handle_dist_mode(d_mark, d_file, d_suite):
 
 
 def _handle_aomaker_yaml() -> List[Text]:
-    # 1.文件是否存在
     if not os.path.exists(AOMAKER_YAML_PATH):
         click.echo(emojize(f':confounded_face: aomaker策略文件{AOMAKER_YAML_PATH}不存在！'))
         sys.exit(1)
-        # raise FileNotFound(AOMAKER_YAML_PATH)
     yaml_data = load_yaml(AOMAKER_YAML_PATH)
-    # 2.格式校验
     content = AomakerYaml(**yaml_data)
-    # 3.取值
     targets = content.target
     marks = content.marks
     d_mark = []

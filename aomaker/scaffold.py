@@ -125,16 +125,13 @@ test:
   account:
     user: 'aomaker'
     pwd: '123456'
-  zone: 'asia'
-  user_id: 'usr-xasdasd'
   
 release:
   host: 'https://release.aomaker.com'
   account:
     user: 'aomaker'
     pwd: '123456'
-  zone: 'eu'
-  user_id: 'usr-jaskdda'
+
 """
     create_file(os.path.join(project_name, "conf", "config.yaml"), config_content)
     utils_config_content = """wechat: 

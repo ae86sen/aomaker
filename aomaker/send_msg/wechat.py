@@ -34,88 +34,11 @@ class WeChatSend:
         self.title = title
         self.report_address = report_address
 
-    def send_text(self, content, mentioned_mobile_list=None):
-        """
-        发送文本类型通知
-        :param content: 文本内容，最长不超过2048个字节，必须是utf8编码
-        :param mentioned_mobile_list: 手机号列表，提醒手机号对应的群成员(@某个成员)，@all表示提醒所有人
-        :return:
-        """
-        _DATA = {"msgtype": "text", "text": {"content": content, "mentioned_list": None,
-                                             "mentioned_mobile_list": mentioned_mobile_list}}
-
-        if mentioned_mobile_list is None or isinstance(mentioned_mobile_list, list):
-            # 判断手机号码列表中得数据类型，如果为int类型，发送得消息会乱码
-            if len(mentioned_mobile_list) >= 1:
-                for i in mentioned_mobile_list:
-                    if isinstance(i, str):
-                        res = requests.post(url=self.curl, json=_DATA, headers=self.headers)
-                        if res.json()['errcode'] != 0:
-                            raise ValueError(f"企业微信「文本类型」消息发送失败")
-
-                    else:
-                        raise TypeError("手机号码必须是字符串类型.")
-        else:
-            raise ValueError("手机号码列表必须是list类型.")
-
-    def send_markdown(self, content):
-        """
-        发送 MarkDown 类型消息
-        :param content: 消息内容，markdown形式
-        :return:
-        """
-        _DATA = {"msgtype": "markdown", "markdown": {"content": content}}
-        res = requests.post(url=self.curl, json=_DATA, headers=self.headers)
+    def _send_markdown(self, content):
+        json_data = {"msgtype": "markdown", "markdown": {"content": content}}
+        res = requests.post(url=self.curl, json=json_data, headers=self.headers)
         if res.json()['errcode'] != 0:
             raise ValueError(f"企业微信「MarkDown类型」消息发送失败")
-
-    def articles(self, article):
-        """
-
-        发送图文消息
-        :param article: 传参示例：{
-               "title" : ”标题，不超过128个字节，超过会自动截断“,
-               "description" : "描述，不超过512个字节，超过会自动截断",
-               "url" : "点击后跳转的链接",
-               "picurl" : "图文消息的图片链接，支持JPG、PNG格式，较好的效果为大图 1068*455，小图150*150。"
-           }
-        如果多组内容，则对象之间逗号隔开传递
-        :return:
-        """
-        _data = {"msgtype": "news", "news": {"articles": [article]}}
-        if isinstance(article, dict):
-            lists = ['description', "title", "url", "picurl"]
-            for i in lists:
-                # 判断所有参数都存在
-                if article.__contains__(i):
-                    res = requests.post(url=self.curl, headers=self.headers, json=_data)
-                    if res.json()['errcode'] != 0:
-                        raise ValueError(f"企业微信「图文类型」消息发送失败")
-                else:
-                    raise ValueError("发送图文消息失败，标题、描述、链接地址、图片地址均不能为空！")
-        else:
-            raise TypeError("图文类型的参数必须是字典类型")
-
-    def _upload_file(self, file):
-        """
-        先将文件上传到临时媒体库
-        """
-        key = self.curl.split("key=")[1]
-        url = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/upload_media?key={key}&type=file"
-        data = {"file": open(file, "rb")}
-        res = requests.post(url, files=data).json()
-        return res['media_id']
-
-    def send_file_msg(self, file):
-        """
-        发送文件类型的消息
-        @return:
-        """
-
-        _data = {"msgtype": "file", "file": {"media_id": self._upload_file(file)}}
-        res = requests.post(url=self.curl, json=_data, headers=self.headers)
-        if res.json()['errcode'] != 0:
-            raise ValueError(f"企业微信「file类型」消息发送失败")
 
     def send_msg(self):
         """发送企业微信通知"""
@@ -134,7 +57,7 @@ class WeChatSend:
                                     >
                                     >测试报告，点击[查看>>测试报告]({self.report_address})"""
 
-        self.send_markdown(text)
+        self._send_markdown(text)
         self.config_db.close()
 
     def send_detail_msg(self, sep="_"):
@@ -165,7 +88,7 @@ class WeChatSend:
                                     >🕓用例执行时长：<font color=\"warning\">{self.duration}</font>
                                     >
                                     >测试报告，点击[查看>>测试报告]({self.report_address})"""
-        self.send_markdown(text)
+        self._send_markdown(text)
         self.config_db.close()
 
 

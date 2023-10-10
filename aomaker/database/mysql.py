@@ -6,14 +6,12 @@ from aomaker.log import logger
 
 class Mysql:
     def __init__(self, **kwargs):
-        # 连接到数据库
         try:
             self.con = pymysql.connect(charset="utf8", **kwargs)
         except Exception as e:
             logger.error(f'数据库连接失败，连接参数：{kwargs}')
             raise e
         else:
-            # 创建一个游标
             self.cur = self.con.cursor()
 
     def get_one(self, sql):

@@ -6,27 +6,6 @@ from pydantic.types import constr
 AssertField = conlist(Any, min_items=2, max_items=3)
 
 
-# JSON = List[Text, int, Any]
-
-
-# class MethodEnumLower(Text, Enum):
-#     get = "get"
-#     post = "post"
-#     put = "put"
-#     delete = "delete"
-#     head = "head"
-#     options = "options"
-#     patch = "patch"
-#
-#
-# class MethodEnum(Text, Enum):
-#     GET = "GET"
-#     POST = "POST"
-#     PUT = "PUT"
-#     DELETE = "DELETE"
-#     HEAD = "HEAD"
-#     OPTIONS = "OPTIONS"
-#     PATCH = "PATCH"
 class AssertFieldEnum(Text, Enum):
     eq = "eq"
     neq = "neq"
@@ -96,3 +75,18 @@ class YamlTestcase(BaseModel):
 class AomakerYaml(BaseModel):
     target: List
     marks: Dict[constr(min_length=1), Union[Dict[Text, List[Text]], List[Text]]]
+
+
+class ExecuteAsyncJobCondition(BaseModel):
+    expr: Text
+    expected_value: Any
+
+
+if __name__ == '__main__':
+    def func(data: dict = None):
+        m = ExecuteAsyncJobCondition(data)
+        print(m)
+
+
+
+    func(None)

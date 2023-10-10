@@ -2,7 +2,6 @@ import os
 import sqlite3
 import threading
 
-from aomaker.database.base_db import SQLBase
 from aomaker._constants import DataBase
 from aomaker.path import DB_DIR
 
@@ -11,7 +10,7 @@ DB_PATH = os.path.join(DB_DIR, DataBase.DB_NAME)
 lock = threading.RLock()
 
 
-class SQLiteDB(SQLBase):
+class SQLiteDB:
 
     def __init__(self, db_path=DB_PATH):
         """
@@ -27,7 +26,7 @@ class SQLiteDB(SQLBase):
         """
         self.connection.close()
 
-    def execute_sql(self, sql, *args, **kwargs):
+    def execute_sql(self, sql: str, *args, **kwargs):
         """
         Execute SQL
         """
@@ -35,7 +34,7 @@ class SQLiteDB(SQLBase):
             self.cursor.execute(sql, *args, **kwargs)
             self.connection.commit()
 
-    def insert_data(self, table, data):
+    def insert_data(self, table: str, data: dict):
         """
         insert sql statement
         """
@@ -46,7 +45,7 @@ class SQLiteDB(SQLBase):
         sql = """INSERT INTO {t} ({k}) VALUES ({v})""".format(t=table, k=key, v=value)
         self.execute_sql(sql)
 
-    def query_sql(self, sql, *args, **kwargs):
+    def query_sql(self, sql: str, *args, **kwargs):
         """
         Query SQL
         return: query data
@@ -58,16 +57,16 @@ class SQLiteDB(SQLBase):
                 data_list.append(row)
             return data_list
 
-    def select_data(self, table, where: dict = None):
+    def select_data(self, table: str, where: dict = None):
         """
         select sql statement
         """
-        sql = """select * from {} """.format(table)
+        sql = """select * from {}""".format(table)
         if where is not None:
             sql += 'where {};'.format(self.dict_to_str_and(where))
         return self.query_sql(sql)
 
-    def update_data(self, table, data, where: dict):
+    def update_data(self, table: str, data: dict, where: dict):
         """
         update sql statement
         """
@@ -77,7 +76,7 @@ class SQLiteDB(SQLBase):
             sql += ' where {};'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
-    def delete_data(self, table, where: dict = None):
+    def delete_data(self, table: str, where: dict = None):
         """
         delete table data
         """
@@ -86,7 +85,7 @@ class SQLiteDB(SQLBase):
             sql += ' where {};'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
-    def init_table(self, table_data):
+    def init_table(self, table_data: dict):
         """
         init table data
         """
@@ -95,6 +94,38 @@ class SQLiteDB(SQLBase):
             for data in data_list:
                 self.insert_data(table, data)
         self.close()
+
+    @staticmethod
+    def dict_to_str(data: dict) -> str:
+        """
+        dict to set str
+        """
+        tmp_list = []
+        for key, value in data.items():
+            if value is None:
+                tmp = "{k}={v}".format(k=key, v='null')
+            elif isinstance(value, int):
+                tmp = "{k}={v}".format(k=key, v=str(value))
+            else:
+                tmp = "{k}='{v}'".format(k=key, v=value)
+            tmp_list.append(tmp)
+        return ','.join(tmp_list)
+
+    @staticmethod
+    def dict_to_str_and(conditions: dict) -> str:
+        """
+        dict to where and str
+        """
+        tmp_list = []
+        for key, value in conditions.items():
+            if value is None:
+                tmp = "{k}={v}".format(k=key, v='null')
+            elif isinstance(value, int):
+                tmp = "{k}={v}".format(k=key, v=str(value))
+            else:
+                tmp = "{k}='{v}'".format(k=key, v=value)
+            tmp_list.append(tmp)
+        return ' and '.join(tmp_list)
 
 
 if __name__ == '__main__':

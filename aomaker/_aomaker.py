@@ -2,8 +2,9 @@
 import json
 import os
 import importlib
-from typing import List, Dict, Callable, Text, Tuple
+from typing import List, Dict, Callable, Text, Tuple, Union
 from functools import wraps
+from dataclasses import dataclass as dc, field
 
 import yaml
 import click
@@ -13,8 +14,9 @@ from genson import SchemaBuilder
 from aomaker.cache import cache
 from aomaker.log import logger
 from aomaker.path import BASEDIR
-from aomaker.exceptions import FileNotFound, YamlKeyError
+from aomaker.exceptions import FileNotFound, YamlKeyError, JsonPathExtractFailed
 from aomaker.hook_manager import _cli_hook, _session_hook
+from aomaker.models import ExecuteAsyncJobCondition
 
 
 def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, *out_args, **out_kwargs):
@@ -54,7 +56,8 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
     return decorator
 
 
-def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0, *out_args, **out_kwargs):
+def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index=0, condition: Dict = None, *out_args,
+              **out_kwargs):
     """
     异步接口装饰器
     目标接口请求完成后，根据jsonpath表达式从其响应结果中提取异步任务id，
@@ -63,25 +66,32 @@ def async_api(cycle_func: Callable, jsonpath_expr: Text, expr_index=0, *out_args
     :param cycle_func: 轮询函数
     :param jsonpath_expr: 异步任务id提取表达式
     :param expr_index: jsonpath提取索引，默认为0
+    :param condition: 是否执行轮询函数的条件，默认执行。如果传了condition，那么当满足condition时执行cycle_func，不满足不执行。
+            example：
+                condition = {"expr":"ret_code","expected_value":0}
+                当返回值中的ret_code == 0时，会去执行cycle_func进行异步任务检查，反之不执行。
     :return:
     """
 
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            r = func(*args, **kwargs)
-            logger.info(f"==========后置异步接口断言开始<{func.__name__}>: 轮询函数<{cycle_func.__name__}>==========")
-            try:
-                job_id = jsonpath(r, jsonpath_expr)[expr_index]
-            except TypeError as te:
-                logger.error(f"响应异常，异步任务id提取失败\n响应：{r}")
-                raise te
-            except IndexError as ie:
-                logger.error(f"索引异常，异步任务id提取失败\n索引：{expr_index}\n响应：{r}")
-                raise ie
-            cycle_func(job_id, *out_args, **out_kwargs)
-            logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")
-            return r
+            resp = func(*args, **kwargs)
+            is_execute = _is_execute_cycle_func(resp, condition=condition)
+            if is_execute:
+                job_id = _handle_jsonpath_extract(resp, jsonpath_expr, expr_index=expr_index)
+                if job_id is None:
+                    if condition is None:
+                        raise JsonPathExtractFailed(res=resp, jsonpath_expr=jsonpath_expr)
+                    return resp
+
+                logger.info(
+                    f"==========后置异步接口断言开始<{func.__name__}>: 轮询函数<{cycle_func.__name__}>==========")
+                cycle_func(job_id, *out_args, **out_kwargs)
+                logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")
+            else:
+                logger.info(f"==========后置异步接口不满足执行条件，不执行<{func.__name__}>==========")
+            return resp
 
         return wrapper
 
@@ -166,6 +176,28 @@ def genson(data):
     return to_schema
 
 
+def dataclass(cls):
+    @property
+    def all_fields(self):
+        return self.__dict__
+
+    cls.all_fields = all_fields
+
+    for field_name, field_type in cls.__annotations__.items():
+        if field_name not in cls.__dict__:
+            # 跳过必须字段
+            continue
+        if field_type is list:
+            default_value = getattr(cls, field_name, [])
+            if default_value is not None:
+                setattr(cls, field_name, field(default_factory=lambda: list(default_value)))
+        elif field_type is dict:
+            default_value = getattr(cls, field_name, {})
+            if default_value is not None:
+                setattr(cls, field_name, field(default_factory=lambda: dict(default_value)))
+    return dc(cls)
+
+
 def _call_dependence(dependent_api: Callable or Text, api_name: Text, imp_module, *out_args,
                      **out_kwargs) -> Tuple:
     if isinstance(dependent_api, str):
@@ -244,6 +276,32 @@ def _get_module_name_by_method_obj(method_obj) -> Text:
     rel_path = os.path.relpath(module_path, cur_dir)
     module_name = os.path.splitext(rel_path)[0].replace(os.path.sep, '.')
     return module_name
+
+
+def _handle_jsonpath_extract(resp, jsonpath_expr, expr_index=0):
+    if isinstance(jsonpath_expr, str):
+        jsonpath_expr = [jsonpath_expr]
+
+    for expr in jsonpath_expr:
+        extract_res = jsonpath(resp, expr)
+        if extract_res:
+            return extract_res[expr_index]
+
+    # raise JsonPathExtractFailed(res=resp, jsonpath_expr=jsonpath_expr)
+
+
+def _is_execute_cycle_func(res, condition=None) -> bool:
+    if condition is None:
+        return True
+    data = ExecuteAsyncJobCondition(**condition)
+    expr = data.expr
+    expected_value = data.expected_value
+    res = jsonpath(res, expr)
+    if res is False:
+        raise JsonPathExtractFailed(res=res, jsonpath_expr=expr)
+    if res[0] == expected_value:
+        return True
+    return False
 
 
 if __name__ == '__main__':

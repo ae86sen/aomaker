@@ -84,8 +84,6 @@ class YamlParse:
         test_module_path = os.path.join(test_scenario_dir, f'test_{class_name.lower()}')
         testcase_file_path = f'{test_module_path}.py'
         scenario_data_file_path = os.path.join(scenario_data_dir, f'{class_name}.yaml')
-        # 如果测试模块不存在，进行创建
-        # if not os.path.exists(testcase_file_path):
         # 2.确定有哪些ao
         #  剔除重复的请求
         ao_list = utils.distinct_req(self.steps)
@@ -148,10 +146,6 @@ class YamlParse:
         self._make_api_testcase_file(api_render_data, test_api_dir)
         # 场景用例文件生成
         self._make_scenario_testcase_file(render_data, testcase_file_path)
-        # logger.info(f'make {testcase_file_path} successfully!')
-        # else:
-        #     # 不支持追加用例
-        #     logger.warning(f'make {testcase_file_path} failed, the file already exists!')
 
         logger.info('用例文件已全部生成!')
 
@@ -313,8 +307,6 @@ class YamlParse:
             assert_dict['comparator'] = "assert_" + comparator
             assert_dict['expr'] = assert_data[0]
             assert_dict['expect'] = assert_data[-1]
-            # 判断jsonpath是否有index，没有就默认为0
-            # assert_dict['index'] = 0
             assert_dict['index'] = assert_data[1] if len(assert_data) == 3 else 0
             # if len(assert_data) == 3:
             #     assert_dict['index'] = assert_data[1]
@@ -376,7 +368,3 @@ def remove_dependent_api(ao_list: list) -> list:
                     dep_apis.append(x)
     return dep_apis
 
-
-if __name__ == '__main__':
-    yml = YamlParse(r'D:\项目列表\aomaker\ehpc\hpc.yaml')
-    yml.make_ao_file()

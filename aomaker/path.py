@@ -6,6 +6,8 @@ BASEDIR = os.getcwd()
 # BASEDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 配置文件的路径
 CONF_DIR = os.path.join(BASEDIR, "conf")
+# API目录
+API_DIR = os.path.join(BASEDIR, "apis")
 # 用例数据的目录
 DATA_DIR = os.path.join(BASEDIR, "data")
 # 日志文件目录
