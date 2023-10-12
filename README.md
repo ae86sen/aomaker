@@ -64,14 +64,14 @@ class Instance(BaseApi):
     @aomaker.dependence(image_api.describe_images, "describe_images")
     @aomaker.dependence("instance.describe_instance_types", "instance_types", imp_module="apis.iaas.instance.instance")
     @aomaker.async_api(ins_listener, "instances")
-    def create_instance(self, test_data:dict, **kw_params):
+    def create_instance(self, test_data: dict, **kw_params):
         """创建主机"""
 
-        kw_params["describe_images"] = self.cache.get_by_jsonpath("describe_images","$..image_id")
-        kw_params["instance_types"] = self.cache.get_by_jsonpath("instance_types","$..instance_type_id")
+        kw_params["describe_images"] = self.cache.get_by_jsonpath("describe_images", "$..image_id")
+        kw_params["instance_types"] = self.cache.get_by_jsonpath("instance_types", "$..instance_type_id")
 
-		kw_params["cpu"] = test_data["cpu"]
-		kw_params["memory"] = test_data["memory"]
+        kw_params["cpu"] = test_data["cpu"]
+        kw_params["memory"] = test_data["memory"]
 
         params_model = model.RunInstanceModel(**kw_params)
         resp = self.send_http(params_model)
