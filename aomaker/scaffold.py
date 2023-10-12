@@ -134,6 +134,7 @@ release:
 
 """
     create_file(os.path.join(project_name, "conf", "config.yaml"), config_content)
+    create_file(os.path.join(project_name, "conf", "aomaker.yaml"), "")
     utils_config_content = """wechat: 
     webhook:
     """
@@ -212,7 +213,6 @@ class Login(BaseLogin):
     """
     create_file(os.path.join(project_name, "login.py"), login_content)
     create_file(os.path.join(project_name, "hooks.py"), "")
-    create_file(os.path.join(project_name, "aomaker.yaml"), "")
     data_path = os.path.join(project_name, "data")
     create_folder(data_path)
     create_folder(os.path.join(data_path, "api_data"))
