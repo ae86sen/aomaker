@@ -218,7 +218,8 @@ class YamlParse:
             content = Temp.TEMP_SCENARIO_CASE.render(render_data)
             with open(testcase_file_path, mode='w', encoding='utf-8') as f:
                 f.write(content)
-            subprocess.run(f'black {testcase_file_path}')
+            # subprocess.run(f'black {testcase_file_path}')
+            os.system(f'black {testcase_file_path}')
         else:
             print(f'{testcase_file_path} 已存在！')
 

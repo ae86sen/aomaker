@@ -69,7 +69,8 @@ def create_scaffold(project_name):
 
     def get_table_attribute(table_name: str):
         tables_attr = {
-            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE, 'worker': DB.CACHE_WORKER},
+            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE, 'worker': DB.CACHE_WORKER,
+                             'api_info': DB.CACHE_API_INFO},
             DB.CONFIG_TABLE: {'key': DB.CONFIG_KEY, 'value': DB.CONFIG_VALUE},
             DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA}
         }

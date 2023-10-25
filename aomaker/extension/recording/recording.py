@@ -51,7 +51,7 @@ class Record:
             flow_dic['class_name'] = ''
             flow_dic['method_name'] = ''
             flow_dic['request'] = {
-                'url_path': self.handle_path(path_components),
+                'api_path': self.handle_path(path_components),
                 'method': method
             }
             # 处理url中有请求参数的情况
@@ -60,7 +60,7 @@ class Record:
                 flow_dic['request']['params'] = query_fields
                 # 处理请求参数是action的情况
                 action_fields = query_fields.get('action')
-                if action_fields and flow_dic['request']['url_path'] == '/api/':
+                if action_fields and flow_dic['request']['api_path'] == '/api/':
                     utils.handle_class_method_name(API, action_fields, flow_dic)
                     # self.handle_class_method_name(API, action_fields, flow_dic)
             if content_type:
