@@ -60,7 +60,8 @@ class AoMakerLogger:
                                    "[{process.name}]-"
                                    "[{thread.name}]-"
                                    "[{module}.{function}:{line}]-[{level}]:{message}",
-                            rotation="10 MB")
+                            rotation="10 MB",
+                            encoding="utf-8")
             file_log_handler_flag += 1
 
     def allure_handler(self, level, is_processes=False):
