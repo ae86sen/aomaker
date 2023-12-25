@@ -1,13 +1,12 @@
 # --coding:utf-8--
 import os
 import sys
-from typing import List, Text
-
-import click
 import inspect
+from typing import List, Text
 from importlib import import_module
 
-import yaml
+import click
+from ruamel.yaml import YAML
 from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
 
@@ -29,7 +28,7 @@ from aomaker.models import AomakerYaml
 SUBCOMMAND_RUN_NAME = "run"
 HOOK_MODULE_NAME = "hooks"
 plugin_path = os.path.join(BASEDIR, f'{HOOK_MODULE_NAME}.py')
-
+yaml = YAML()
 
 class OptionHandler:
     def __init__(self):
@@ -238,13 +237,13 @@ def set_conf_file(env):
     conf_path = os.path.join(CONF_DIR, Conf.CONF_NAME)
     if os.path.exists(conf_path):
         with open(conf_path) as f:
-            doc = yaml.safe_load(f)
+            doc = yaml.load(f)
         doc['env'] = env
         if not doc.get(env):
             click.echo(emojize(f'	:confounded_face: 测试环境-{env}还未在配置文件中配置！'))
             sys.exit(1)
         with open(conf_path, 'w') as f:
-            yaml.safe_dump(doc, f, default_flow_style=False)
+            yaml.dump(doc, f)
         click.echo(emojize(f':rocket:<AoMaker> 当前测试环境: {env}'))
     else:
         click.echo(emojize(f':confounded_face: 配置文件{conf_path}不存在'))
