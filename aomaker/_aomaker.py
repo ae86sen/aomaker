@@ -98,19 +98,31 @@ def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index
     return decorator
 
 
-def update(var_name: Text, *out_args, **out_kwargs):
+def update(var_name: Text, extractor: Callable[[Any], Any] = None, *out_args, **out_kwargs):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # 调用原始函数获取完整的响应数据
             resp = func(*args, **kwargs)
             api_name = func.__name__
+
+            # 检查缓存中是否有需要更新的变量
             if cache.get(var_name):
-                logger.info(f"==========cache变量<{var_name}>开始更新==========")
+                logger.info(f"==========缓存变量<{var_name}>开始更新==========")
                 api_info = cache.get(var_name, select_field="api_info")
+                # 调用依赖函数来更新缓存中的数据
                 dependence_res = _call_dependence_for_update(api_info, *out_args, **out_kwargs)
-                cache.update(var_name, dependence_res)
-                logger.info(f"==========<{api_name}>cache更新<{api_info.get('name')}>结束==========")
-            return resp
+
+                # 如果提供了extractor函数，则使用它处理响应数据
+                if extractor:
+                    logger.info(f"开始使用 extractor 函数处理<{api_name}>的数据。")
+                    extracted_data = extractor(dependence_res)
+                    logger.info(f"使用 extractor 函数处理<{api_name}>的数据完成。")
+                    cache.update(var_name, extracted_data)
+                else:
+                    cache.update(var_name, dependence_res)
+
+                logger.info(f"==========<{api_name}>缓存更新<{api_info.get('name')}>结束==========")
 
         return wrapper
 
