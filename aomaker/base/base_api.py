@@ -61,7 +61,9 @@ def response_callback(payload: dict):
         caller_of_class = caller_class_obj.__class__.__name__
         caller_of_method = api_caller.f_code.co_name
         caller_name = f"{caller_of_class}.{caller_of_method}"
-        doc = caller_class_obj.__class__.__dict__[caller_of_method].__doc__
+       # 使用getattr,兼容继承BaseApi 重写send_http 后包KeyError 的情况 
+        method_ref = getattr(caller_class_obj, caller_of_method, None)
+        doc = method_ref.__doc__ if method_ref and method_ref.__doc__ else ""
         doc = doc.split("\n")[0].strip() if doc else ""
         caller_name = f"{caller_name} {doc}"
 
