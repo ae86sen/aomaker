@@ -6,6 +6,7 @@ class DataBase:
     CONFIG_TABLE = 'config'
     CACHE_TABLE = 'cache'
     SCHEMA_TABLE = 'schema'
+    STATS_TABLE = 'statistics'
     CACHE_VAR_NAME = 'var_name'
     CACHE_RESPONSE = 'response'
     CACHE_WORKER = 'worker'
@@ -14,6 +15,10 @@ class DataBase:
     CONFIG_VALUE = 'value'
     SCHEMA_API_NAME = 'api_name'
     SCHEMA_SCHEMA = 'schema'
+    STATS_MODULE = 'module'
+    STATS_PACKAGE = 'package'
+    STATS_CLASS = 'class'
+    STATS_API = 'api'
 
 
 # log

@@ -4,6 +4,7 @@ import threading
 
 from aomaker._constants import DataBase
 from aomaker.path import DB_DIR
+from aomaker.log import logger
 
 DB_PATH = os.path.join(DB_DIR, DataBase.DB_NAME)
 
@@ -19,6 +20,7 @@ class SQLiteDB:
         # check_same_thread=False
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.connection.cursor()
+        self.table = None
 
     def close(self):
         """
@@ -61,8 +63,8 @@ class SQLiteDB:
         """
         select sql statement
         """
-        sql = """select * from {}""".format(table)
-        if where is not None:
+        sql = """select * from {} """.format(table)
+        if where:
             sql += 'where {};'.format(self.dict_to_str_and(where))
         return self.query_sql(sql)
 
@@ -126,6 +128,28 @@ class SQLiteDB:
                 tmp = "{k}='{v}'".format(k=key, v=value)
             tmp_list.append(tmp)
         return ' and '.join(tmp_list)
+
+    def clear(self):
+        """清空表"""
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
+
+    def count(self):
+        """数量统计"""
+        sql = f"""select count(*) from {self.table}"""
+        try:
+            res = self.query_sql(sql)[0][0]
+        except IndexError:
+            logger.error(f"{self.table}表数据统计失败！")
+            res = None
+        return res
 
 
 if __name__ == '__main__':

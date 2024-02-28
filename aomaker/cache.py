@@ -5,6 +5,7 @@ import json
 from jsonpath import jsonpath
 from multiprocessing import current_process
 from threading import current_thread
+from tabulate import tabulate
 
 from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
@@ -50,18 +51,6 @@ class Config(SQLiteDB):
             dic[m[0]] = json.loads(m[1])
         return dic
 
-    def clear(self):
-        """清空表"""
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
-
-    def del_(self, where: dict = None):
-        """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
-
 
 class Schema(SQLiteDB):
     def __init__(self):
@@ -85,27 +74,6 @@ class Schema(SQLiteDB):
             return None
         res = json.loads(res)
 
-        return res
-
-    def clear(self):
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
-
-    def del_(self, where: dict = None):
-        """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
-
-    def count(self):
-        """数量统计"""
-        sql = f"""select count(*) from {self.table}"""
-        try:
-            res = self.query_sql(sql)[0][0]
-        except IndexError:
-            logger.error("shema表数据统计失败！")
-            res = None
         return res
 
 
@@ -156,20 +124,25 @@ class Cache(SQLiteDB):
         res = self.get(key)
         extract_var = jsonpath(res, jsonpath_expr)
         if extract_var is False:
-            raise JsonPathExtractFailed(res,jsonpath_expr)
+            raise JsonPathExtractFailed(res, jsonpath_expr)
         extract_var = extract_var[expr_index]
         return extract_var
 
-    def clear(self):
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
 
-    def del_(self, where: dict = None):
-        """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
+class Stats(SQLiteDB):
+    def __init__(self):
+        super(Stats, self).__init__()
+        self.table = DataBase.STATS_TABLE
+
+    def set(self, *, package: str, module: str, api_class: str, api: str):
+        sql = f"""insert into {self.table} (package,module,class,api) values (:package,:module,:api_class,:api)"""
+        self.execute_sql(sql, (package, module, api_class, api))
+
+    def get(self, conditions: dict = None):
+        return self.select_data(table=self.table, where=conditions)
+        # headers = ["Package", "Module", "Class", "API"]
+        # print(f"Total APIs: {len(table_data)}")
+        # return tabulate(table_data, headers=headers, tablefmt="grid")
 
 
 def _get_worker():
@@ -185,3 +158,4 @@ def _get_worker():
 cache = Cache()
 config = Config()
 schema = Schema()
+stats = Stats()
