@@ -3,6 +3,9 @@ import os
 import sys
 import logging
 from datetime import datetime
+from glob import glob
+from multiprocessing import current_process
+
 from loguru import logger as uru_logger
 
 from aomaker.path import LOG_DIR
@@ -118,11 +121,15 @@ class AoMakerLogger:
                 return h_info._levelno
 
     @staticmethod
-    def rotate_log_file(log_file_path):
-        if os.path.exists(log_file_path):
+    def rotate_log_file(log_file_path, log_retention_count: int = 10):
+        if os.path.exists(log_file_path) and current_process().name == "MainProcess":
             new_log_name = f"log-{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
             new_log_file_path = os.path.join(LOG_DIR, new_log_name)
             os.rename(log_file_path, new_log_file_path)
+
+            old_logs = sorted(glob(os.path.join(LOG_DIR, "log-*.log")))
+            for old_log in old_logs[:-log_retention_count]:
+                os.remove(old_log)
 
 
 aomaker_logger = AoMakerLogger()
