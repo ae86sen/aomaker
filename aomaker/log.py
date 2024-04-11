@@ -2,6 +2,7 @@
 import os
 import sys
 import logging
+from datetime import datetime
 from loguru import logger as uru_logger
 
 from aomaker.path import LOG_DIR
@@ -24,6 +25,7 @@ class AoMakerLogger:
 
     # log level: TRACE < DEBUG < INFO < SUCCESS < WARNING < ERROR < CRITICAL
     def __init__(self, level: str = Log.DEFAULT_LEVEL, log_file_path=log_path):
+        self.rotate_log_file(log_file_path)
         self.stdout_handler(level="info")
         self.file_handler(level=level, log_file_path=log_file_path)
         # 多线程不开启allure日志，日志会被打乱
@@ -57,12 +59,12 @@ class AoMakerLogger:
         # 控制只添加一个file_handler
         if file_log_handler_flag == 0:
             self.logger.add(log_file_path, level=level.upper(),
-                                 format="{time:YYYY-MM-DD HH:mm:ss} "
-                                        "[{process.name}]-"
-                                        "[{thread.name}]-"
-                                        "[{module}.{function}:{line}]-[{level}]:{message}",
-                                 rotation="10 MB",
-                                 encoding="utf-8")
+                            format="{time:YYYY-MM-DD HH:mm:ss} "
+                                   "[{process.name}]-"
+                                   "[{thread.name}]-"
+                                   "[{module}.{function}:{line}]-[{level}]:{message}",
+                            retention=10,
+                            encoding="utf-8")
             file_log_handler_flag += 1
 
     def allure_handler(self, level, is_processes=False):
@@ -74,8 +76,8 @@ class AoMakerLogger:
                 _format = "[{process.name}]-[{module}.{function}:{line}]-[{level}]:{message}"
 
             self.logger.add(AllureHandler(),
-                                 level=level.upper(),
-                                 format=_format)
+                            level=level.upper(),
+                            format=_format)
             allure_log_handler_flag += 1
 
     @classmethod
@@ -114,6 +116,13 @@ class AoMakerLogger:
         for _, h_info in logger_handlers.items():
             if h_info._name == sink:
                 return h_info._levelno
+
+    @staticmethod
+    def rotate_log_file(log_file_path):
+        if os.path.exists(log_file_path):
+            new_log_name = f"log-{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
+            new_log_file_path = os.path.join(LOG_DIR, new_log_name)
+            os.rename(log_file_path, new_log_file_path)
 
 
 aomaker_logger = AoMakerLogger()
