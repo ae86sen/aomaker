@@ -16,6 +16,7 @@ from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
 from aomaker.report import gen_reports
 from aomaker.hook_manager import _cli_hook, _session_hook
+from aomaker.pytest_plugins import plugins
 
 allure_json_dir = os.path.join(REPORT_DIR, "json")
 RUN_MODE = {
@@ -27,6 +28,7 @@ RUN_MODE = {
 
 def fixture_session(func):
     """全局夹具装饰器"""
+
     def wrapper(*args, **kwargs):
         # Login登录类对象
         login = kwargs.get('login')
@@ -57,6 +59,7 @@ class Runner:
                             "--log-format=%(asctime)s %(message)s",
                             "--log-date-format=%Y-%m-%d %H:%M:%S"
                             ]
+        self.pytest_plugins = plugins
         aomaker_logger.allure_handler("debug", is_processes=is_processes)
 
     @fixture_session
@@ -69,7 +72,7 @@ class Runner:
         logger.info(f"<AoMaker> pytest的执行参数：{args}")
         if pytest_opts:
             logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
-        pytest.main(args)
+        pytest.main(args, plugins=self.pytest_plugins)
         if is_gen_allure:
             self.allure_env_prop()
             self.gen_allure()
@@ -186,7 +189,7 @@ class ProcessesRunner(Runner):
         p = Pool(process_count)
         logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
         for arg in make_args_group(task_args, extra_args):
-            p.apply_async(main_task, args=(arg,))
+            p.apply_async(main_task, args=(arg, self.pytest_plugins))
         p.close()
         p.join()
         if is_gen_allure:
@@ -215,7 +218,7 @@ class ThreadsRunner(Runner):
         thread_count = len(task_args)
         tp = ThreadPoolExecutor(max_workers=thread_count)
         logger.info(f"<AoMaker> 多线程任务启动，线程数：{thread_count}")
-        _ = [tp.submit(main_task, arg) for arg in make_args_group(task_args, extra_args)]
+        _ = [tp.submit(main_task, arg, self.pytest_plugins) for arg in make_args_group(task_args, extra_args)]
         wait(_, return_when=ALL_COMPLETED)
         tp.shutdown()
         if is_gen_allure:
@@ -224,13 +227,13 @@ class ThreadsRunner(Runner):
             gen_reports()
 
 
-def main_task(args: list):
+def main_task(args: list, pytest_plugins: list):
     """pytest启动"""
     pytest_opts = _get_pytest_ini()
     logger.info(f"<AoMaker> pytest的执行参数：{args}")
     if pytest_opts:
         logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
-    pytest.main(args)
+    pytest.main(args, plugins=pytest_plugins)
 
 
 def make_args_group(args: list, extra_args: list):
