@@ -61,9 +61,6 @@ def response_callback(payload: dict):
         caller_of_class = caller_class_obj.__class__.__name__
         caller_of_method = api_caller.f_code.co_name
         caller_name = f"{caller_of_class}.{caller_of_method}"
-        # doc = caller_class_obj.__class__.__dict__[caller_of_method].__doc__  # 原代码
-
-        # 获取方法的文档字符串，无论它在当前类还是父类中定义
         method_ref = getattr(caller_class_obj, caller_of_method, None)
         doc = method_ref.__doc__ if method_ref and method_ref.__doc__ else ""
         doc = doc.split("\n")[0].strip() if doc else ""
@@ -102,16 +99,6 @@ def response_callback(payload: dict):
 
     return inner
 
-# 原代码
-# def _get_api_frame():
-#     current_frame = inspect.currentframe()
-#     outer_frames = inspect.getouterframes(current_frame)
-#     for frame_info in outer_frames[8:]:
-#         frame = frame_info.frame
-#         filename = frame_info.filename
-#         if API_DIR in filename:
-#             return frame
-
 
 def _get_api_frame():
     current_frame = inspect.currentframe()
@@ -120,7 +107,6 @@ def _get_api_frame():
         frame = frame_info.frame
         code = frame.f_code
         filename = frame_info.filename
-         # 修复子类重写send_http方法后,获取到的始终是调用类.send_http
         if API_DIR in filename and code.co_name != 'send_http':
             return frame
 
