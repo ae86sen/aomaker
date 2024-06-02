@@ -1,4 +1,4 @@
-from aomaker.cache import cache, _get_worker
+from aomaker.cache import cache
 
 deselected_cases = 0
 
@@ -24,9 +24,6 @@ def pytest_runtest_teardown(item, nextitem):
     completed = item.config.completed_cases
     total = item.config.total_cases - deselected_cases
     progress = (completed / total) * 100
-    worker = _get_worker()
-    cache.set(f"_progress.{worker}", {"total": total, "completed": completed}, is_rewrite=True)
-    print(f"Progress: {completed}/{total} tests completed ({progress:.2f}%)")
+    cache.set(f"_progress.{cache.worker}", {"total": total, "completed": completed}, is_rewrite=True)
+    print(f"Test Progress: {completed}/{total} cases completed ({progress:.2f}%)")
 
-
-plugins = [pytest_configure, pytest_collection_modifyitems, pytest_deselected, pytest_runtest_teardown]

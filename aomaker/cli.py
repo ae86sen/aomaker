@@ -3,10 +3,13 @@ import os
 import re
 import sys
 import inspect
+import webbrowser
 from typing import List, Text
 from importlib import import_module
+from threading import Timer
 
 import click
+import uvicorn
 from ruamel.yaml import YAML
 from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
@@ -27,6 +30,7 @@ from aomaker.extension.recording import filter_expression, main_record
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
 from aomaker.cache import stats
+from aomaker.service import app
 
 SUBCOMMAND_RUN_NAME = "run"
 HOOK_MODULE_NAME = "hooks"
@@ -208,36 +212,36 @@ def har2y(har_path, yaml_path, filter_str, exclude_str, save_response, save_head
     click.echo(emojize(":beer_mug: har转换yaml完成！"))
 
 
-@main.command()
-@click.argument("file_name")
-@click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
-@click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
-@click.option("--flow_detail", type=int, default=0, help="""
-    The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
-    0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
-    1: full request URL with response status code.\n
-    2: 1 + HTTP headers.\n
-    3: 2 + truncated response content, content of WebSocket and TCP messages.\n
-    4: 3 + nothing is truncated.\n""")
-@click.option("--save_response", is_flag=True, help="Save response.")
-@click.option("--save_headers", is_flag=True, help="Save headers.")
-def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
-    """Record flows: parse command line options and run commands.
-
-    Arguments:\n
-    FILE_NAME: Specify YAML file name.
-    """
-
-    class Args:
-        def __init__(self):
-            self.file_name = file_name
-            self.filter_str = filter_str
-            self.port = port
-            self.level = flow_detail
-            self.save_response = save_response
-            self.save_headers = save_headers
-
-    main_record(Args())
+# @main.command()
+# @click.argument("file_name")
+# @click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
+# @click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
+# @click.option("--flow_detail", type=int, default=0, help="""
+#     The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
+#     0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
+#     1: full request URL with response status code.\n
+#     2: 1 + HTTP headers.\n
+#     3: 2 + truncated response content, content of WebSocket and TCP messages.\n
+#     4: 3 + nothing is truncated.\n""")
+# @click.option("--save_response", is_flag=True, help="Save response.")
+# @click.option("--save_headers", is_flag=True, help="Save headers.")
+# def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
+#     """Record flows: parse command line options and run commands.
+#
+#     Arguments:\n
+#     FILE_NAME: Specify YAML file name.
+#     """
+#
+#     class Args:
+#         def __init__(self):
+#             self.file_name = file_name
+#             self.filter_str = filter_str
+#             self.port = port
+#             self.level = flow_detail
+#             self.save_response = save_response
+#             self.save_headers = save_headers
+#
+#     main_record(Args())
 
 
 @show.command(name="stats")
@@ -271,6 +275,19 @@ def query_stats(package, module, class_, api, showindex):
 def gen_stats():
     generate_apis()
     print("接口统计完毕！")
+
+
+@main.command(help="Start a FastAPI web service.")
+@click.option('--web', is_flag=True, help="Open the web interface in a browser.")
+@click.option('--port', default=8000, help="Specify the port number to run the server on. Default is 8000.")
+def service(web, port):
+    progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
+    def open_web(url):
+        webbrowser.open(url)
+
+    if web:
+        Timer(2, open_web, args=[progress_url]).start()
+    uvicorn.run(app, host="127.0.0.1", port=port)
 
 
 def _handle_login(is_login: bool):

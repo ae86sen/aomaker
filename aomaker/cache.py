@@ -82,10 +82,25 @@ class Cache(SQLiteDB):
         super(Cache, self).__init__()
         self.table = DataBase.CACHE_TABLE
 
-    def set(self, key: str, value, api_info=None):
+    @property
+    def worker(self):
+        run_mode = config.get("run_mode")
+        worker = {
+            "main": "MainProcess",
+            "mt": current_thread().name,
+            "mp": current_process().name
+        }
+        return worker[run_mode]
+
+    def set(self, key: str, value, api_info=None, is_rewrite=False):
+        worker = self.worker
         sql = f"""insert into {self.table} (var_name,response,worker) values (:key,:value,:worker)"""
-        worker = _get_worker()
-        if self.get(key) is not None:
+        resp = self.get(key)
+        if resp is not None:
+            if is_rewrite is True:
+                resp.update(value)
+                sql = "update {} set response=? where var_name=? and worker=?".format(self.table)
+                self.execute_sql(sql, (json.dumps(resp), key, worker))
             logger.debug(f"缓存插入重复数据, key:{key}，worker:{worker}，已被忽略！")
             return
         try:
@@ -98,14 +113,14 @@ class Cache(SQLiteDB):
             raise e
 
     def update(self, key, value):
+        worker = self.worker
         key_value = {"response": json.dumps(value)}
-        worker = _get_worker()
         condition = {"worker": worker, "var_name": key}
         self.update_data(self.table, key_value, where=condition)
         logger.info(f"缓存数据更新完成, 表：{self.table},\n var_name: {key},\n response: {value},\n worker: {worker}")
 
     def get(self, key: str, select_field="response"):
-        worker = _get_worker()
+        worker = self.worker
         if key == "headers":
             sql = f"""select {select_field} from {self.table} where var_name=:key"""
             query_res = self.query_sql(sql, (key,))
@@ -127,6 +142,12 @@ class Cache(SQLiteDB):
             raise JsonPathExtractFailed(res, jsonpath_expr)
         extract_var = extract_var[expr_index]
         return extract_var
+
+    def get_like(self, pattern: str):
+        sql = f"""select distinct var_name from {self.table} where var_name like :pattern"""
+        query_res = self.query_sql(sql, (pattern,))
+        keys = [row[0] for row in query_res]
+        return keys
 
 
 class Stats(SQLiteDB):

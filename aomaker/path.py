@@ -1,5 +1,6 @@
 # --coding:utf-8--
 import os
+from aomaker._constants import Log
 
 # 项目根目录
 BASEDIR = os.getcwd()
@@ -12,6 +13,8 @@ API_DIR = os.path.join(BASEDIR, "apis")
 DATA_DIR = os.path.join(BASEDIR, "data")
 # 日志文件目录
 LOG_DIR = os.path.join(BASEDIR, "logs")
+# 日志文件目录
+LOG_FILE_path = os.path.join(LOG_DIR, Log.LOG_NAME)
 # 测试报告的路
 REPORT_DIR = os.path.join(BASEDIR, "reports")
 # 测试用例模块所在的目录

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Progress - Aomaker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background: #f5f7fa;
+            color: #4a4a4a;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .logo {
+            height: 50px;
+        }
+
+        .info-section, .log-container {
+            margin-bottom: 30px;
+        }
+
+        .info-section h3, .progress-main-container h2, .log-container h2 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 20px;
+        }
+
+        .report-button {
+            background: linear-gradient(145deg, #3578e5, #4a90e2); /* 蓝色渐变效果 */
+            color: #fff;
+            padding: 12px 20px;
+            text-decoration: none;
+            border-radius: 50px; /* 更圆的边角 */
+            transition: all 0.3s ease; /* 平滑过渡所有变化 */
+            text-align: center;
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 更柔和的阴影 */
+            position: relative; /* 为伪元素定位做准备 */
+            overflow: hidden; /* 防止伪元素超出边界 */
+        }
+
+        .report-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.4), transparent); /* 添加亮点渐变效果 */
+            transition: all 0.65s ease;
+        }
+
+        .report-button:hover::before {
+            left: 100%;
+        }
+
+        .report-button:hover {
+            background: linear-gradient(145deg, #2e6ad3, #3988e3); /* 悬停时的蓝色渐变 */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* 悬停时的阴影 */
+            transform: translateY(-2px); /* 悬停时轻微上移 */
+        }
+
+        .report-button:active {
+            transform: translateY(1px); /* 点击时轻微下移 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* 点击时的阴影 */
+        }
+
+        .progress-bar, .progress-fill, .progress-text, .report-button, .process-info, .card, #configTable td, #configTable tr:last-child td, #configTable td:first-child, .log-container {
+            /* Styles remain unchanged */
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0; /* 初始宽度为 0，通过JavaScript动态改变 */
+            background: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
+            border-radius: 10px;
+            transition: width 1s ease-in-out;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .progress-text, .worker-name {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 添加进度条动画效果 */
+        @keyframes progress-animation {
+            0% {
+                width: 0;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        .progress-fill::after {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            animation: progress-animation 2s infinite linear;
+        }
+
+        /* 完成状态的样式 */
+        .progress-fill.completed::after {
+            background: linear-gradient(to right, #4caf50, #8bc34a); /* 完成时的渐变色 */
+            animation: none; /* 关闭动画 */
+            box-shadow: 0 0 10px #4caf50; /* 添加一些光晕效果 */
+        }
+
+        /* 添加进度条完成时的光晕动画效果 */
+        @keyframes glow-animation {
+            0% {
+                box-shadow: 0 0 10px #4caf50;
+            }
+            50% {
+                box-shadow: 0 0 20px #4caf50;
+            }
+            100% {
+                box-shadow: 0 0 10px #4caf50;
+            }
+        }
+
+        .progress-fill.completed:hover {
+            animation: glow-animation 1s ease-in-out infinite; /* 鼠标悬停时的光晕动画 */
+        }
+
+        #configTable {
+            font-size: 14px; /* 维持字体大小 */
+            width: 100%; /* 表格宽度调整为100% */
+            border-collapse: separate; /* 使用单独的边框间距 */
+            border-spacing: 0; /* 移除单元格之间的间距 */
+            table-layout: fixed; /* 固定表格布局 */
+        }
+
+        #configTable pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f9f9f9; /* 轻微的背景色 */
+            border-radius: 4px; /* 轻微的边角弧度 */
+            padding: 4px; /* 内边距 */
+        }
+
+        #configTable td, #configTable th {
+            border-bottom: 1px solid #e0e0e0; /* 更细微的边框颜色 */
+            padding: 8px; /* 更大的内边距 */
+            text-align: left; /* 文本左对齐 */
+            vertical-align: middle; /* 垂直居中 */
+        }
+
+        #configTable th {
+            background-color: #f5f5f5; /* 标题背景色 */
+            color: #333; /* 标题文字颜色 */
+            font-weight: 500; /* 字体加粗 */
+        }
+
+        #configTable tr:last-child td {
+            border-bottom: none;
+        }
+
+        #configTable td:first-child {
+            font-weight: bold;
+            color: #2c3e50;
+            padding-right: 5px;
+            width: 30%;
+        }
+        #configTable tr:hover {
+            background-color: #fafafa;
+        }
+
+        #configTable tr:nth-child(odd) {
+            background-color: #fcfcfc;
+        }
+
+        .config-container {
+            /* 如果需要，可以进一步减小上下内边距 */
+            padding-top: 20px;
+            padding-bottom: 20px;
+            /* 其他样式保持不变 */
+        }
+
+        .progress-container {
+            margin-bottom: 15px; /* 减少进度条之间的间隔 */
+        }
+
+        .log-container {
+            height: 50vh; /* 使用视口高度单位 */
+            overflow: auto; /* 如果内容超出容器高度，则允许滚动 */
+            width: calc(100% - 60px); /* Adjust width to account for padding */
+            padding: 30px;
+            box-sizing: border-box; /* Include padding in width calculation */
+            margin-bottom: 30px; /* Consistent with other containers */
+        }
+
+        .main-container {
+            max-width: 100%;
+            margin: 30px auto;
+            padding: 0; /* Remove padding to allow full width use */
+            display: flex;
+            flex-direction: column;
+            align-items: stretch; /* Stretch children to fill the width */
+        }
+
+        .upper-container {
+            display: flex;
+            justify-content: space-between; /* This will ensure space between the two upper containers */
+            margin-bottom: 20px; /* Space between upper and lower containers */
+        }
+
+        .container {
+            /*background: #fff;*/
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 10px; /* Space between containers */
+            backdrop-filter: blur(5px); /* 应用模糊效果 */
+            -webkit-backdrop-filter: blur(5px); /* 针对旧版Safari浏览器的兼容性 */
+            background-color: rgba(255, 255, 255, 0.5); /* 为了看到模糊效果，背景颜色应该是半透明的 */
+        }
+
+        .config-container, .progress-main-container {
+            height: 50vh; /* 使用视口高度单位 */
+            overflow: auto; /* 如果内容超出容器高度，则允许滚动 */
+            width: calc(50% - 10px); /* Adjust width to account for the space between them */
+            padding: 30px;
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+
+        .log-entry {
+            background-color: #f9f9f9;
+            border-left: 3px solid #8bc34a;
+            padding: 5px;
+            margin-bottom: 5px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        @media screen and (max-width: 992px) {
+            .upper-container {
+                flex-direction: column;
+            }
+
+            .config-container, .progress-main-container, .log-container {
+                width: auto; /* Full width on smaller screens */
+                margin-left: 30px; /* Add some space from the left edge */
+                margin-right: 30px; /* Add some space from the right edge */
+                height: auto; /* 自动调整高度 */
+                overflow: visible; /* 恢复默认的溢出行为 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+
+    <div class="upper-container">
+        <div class="container config-container">
+            <div class="header">
+                <img src="/statics/aomaker-logo.png" alt="Aomaker logo" class="logo">
+            </div>
+            <div class="info-section" id="configSection">
+                <div class="card">
+                    <table id="configTable">
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="container progress-main-container">
+            <h2>Progress</h2>
+            <div id="progressContainer"></div>
+            <button class="report-button" id="viewReportButton" style="display: none;">
+                <i class="fas fa-file-alt"></i> test report
+            </button>
+        </div>
+    </div>
+
+    <div class="container log-container">
+        <h2>Realtime Logs</h2>
+        <div id="logContainer"></div>
+    </div>
+
+</div>
+
+<script>
+    let log_ws;
+    let isLogWebSocketInitialized = false;
+    {#const hostname = window.location.hostname;#}
+    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    {#const url = `http://${hostname}:${port}/config/current`#}
+
+
+    function getConfig() {
+        fetch(`http://localhost:${port}/config/current`)
+            .then(response => response.json())
+            .then(data => {
+                let tableRows = '';
+                for (const [key, value] of Object.entries(data)) {
+                    let formattedValue = value;
+                    if (typeof value === 'object' && value !== null) {
+                        formattedValue = Array.isArray(value) ? value.join(', ') : JSON.stringify(value);
+                    }
+                    tableRows += `<tr><td>${key}</td><td>${formattedValue}</td></tr>`;
+                }
+                document.getElementById('configTable').innerHTML = tableRows;
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function initializeLogWebSocket() {
+        if (!log_ws || log_ws.readyState !== WebSocket.OPEN) {
+            log_ws = new WebSocket(`ws://localhost:${port}/ws/logs`);
+            log_ws.onclose = () => console.log("Log WebSocket connection closed");
+        }
+    }
+
+    function closeLogWebSocket() {
+        if (log_ws && log_ws.readyState === WebSocket.OPEN) {
+            log_ws.close();
+        }
+    }
+
+    function clearLogs() {
+        const logContainer = document.getElementById('logContainer');
+        logContainer.innerHTML = '';
+    }
+
+    function checkAllProgressCompleted(progressData) {
+        const allCompleted = Object.values(progressData).every(progress => {
+            return progress.completed === progress.total;
+        });
+        if (allCompleted) {
+            document.getElementById('viewReportButton').style.display = 'inline-block';
+        }
+    }
+
+    function updateProgressBars(progressData) {
+        Object.entries(progressData).forEach(([workerName, progressInfo], index) => {
+            const progressBarFill = document.querySelector(`.progress-fill[data-worker='${workerName}']`);
+            const width = (progressInfo.completed / progressInfo.total) * 100;
+            progressBarFill.style.width = width + '%';
+            if (progressInfo.completed === progressInfo.total) {
+                progressBarFill.classList.add('completed');
+            }
+        });
+    }
+
+    const progress_ws = new WebSocket(`ws://localhost:${port}/ws/progress`);
+    progress_ws.onmessage = function (event) {
+        let data = JSON.parse(event.data);
+        const progressContainer = document.getElementById('progressContainer');
+        if (Object.keys(data).length !== 0) {
+            progressContainer.innerHTML = '';
+            if (!isLogWebSocketInitialized) {
+                clearLogs();
+                initializeLogWebSocket();
+                getConfig();
+                isLogWebSocketInitialized = true;
+            } else {
+                log_ws.onmessage = function (event) {
+                    const logContainer = document.getElementById('logContainer');
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = event.data;
+                    logEntry.className = 'log-entry';
+                    logContainer.appendChild(logEntry);
+                    logContainer.scrollTop = logContainer.scrollHeight;
+
+                };
+            }
+        } else {
+            isLogWebSocketInitialized = false;
+            closeLogWebSocket();
+        }
+
+        delete data['Total'];
+        for (const [workerName, progressInfo] of Object.entries(data)) {
+            const progress = (progressInfo.completed / progressInfo.total) * 100;
+            const workerProgress = document.createElement('div');
+            const target = progressInfo.target;
+            workerProgress.className = 'progress-container';
+
+            const workerNameElement = document.createElement('div');
+            workerNameElement.className = 'worker-name';
+            workerNameElement.textContent = `Worker: ${workerName}  <${target}>`;
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar';
+
+            const progressFill = document.createElement('div');
+            progressFill.className = 'progress-fill';
+            progressFill.setAttribute('data-worker', workerName);
+            progressFill.style.width = `${progress}%`;
+
+            const progressText = document.createElement('div');
+            progressText.className = 'progress-text';
+            progressText.textContent = `${Math.round(progress)}% completed`;
+
+            progressBar.appendChild(progressFill);
+            workerProgress.appendChild(workerNameElement);
+            workerProgress.appendChild(progressBar);
+            workerProgress.appendChild(progressText);
+
+            progressContainer.appendChild(workerProgress);
+        }
+
+        updateProgressBars(data);
+        checkAllProgressCompleted(data);
+    };
+
+    document.getElementById('viewReportButton').addEventListener('click', function () {
+        window.location.href = '/reports/html/index.html';
+    });
+</script>
+
+
+</body>
+</html>
