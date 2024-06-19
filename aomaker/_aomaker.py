@@ -88,8 +88,9 @@ def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index
                 logger.info(
                     f"==========后置异步接口断言开始<{func.__name__}>: 轮询函数<{cycle_func.__name__}>==========")
                 async_res = cycle_func(job_id, *out_args, **out_kwargs)
+                resp.setdefault("async_res", [])
                 if async_res:
-                    resp["async_res"] = async_res
+                    resp["async_res"].append(async_res)
                     return resp
                 logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")
             else:
