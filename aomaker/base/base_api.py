@@ -61,7 +61,8 @@ def response_callback(payload: dict):
         caller_of_class = caller_class_obj.__class__.__name__
         caller_of_method = api_caller.f_code.co_name
         caller_name = f"{caller_of_class}.{caller_of_method}"
-        doc = caller_class_obj.__class__.__dict__[caller_of_method].__doc__
+        method_ref = getattr(caller_class_obj, caller_of_method, None)
+        doc = method_ref.__doc__ if method_ref and method_ref.__doc__ else ""
         doc = doc.split("\n")[0].strip() if doc else ""
         caller_name = f"{caller_name} {doc}"
 
@@ -102,10 +103,11 @@ def response_callback(payload: dict):
 def _get_api_frame():
     current_frame = inspect.currentframe()
     outer_frames = inspect.getouterframes(current_frame)
-    for frame_info in outer_frames[8:]:
+    for frame_info in outer_frames:
         frame = frame_info.frame
+        code = frame.f_code
         filename = frame_info.filename
-        if API_DIR in filename:
+        if API_DIR in filename and code.co_name != 'send_http':
             return frame
 
 
