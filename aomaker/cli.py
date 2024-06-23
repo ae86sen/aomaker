@@ -1,9 +1,7 @@
 # --coding:utf-8--
 import os
 import sys
-import inspect
 from typing import List, Text
-from importlib import import_module
 
 import click
 from ruamel.yaml import YAML
@@ -14,9 +12,8 @@ from aomaker import __version__, __image__
 from aomaker._constants import Conf
 from aomaker.log import logger, AoMakerLogger
 from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
-from aomaker.hook_manager import _cli_hook
+from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
-from aomaker.path import BASEDIR
 from aomaker.scaffold import create_scaffold
 from aomaker.make import main_make
 from aomaker.make_testcase import main_case, main_make_case
@@ -24,11 +21,11 @@ from aomaker.extension.har_parse import main_har2yaml
 from aomaker.extension.recording import filter_expression, main_record
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
+from aomaker.cache import cache,config
 
 SUBCOMMAND_RUN_NAME = "run"
-HOOK_MODULE_NAME = "hooks"
-plugin_path = os.path.join(BASEDIR, f'{HOOK_MODULE_NAME}.py')
 yaml = YAML()
+
 
 class OptionHandler:
     def __init__(self):
@@ -45,18 +42,6 @@ class OptionHandler:
         self.options = kwargs
 
 
-def load_plugin():
-    sys.path.append(BASEDIR)
-    try:
-        module_obj = import_module(HOOK_MODULE_NAME)
-    except ModuleNotFoundError:
-        return
-    for name, member in inspect.getmembers(module_obj):
-        if inspect.isfunction(member) and hasattr(member, '__wrapped__'):
-            # 被装饰的函数
-            member()
-
-
 @click.group(cls=HelpColorsGroup,
              invoke_without_command=True,
              help_headers_color='magenta',
@@ -68,6 +53,7 @@ def main(ctx):
     click.echo(__image__)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
+    cli_hook()
 
 
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
@@ -85,32 +71,8 @@ def main(ctx):
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
 @click.pass_context
 def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, **custom_kwargs):
-    if len(sys.argv) == 2:
-        ctx.exit(ctx.get_help())
     pytest_args = ctx.args
-    # 执行自定义参数
-    _cli_hook.ctx = ctx
-    _cli_hook.custom_kwargs = custom_kwargs
-    if env:
-        set_conf_file(env)
-    if log_level != "info":
-        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
-        AoMakerLogger.change_level(log_level)
-    login_obj = _handle_login(no_login)
-    from aomaker.runner import run as runner_run, processes_run, threads_run
-    if mp:
-        click.echo("🚀<AoMaker> 多进程模式准备启动...")
-        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                      is_gen_allure=no_gen)
-        ctx.exit()
-    elif mt:
-        click.echo("🚀<AoMaker> 多线程模式准备启动...")
-        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                    is_gen_allure=no_gen)
-        ctx.exit()
-    click.echo("🚀<AoMaker> 单进程模式准备启动...")
-    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
-    ctx.exit()
+    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs)
 
 
 @main.command()
@@ -224,6 +186,34 @@ def record(file_name, filter_str, port, flow_detail, save_response, save_headers
     main_record(Args())
 
 
+def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs):
+    if len(sys.argv) == 2:
+        ctx.exit(ctx.get_help())
+    # 执行自定义参数
+    cli_hook.ctx = ctx
+    cli_hook.custom_kwargs = custom_kwargs
+    if env:
+        set_conf_file(env)
+    if log_level != "info":
+        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
+        AoMakerLogger.change_level(log_level)
+    login_obj = _handle_login(no_login)
+    from aomaker.runner import run as runner_run, processes_run, threads_run
+    if mp:
+        click.echo("🚀<AoMaker> 多进程模式准备启动...")
+        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
+                      is_gen_allure=no_gen)
+        ctx.exit()
+    elif mt:
+        click.echo("🚀<AoMaker> 多线程模式准备启动...")
+        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
+                    is_gen_allure=no_gen)
+        ctx.exit()
+    click.echo("🚀<AoMaker> 单进程模式准备启动...")
+    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
+    ctx.exit()
+
+
 def _handle_login(is_login: bool):
     if is_login is False:
         return
@@ -321,7 +311,58 @@ def main_record_alias():
     main()
 
 
-load_plugin()
+def main_run(env: str = None,
+             log_level: str = "info",
+             mp: bool = False,
+             mt: bool = False,
+             d_suite: str = None,
+             d_file: str = None,
+             d_mark: str = None,
+             no_login: bool = True,
+             no_gen: bool = True,
+             pytest_args: List[str] = None,
+             **custom_kwargs):
+    print(__image__)
+    cli_hook()
+
+    from click.testing import CliRunner
+    runner = CliRunner()
+    args = []
+
+    if env:
+        args.extend(["--env", env])
+    if log_level:
+        args.extend(["--log_level", log_level])
+    if mp:
+        args.append("--mp")
+    if mt:
+        args.append("--mt")
+    if d_suite:
+        args.extend(["--dist-suite", d_suite])
+    if d_file:
+        args.extend(["--dist-file", d_file])
+    if d_mark:
+        args.extend(["--dist-mark", d_mark])
+    if not no_login:
+        args.append("--no_login")
+    if not no_gen:
+        args.append("--no_gen")
+    args.extend(pytest_args or [])
+
+    for key, value in custom_kwargs.items():
+        if isinstance(value, bool):
+            if value:
+                args.append(f"--{key}")
+        else:
+            args.extend([f"--{key}", str(value)])
+
+    result = runner.invoke(run, args=args, standalone_mode=False)
+    if result.exit_code != 0:
+        cache.clear()
+        cache.close()
+        config.close()
+        raise result.exception
+
 
 if __name__ == '__main__':
     main()

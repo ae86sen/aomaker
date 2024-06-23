@@ -15,7 +15,7 @@ from aomaker.cache import cache
 from aomaker.log import logger
 from aomaker.path import BASEDIR
 from aomaker.exceptions import FileNotFound, YamlKeyError, JsonPathExtractFailed
-from aomaker.hook_manager import _cli_hook, _session_hook
+from aomaker.hook_manager import cli_hook, session_hook
 from aomaker.models import ExecuteAsyncJobCondition
 
 
@@ -131,7 +131,7 @@ def command(name, **out_kwargs):
             option_handler.add_option(name, **out_kwargs)
             cmd.params.append(click.Option(option_handler.options.pop("name"), **option_handler.options))
             new_name = name.replace("-", "")
-            _cli_hook.register(func, new_name)
+            cli_hook.register(func, new_name)
 
         return wrapper
 
@@ -141,7 +141,7 @@ def command(name, **out_kwargs):
 def hook(func):
     @wraps(func)
     def wrapper():
-        _session_hook.register(func)
+        session_hook.register(func)
 
     return wrapper
 
