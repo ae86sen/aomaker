@@ -68,15 +68,13 @@ def response_callback(payload: dict):
 
         print_info, allure_info, std_logger = _handle_print_info(payload, response, caller_name)
 
-        if response.status_code >= 400:
-            logger.error(_render_template(template, print_info))
-            raise HttpRequestError(str(response.status_code))
-        else:
+        if response.ok:
             try:
                 resp_body = response.json()
             except JSONDecodeError as msg:
                 logger.warning(f"【warning】请求响应解析为json格式失败，尝试转换为text.错误信息：{msg}")
                 resp_body = response.text
+                setattr(response, "text_data", resp_body)
             else:
                 setattr(response, "json_data", resp_body)
 
@@ -86,9 +84,10 @@ def response_callback(payload: dict):
             print_info = _render_template(template, print_info)
             std_logger(print_info)
 
-            to_schema = genson(resp_body)
-            schema.set(caller_of_method, to_schema)
-            logger.debug(f'接口{caller_name}的响应jsonschema已保存到schema表中')
+            if isinstance(resp_body, dict):
+                to_schema = genson(resp_body)
+                schema.set(caller_of_method, to_schema)
+                logger.debug(f'接口{caller_name}的响应jsonschema已保存到schema表中')
 
             try:
                 allure.attach(json.dumps(allure_info, indent=2, separators=(',', ':'), ensure_ascii=False),
@@ -157,6 +156,8 @@ class BaseApi:
     IS_HTTP_RETRY = False
     HTTP_RETRY_COUNTS = 3
     HTTP_RETRY_INTERVAL = 2  # 单位：s
+    IS_CHECK_RESPONSE_OK = True
+    RESPONSE_TO_JSON = True
 
     def __init__(self):
         self.cache = Cache()
@@ -165,12 +166,20 @@ class BaseApi:
         self._headers = self.cache.get('headers')
         self._response_callback = response_callback
 
-    def send_http(self, http_data):
-        response = self._send_http(http_data)
+    def send_http(self, http_data, **kwargs):
+        response = self._send_http(http_data, **kwargs)
+        if self.IS_CHECK_RESPONSE_OK is True:
+            response.raise_for_status()
+
+        if self.RESPONSE_TO_JSON is False:
+            return response
+
         res = getattr(response, "json_data")
+        if res is None:
+            return getattr(response, "text_data")
         return res
 
-    def _send_http(self, http_data):
+    def _send_http(self, http_data, **kwargs):
         if is_dataclass(http_data):
             http_data = http_data.all_fields
             dic = {}
@@ -188,7 +197,7 @@ class BaseApi:
             payload["headers"] = headers
 
         hooks = self.get_response_hook(payload)
-        response = self.request(**payload, hooks=hooks)
+        response = self.request(**payload, hooks=hooks, **kwargs)
         return response
 
     def request(self, method, url, **kwargs):

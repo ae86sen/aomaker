@@ -15,7 +15,8 @@ from aomaker._constants import Allure
 from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
 from aomaker.report import gen_reports
-from aomaker.hook_manager import _cli_hook, _session_hook
+
+from aomaker.hook_manager import cli_hook, session_hook
 
 allure_json_dir = os.path.join(REPORT_DIR, "json")
 RUN_MODE = {
@@ -27,11 +28,13 @@ RUN_MODE = {
 
 def fixture_session(func):
     """全局夹具装饰器"""
+
     def wrapper(*args, **kwargs):
         # Login登录类对象
         login = kwargs.get('login')
         _init(func, login)
         r = func(*args, **kwargs)
+        session_hook.execute_post_hooks()
         TearDownSession().clear_env()
         return r
 
@@ -44,9 +47,9 @@ def _init(func, login):
     config.set("run_mode", RUN_MODE[method_of_class_name])
     SetUpSession(login).set_session_vars()
     shutil.rmtree(allure_json_dir, ignore_errors=True)
-    if _cli_hook.custom_kwargs:
-        _cli_hook.run()
-    _session_hook.run()
+    if cli_hook.custom_kwargs:
+        cli_hook.run()
+    session_hook().execute_pre_hooks()
 
 
 class Runner:
