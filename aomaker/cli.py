@@ -21,6 +21,7 @@ from aomaker.extension.har_parse import main_har2yaml
 from aomaker.extension.recording import filter_expression, main_record
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
+from aomaker.cache import cache,config
 
 
 SUBCOMMAND_RUN_NAME = "run"
