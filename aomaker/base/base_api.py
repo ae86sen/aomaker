@@ -106,7 +106,7 @@ def _get_api_frame():
         frame = frame_info.frame
         code = frame.f_code
         filename = frame_info.filename
-        if API_DIR in filename and code.co_name != 'send_http':
+        if API_DIR in filename and not code.co_name.startswith('send_http'):
             return frame
 
 
