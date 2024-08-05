@@ -5,7 +5,6 @@ import json
 from jsonpath import jsonpath
 from multiprocessing import current_process
 from threading import current_thread
-from tabulate import tabulate
 
 from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
@@ -51,6 +50,18 @@ class Config(SQLiteDB):
             dic[m[0]] = json.loads(m[1])
         return dic
 
+    def clear(self):
+        """清空表"""
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
+
 
 class Schema(SQLiteDB):
     def __init__(self):
@@ -76,31 +87,37 @@ class Schema(SQLiteDB):
 
         return res
 
+    def clear(self):
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
+
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
+
+    def count(self):
+        """数量统计"""
+        sql = f"""select count(*) from {self.table}"""
+        try:
+            res = self.query_sql(sql)[0][0]
+        except IndexError:
+            logger.error("shema表数据统计失败！")
+            res = None
+        return res
+
 
 class Cache(SQLiteDB):
     def __init__(self):
         super(Cache, self).__init__()
         self.table = DataBase.CACHE_TABLE
 
-    @property
-    def worker(self):
-        run_mode = config.get("run_mode")
-        worker = {
-            "main": "MainProcess",
-            "mt": current_thread().name,
-            "mp": current_process().name
-        }
-        return worker[run_mode]
-
-    def set(self, key: str, value, api_info=None, is_rewrite=False):
-        worker = self.worker
+    def set(self, key: str, value, api_info=None):
         sql = f"""insert into {self.table} (var_name,response,worker) values (:key,:value,:worker)"""
-        resp = self.get(key)
-        if resp is not None:
-            if is_rewrite is True:
-                resp.update(value)
-                sql = "update {} set response=? where var_name=? and worker=?".format(self.table)
-                self.execute_sql(sql, (json.dumps(resp), key, worker))
+        worker = _get_worker()
+        if self.get(key) is not None:
             logger.debug(f"缓存插入重复数据, key:{key}，worker:{worker}，已被忽略！")
             return
         try:
@@ -113,14 +130,14 @@ class Cache(SQLiteDB):
             raise e
 
     def update(self, key, value):
-        worker = self.worker
         key_value = {"response": json.dumps(value)}
+        worker = _get_worker()
         condition = {"worker": worker, "var_name": key}
         self.update_data(self.table, key_value, where=condition)
         logger.info(f"缓存数据更新完成, 表：{self.table},\n var_name: {key},\n response: {value},\n worker: {worker}")
 
     def get(self, key: str, select_field="response"):
-        worker = self.worker
+        worker = _get_worker()
         if key == "headers":
             sql = f"""select {select_field} from {self.table} where var_name=:key"""
             query_res = self.query_sql(sql, (key,))
@@ -139,31 +156,20 @@ class Cache(SQLiteDB):
         res = self.get(key)
         extract_var = jsonpath(res, jsonpath_expr)
         if extract_var is False:
-            raise JsonPathExtractFailed(res, jsonpath_expr)
+            raise JsonPathExtractFailed(res,jsonpath_expr)
         extract_var = extract_var[expr_index]
         return extract_var
 
-    def get_like(self, pattern: str):
-        sql = f"""select distinct var_name from {self.table} where var_name like :pattern"""
-        query_res = self.query_sql(sql, (pattern,))
-        keys = [row[0] for row in query_res]
-        return keys
+    def clear(self):
+        sql = """delete from {}""".format(self.table)
+        self.execute_sql(sql)
 
-
-class Stats(SQLiteDB):
-    def __init__(self):
-        super(Stats, self).__init__()
-        self.table = DataBase.STATS_TABLE
-
-    def set(self, *, package: str, module: str, api_class: str, api: str):
-        sql = f"""insert into {self.table} (package,module,class,api) values (:package,:module,:api_class,:api)"""
-        self.execute_sql(sql, (package, module, api_class, api))
-
-    def get(self, conditions: dict = None):
-        return self.select_data(table=self.table, where=conditions)
-        # headers = ["Package", "Module", "Class", "API"]
-        # print(f"Total APIs: {len(table_data)}")
-        # return tabulate(table_data, headers=headers, tablefmt="grid")
+    def del_(self, where: dict = None):
+        """根据条件删除"""
+        sql = """delete from {}""".format(self.table)
+        if where is not None:
+            sql += ' where {};'.format(self.dict_to_str_and(where))
+        self.execute_sql(sql)
 
 
 def _get_worker():
@@ -179,4 +185,3 @@ def _get_worker():
 cache = Cache()
 config = Config()
 schema = Schema()
-stats = Stats()

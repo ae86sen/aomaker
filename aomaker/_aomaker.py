@@ -56,7 +56,8 @@ def dependence(dependent_api: Callable or str, var_name: Text, imp_module=None, 
     return decorator
 
 
-def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index=0, condition: Dict = None, *out_args,
+def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index=0, condition: Union[Dict, bool] = None,
+              *out_args,
               **out_kwargs):
     """
     异步接口装饰器
@@ -65,11 +66,16 @@ def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index
 
     :param cycle_func: 轮询函数
     :param jsonpath_expr: 异步任务id提取表达式
-    :param expr_index: jsonpath提取索引，默认为0
+    :param expr_index: jsonpath提取索引，默认为0; 传入':'，获取整个list
     :param condition: 是否执行轮询函数的条件，默认执行。如果传了condition，那么当满足condition时执行cycle_func，不满足不执行。
-            example：
+            example1(condition为dict)：
                 condition = {"expr":"ret_code","expected_value":0}
                 当返回值中的ret_code == 0时，会去执行cycle_func进行异步任务检查，反之不执行。
+            example2(condition为bool):
+                condition = (1+1 == 2)
+                执行cycle_func；
+                condition = False
+                不执行cycle_func
     :return:
     """
 
@@ -289,7 +295,7 @@ def _handle_jsonpath_extract(resp, jsonpath_expr, expr_index=0):
     for expr in jsonpath_expr:
         extract_res = jsonpath(resp, expr)
         if extract_res:
-            return extract_res[expr_index]
+            return extract_res if expr_index == ":" else extract_res[expr_index]
 
     # raise JsonPathExtractFailed(res=resp, jsonpath_expr=jsonpath_expr)
 
@@ -297,6 +303,10 @@ def _handle_jsonpath_extract(resp, jsonpath_expr, expr_index=0):
 def _is_execute_cycle_func(res, condition=None) -> bool:
     if condition is None:
         return True
+
+    if isinstance(condition, bool):
+        return condition
+
     data = ExecuteAsyncJobCondition(**condition)
     expr = data.expr
     expected_value = data.expected_value

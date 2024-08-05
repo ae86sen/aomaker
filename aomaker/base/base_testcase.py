@@ -10,80 +10,80 @@ from aomaker.exceptions import SchemaNotFound
 class BaseTestcase:
 
     @staticmethod
-    def assert_eq(actual_value, expected_value):
+    def assert_eq(actual_value, expected_value, msg: str = ""):
         """
         equals
         """
         try:
-            assert actual_value == expected_value
+            assert actual_value == expected_value, msg
         except AssertionError as e:
-            logger.error(f"eq断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"eq断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_gt(actual_value, expected_value):
+    def assert_gt(actual_value, expected_value, msg: str = ""):
         """
         greater than
         """
         try:
-            assert actual_value > expected_value
+            assert actual_value > expected_value, msg
         except AssertionError as e:
-            logger.error(f"gt断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"gt断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_lt(actual_value, expected_value):
+    def assert_lt(actual_value, expected_value, msg: str = None):
         """
         less than
         """
         try:
-            assert actual_value < expected_value
+            assert actual_value < expected_value, msg
         except AssertionError as e:
-            logger.error(f"lt断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"lt断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_neq(actual_value, expected_value):
+    def assert_neq(actual_value, expected_value, msg: str = ""):
         """
         not equals
         """
         try:
-            assert actual_value != expected_value
+            assert actual_value != expected_value, msg
         except AssertionError as e:
-            logger.error(f"neq断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"neq断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_ge(actual_value, expected_value):
+    def assert_ge(actual_value, expected_value, msg: str = ""):
         """
         greater than or equals
         """
         try:
-            assert actual_value >= expected_value
+            assert actual_value >= expected_value, msg
         except AssertionError as e:
-            logger.error(f"ge断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"ge断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_le(actual_value, expected_value):
+    def assert_le(actual_value, expected_value, msg: str = ""):
         """
         less than or equals
         """
         try:
-            assert actual_value <= expected_value
+            assert actual_value <= expected_value, msg
         except AssertionError as e:
-            logger.error(f"le断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"le断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
-    def assert_contains(actual_value, expected_value):
+    def assert_contains(actual_value, expected_value, msg: str = ""):
         assert isinstance(
             expected_value, (list, tuple, dict, str, bytes)
         ), "expect_value should be list/tuple/dict/str/bytes type"
         try:
-            assert expected_value in actual_value
+            assert expected_value in actual_value, msg
         except AssertionError as e:
-            logger.error(f"contains断言失败，预期结果：{expected_value}，实际结果：{actual_value}")
+            logger.error(f"contains断言失败，预期结果：{expected_value}，实际结果：{actual_value}，message：{msg}")
             raise e
 
     @staticmethod
