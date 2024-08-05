@@ -1,5 +1,4 @@
 # --coding:utf-8--
-import importlib
 import os
 import shutil
 from multiprocessing import Pool
@@ -8,17 +7,16 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
 
-from aomaker import pytest_plugins
 from aomaker._printer import printer
-from aomaker.cache import config, cache
+from aomaker.cache import config
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, aomaker_logger
 from aomaker._constants import Allure
 from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
 from aomaker.report import gen_reports
-from aomaker.hook_manager import _cli_hook, _session_hook
-from aomaker.utils.gen_allure_report import rewrite_summary
+
+from aomaker.hook_manager import cli_hook, session_hook
 
 allure_json_dir = os.path.join(REPORT_DIR, "json")
 RUN_MODE = {
@@ -36,6 +34,7 @@ def fixture_session(func):
         login = kwargs.get('login')
         _init(func, login)
         r = func(*args, **kwargs)
+        session_hook.execute_post_hooks()
         TearDownSession().clear_env()
         return r
 
@@ -48,9 +47,9 @@ def _init(func, login):
     config.set("run_mode", RUN_MODE[method_of_class_name])
     SetUpSession(login).set_session_vars()
     shutil.rmtree(allure_json_dir, ignore_errors=True)
-    if _cli_hook.custom_kwargs:
-        _cli_hook.run()
-    _session_hook.run()
+    if cli_hook.custom_kwargs:
+        cli_hook.run()
+    session_hook().execute_pre_hooks()
 
 
 class Runner:
@@ -61,7 +60,6 @@ class Runner:
                             "--log-format=%(asctime)s %(message)s",
                             "--log-date-format=%Y-%m-%d %H:%M:%S"
                             ]
-        self.pytest_plugins = [pytest_plugins]
         aomaker_logger.allure_handler("debug", is_processes=is_processes)
 
     @fixture_session
@@ -74,8 +72,7 @@ class Runner:
         logger.info(f"<AoMaker> pytest的执行参数：{args}")
         if pytest_opts:
             logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
-        _progress_init(args)
-        pytest.main(args, plugins=self.pytest_plugins)
+        pytest.main(args)
         if is_gen_allure:
             self.allure_env_prop()
             self.gen_allure()
@@ -139,7 +136,6 @@ class Runner:
         if is_clear:
             cmd = cmd + ' -c'
         os.system(cmd)
-        rewrite_summary()
 
     @staticmethod
     def allure_env_prop():
@@ -192,9 +188,8 @@ class ProcessesRunner(Runner):
         process_count = len(task_args)
         p = Pool(process_count)
         logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
-        pytest_plugin_names = [plugin.__name__ for plugin in self.pytest_plugins]
         for arg in make_args_group(task_args, extra_args):
-            p.apply_async(main_task, args=(arg, pytest_plugin_names))
+            p.apply_async(main_task, args=(arg,))
         p.close()
         p.join()
         if is_gen_allure:
@@ -209,7 +204,7 @@ class ThreadsRunner(Runner):
         """
         多线程启动pytest任务
         :param task_args:
-                list：mark标记
+                list：mark标记列表
                 str：测试套件或测试文件所在目录路径
         :param login: Login登录对象
         :param extra_args: pytest其它参数列表
@@ -223,8 +218,7 @@ class ThreadsRunner(Runner):
         thread_count = len(task_args)
         tp = ThreadPoolExecutor(max_workers=thread_count)
         logger.info(f"<AoMaker> 多线程任务启动，线程数：{thread_count}")
-        pytest_plugin_names = [plugin.__name__ for plugin in self.pytest_plugins]
-        _ = [tp.submit(main_task, arg, pytest_plugin_names) for arg in make_args_group(task_args, extra_args)]
+        _ = [tp.submit(main_task, arg) for arg in make_args_group(task_args, extra_args)]
         wait(_, return_when=ALL_COMPLETED)
         tp.shutdown()
         if is_gen_allure:
@@ -233,15 +227,13 @@ class ThreadsRunner(Runner):
             gen_reports()
 
 
-def main_task(args: list, pytest_plugin_names: str):
+def main_task(args: list):
     """pytest启动"""
     pytest_opts = _get_pytest_ini()
     logger.info(f"<AoMaker> pytest的执行参数：{args}")
     if pytest_opts:
         logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
-    pytest_plugins_module = [importlib.import_module(name) for name in pytest_plugin_names]
-    _progress_init(args)
-    pytest.main(args, plugins=pytest_plugins_module)
+    pytest.main(args)
 
 
 def make_args_group(args: list, extra_args: list):
@@ -256,12 +248,6 @@ def make_args_group(args: list, extra_args: list):
         pytest_args.extend(extra_args)
         pytest_args_group.append(pytest_args)
         yield pytest_args_group[-1]
-
-
-def _progress_init(pytest_args: list):
-    if len(pytest_args) > 0:
-        cache.set(f"_progress.{cache.worker}", {"target": pytest_args[0], "total": 0, "completed": 0},
-                  is_rewrite=True)
 
 
 run = Runner().run

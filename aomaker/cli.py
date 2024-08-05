@@ -1,27 +1,19 @@
 # --coding:utf-8--
 import os
-import re
 import sys
-import inspect
-import webbrowser
 from typing import List, Text
-from importlib import import_module
-from threading import Timer
 
 import click
-import uvicorn
 from ruamel.yaml import YAML
 from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
-from tabulate import tabulate
 
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
 from aomaker.log import logger, AoMakerLogger
 from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
-from aomaker.hook_manager import _cli_hook
+from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
-from aomaker.path import BASEDIR
 from aomaker.scaffold import create_scaffold
 from aomaker.make import main_make
 from aomaker.make_testcase import main_case, main_make_case
@@ -29,12 +21,10 @@ from aomaker.extension.har_parse import main_har2yaml
 from aomaker.extension.recording import filter_expression, main_record
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
-from aomaker.cache import stats
-from aomaker.service import app
+from aomaker.cache import cache,config
+
 
 SUBCOMMAND_RUN_NAME = "run"
-HOOK_MODULE_NAME = "hooks"
-plugin_path = os.path.join(BASEDIR, f'{HOOK_MODULE_NAME}.py')
 yaml = YAML()
 
 
@@ -53,18 +43,6 @@ class OptionHandler:
         self.options = kwargs
 
 
-def load_plugin():
-    sys.path.append(BASEDIR)
-    try:
-        module_obj = import_module(HOOK_MODULE_NAME)
-    except ModuleNotFoundError:
-        return
-    for name, member in inspect.getmembers(module_obj):
-        if inspect.isfunction(member) and hasattr(member, '__wrapped__'):
-            # 被装饰的函数
-            member()
-
-
 @click.group(cls=HelpColorsGroup,
              invoke_without_command=True,
              help_headers_color='magenta',
@@ -76,18 +54,7 @@ def main(ctx):
     click.echo(__image__)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
-
-
-@main.group()
-def show():
-    """Show various statistics."""
-    pass
-
-
-@main.group()
-def gen():
-    """Generate various statistics."""
-    pass
+    cli_hook()
 
 
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
@@ -105,32 +72,8 @@ def gen():
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
 @click.pass_context
 def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, **custom_kwargs):
-    if len(sys.argv) == 2:
-        ctx.exit(ctx.get_help())
     pytest_args = ctx.args
-    # 执行自定义参数
-    _cli_hook.ctx = ctx
-    _cli_hook.custom_kwargs = custom_kwargs
-    if env:
-        set_conf_file(env)
-    if log_level != "info":
-        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
-        AoMakerLogger.change_level(log_level)
-    login_obj = _handle_login(no_login)
-    from aomaker.runner import run as runner_run, processes_run, threads_run
-    if mp:
-        click.echo("🚀<AoMaker> 多进程模式准备启动...")
-        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                      is_gen_allure=no_gen)
-        ctx.exit()
-    elif mt:
-        click.echo("🚀<AoMaker> 多线程模式准备启动...")
-        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                    is_gen_allure=no_gen)
-        ctx.exit()
-    click.echo("🚀<AoMaker> 单进程模式准备启动...")
-    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
-    ctx.exit()
+    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs)
 
 
 @main.command()
@@ -212,82 +155,64 @@ def har2y(har_path, yaml_path, filter_str, exclude_str, save_response, save_head
     click.echo(emojize(":beer_mug: har转换yaml完成！"))
 
 
-# @main.command()
-# @click.argument("file_name")
-# @click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
-# @click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
-# @click.option("--flow_detail", type=int, default=0, help="""
-#     The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
-#     0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
-#     1: full request URL with response status code.\n
-#     2: 1 + HTTP headers.\n
-#     3: 2 + truncated response content, content of WebSocket and TCP messages.\n
-#     4: 3 + nothing is truncated.\n""")
-# @click.option("--save_response", is_flag=True, help="Save response.")
-# @click.option("--save_headers", is_flag=True, help="Save headers.")
-# def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
-#     """Record flows: parse command line options and run commands.
-#
-#     Arguments:\n
-#     FILE_NAME: Specify YAML file name.
-#     """
-#
-#     class Args:
-#         def __init__(self):
-#             self.file_name = file_name
-#             self.filter_str = filter_str
-#             self.port = port
-#             self.level = flow_detail
-#             self.save_response = save_response
-#             self.save_headers = save_headers
-#
-#     main_record(Args())
+@main.command()
+@click.argument("file_name")
+@click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
+@click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
+@click.option("--flow_detail", type=int, default=0, help="""
+    The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
+    0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
+    1: full request URL with response status code.\n
+    2: 1 + HTTP headers.\n
+    3: 2 + truncated response content, content of WebSocket and TCP messages.\n
+    4: 3 + nothing is truncated.\n""")
+@click.option("--save_response", is_flag=True, help="Save response.")
+@click.option("--save_headers", is_flag=True, help="Save headers.")
+def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
+    """Record flows: parse command line options and run commands.
+
+    Arguments:\n
+    FILE_NAME: Specify YAML file name.
+    """
+
+    class Args:
+        def __init__(self):
+            self.file_name = file_name
+            self.filter_str = filter_str
+            self.port = port
+            self.level = flow_detail
+            self.save_response = save_response
+            self.save_headers = save_headers
+
+    main_record(Args())
 
 
-@show.command(name="stats")
-@click.option("--package", help="Package name to filter by.")
-@click.option("--module", help="Module name to filter by.")
-@click.option("--class", "class_", help="Class name to filter by.", metavar='CLASS')
-@click.option("--api", help="API name to filter by.")
-@click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
-def query_stats(package, module, class_, api, showindex):
-    """Query API statistics with optional filtering."""
-    conditions = {}
-
-    if package:
-        conditions['package'] = package
-    if module:
-        conditions['module'] = module
-    if class_:
-        conditions['class'] = class_
-    if api:
-        conditions['api'] = api
-
-    showindex_value = "always" if showindex else "default"
-
-    results = stats.get(conditions=conditions)
-    print(f"Total APIs: {len(results)}")
-    headers = ["Package", "Module", "Class", "API"]
-    print(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
-
-
-@gen.command(name="stats")
-def gen_stats():
-    generate_apis()
-    print("接口统计完毕！")
-
-
-@main.command(help="Start a FastAPI web service.")
-@click.option('--web', is_flag=True, help="Open the web interface in a browser.")
-@click.option('--port', default=8000, help="Specify the port number to run the server on. Default is 8000.")
-def service(web, port):
-    progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
-    def open_web(url):
-        webbrowser.open(url)
-
-    if web:
-        Timer(2, open_web, args=[progress_url]).start()
-    uvicorn.run(app, host="127.0.0.1", port=port)
+def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs):
+    if len(sys.argv) == 2:
+        ctx.exit(ctx.get_help())
+    # 执行自定义参数
+    cli_hook.ctx = ctx
+    cli_hook.custom_kwargs = custom_kwargs
+    if env:
+        set_conf_file(env)
+    if log_level != "info":
+        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
+        AoMakerLogger.change_level(log_level)
+    login_obj = _handle_login(no_login)
+    from aomaker.runner import run as runner_run, processes_run, threads_run
+    if mp:
+        click.echo("🚀<AoMaker> 多进程模式准备启动...")
+        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
+                      is_gen_allure=no_gen)
+        ctx.exit()
+    elif mt:
+        click.echo("🚀<AoMaker> 多线程模式准备启动...")
+        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
+                    is_gen_allure=no_gen)
+        ctx.exit()
+    click.echo("🚀<AoMaker> 单进程模式准备启动...")
+    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
+    ctx.exit()
 
 
 def _handle_login(is_login: bool):
@@ -314,42 +239,6 @@ def set_conf_file(env):
     else:
         click.echo(emojize(f':confounded_face: 配置文件{conf_path}不存在'))
         sys.exit(1)
-
-
-def generate_apis():
-    class_pattern = re.compile(r'^class (\w+)\((?!object\))', re.MULTILINE)
-    method_pattern = re.compile(r'^\s+def (\w+)\(self[,\s\w=]*\):', re.MULTILINE)
-
-    def remove_comments(text):
-        text = re.sub(r'(\'\'\'(.*?)\'\'\'|\"\"\"(.*?)\"\"\")', '', text, flags=re.DOTALL)
-        text = re.sub(r'#.*', '', text)
-        return text
-
-    root_dir = 'apis'
-    table_data = []
-    stats.clear()
-
-    for root, dirs, files in os.walk(root_dir):
-        for file in files:
-            if file.endswith('.py') and file != '__init__.py' and file != 'base.py':
-                file_path = os.path.join(root, file)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    content = remove_comments(content)
-                    # 匹配子类的类名
-                    classes = class_pattern.findall(content)
-                    if classes:
-                        module_name = os.path.splitext(file)[0]
-                        relative_root = os.path.relpath(root, root_dir)
-                        package_name = relative_root.replace(os.sep, '.')
-                        for cls in classes:
-                            methods = method_pattern.findall(content)
-                            for method in methods:
-                                if not method.startswith('_'):
-                                    class_name = cls.split('(')[0].strip()  # 只保留类名
-                                    table_data.append([package_name, module_name, class_name, method])
-                                    stats.set(package=package_name, module=module_name, api_class=class_name,
-                                              api=method)
 
 
 def _handle_dist_mode(d_mark, d_file, d_suite):
@@ -423,7 +312,59 @@ def main_record_alias():
     main()
 
 
-load_plugin()
+def main_run(env: str = None,
+             log_level: str = "info",
+             mp: bool = False,
+             mt: bool = False,
+             d_suite: str = None,
+             d_file: str = None,
+             d_mark: str = None,
+             no_login: bool = True,
+             no_gen: bool = True,
+             pytest_args: List[str] = None,
+             **custom_kwargs):
+    print(__image__)
+    cli_hook()
+
+    from click.testing import CliRunner
+    runner = CliRunner()
+    args = []
+
+    if env:
+        args.extend(["--env", env])
+    if log_level:
+        args.extend(["--log_level", log_level])
+    if mp:
+        args.append("--mp")
+    if mt:
+        args.append("--mt")
+    if d_suite:
+        args.extend(["--dist-suite", d_suite])
+    if d_file:
+        args.extend(["--dist-file", d_file])
+    if d_mark:
+        args.extend(["--dist-mark", d_mark])
+    if not no_login:
+        args.append("--no_login")
+    if not no_gen:
+        args.append("--no_gen")
+    args.extend(pytest_args or [])
+
+    for key, value in custom_kwargs.items():
+        if isinstance(value, bool):
+            if value:
+                args.append(f"--{key}")
+        else:
+            args.extend([f"--{key}", str(value)])
+
+    result = runner.invoke(run, args=args, standalone_mode=False)
+    if result.exit_code != 0:
+        from aomaker.cache import cache, config
+        cache.clear()
+        cache.close()
+        config.close()
+        raise result.exception
+
 
 if __name__ == '__main__':
     main()
