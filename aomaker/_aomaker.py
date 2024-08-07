@@ -96,8 +96,8 @@ def async_api(cycle_func: Callable, jsonpath_expr: Union[Text, List], expr_index
                 async_res = cycle_func(job_id, *out_args, **out_kwargs)
                 resp.setdefault("async_res", [])
                 if async_res:
-                    resp["async_res"].append(async_res)
-                    return resp
+                    async_res_list = async_res if isinstance(async_res, list) else [async_res]
+                    resp["async_res"].extend(async_res_list)
                 logger.info(f"==========后置异步接口断言结束<{func.__name__}>==========")
             else:
                 logger.info(f"==========后置异步接口不满足执行条件，不执行<{func.__name__}>==========")
