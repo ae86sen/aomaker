@@ -22,7 +22,6 @@ from aomaker.extension.recording import filter_expression, main_record
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
 
-
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()
 
@@ -63,6 +62,8 @@ def main(ctx):
               help="Set running log level.")
 @click.option("--mp", "--multi-process", help="Enable multi-process running mode.", is_flag=True)
 @click.option("--mt", "--multi-thread", help="Enable multi-thread running mode.", is_flag=True)
+@click.option("-p", "--processes", default=None, type=int,
+              help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.option("--dist-suite", "d_suite",
               help="Distribute each test package under the test suite to a different worker.")
 @click.option("--dist-file", "d_file", help="Distribute each test file under the test package to a different worker.")
@@ -70,9 +71,10 @@ def main(ctx):
 @click.option("--no_login", help="Don't login and make headers.", is_flag=True, flag_value=False, default=True)
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
 @click.pass_context
-def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, **custom_kwargs):
+def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, processes, **custom_kwargs):
     pytest_args = ctx.args
-    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs)
+    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
+         **custom_kwargs)
 
 
 @main.command()
@@ -186,7 +188,8 @@ def record(file_name, filter_str, port, flow_detail, save_response, save_headers
     main_record(Args())
 
 
-def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, **custom_kwargs):
+def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
+         **custom_kwargs):
     if len(sys.argv) == 2:
         ctx.exit(ctx.get_help())
     # 执行自定义参数
@@ -202,7 +205,7 @@ def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen,
     if mp:
         click.echo("🚀<AoMaker> 多进程模式准备启动...")
         processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                      is_gen_allure=no_gen)
+                      is_gen_allure=no_gen, process_count=processes)
         ctx.exit()
     elif mt:
         click.echo("🚀<AoMaker> 多线程模式准备启动...")

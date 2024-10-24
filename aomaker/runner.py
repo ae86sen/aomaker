@@ -167,8 +167,37 @@ def _get_pytest_ini() -> list:
 
 class ProcessesRunner(Runner):
 
+    @property
+    def max_process_count(self):
+        return os.cpu_count()
+
+    def _prepare_extra_args(self, extra_args):
+        if extra_args is None:
+            extra_args = []
+        extra_args.extend(self.pytest_args)
+        return extra_args
+
+    def _prepare_task_args(self, task_args):
+        return self.make_task_args(task_args)
+
+    def _calculate_process_count(self, task_args):
+        process_count = len(task_args)
+        max_process = self.max_process_count
+        return min(process_count, max_process)
+
+    def _execute_tasks(self, process_count, task_args, extra_args):
+        with Pool(process_count) as pool:
+            logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
+            pool.map(main_task, make_args_group(task_args, extra_args))
+
+    def _generate_reports(self):
+        self.allure_env_prop()
+        self.gen_allure()
+        gen_reports()
+
     @fixture_session
-    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, **kwargs):
+    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, process_count=None,
+            **kwargs):
         """
         多进程启动pytest任务
         :param task_args:
@@ -177,25 +206,18 @@ class ProcessesRunner(Runner):
         :param login: Login登录对象
         :param extra_args: pytest其它参数列表
         :param is_gen_allure: 是否自动收集allure报告，默认收集
+        :param process_count: 进程数
         :return:
         """
-        # 配置allure报告中显示日志
-        # AoMakerLogger().allure_handler('debug', is_processes=True)
-        if extra_args is None:
-            extra_args = []
-        extra_args.extend(self.pytest_args)
-        task_args = self.make_task_args(task_args)
-        process_count = len(task_args)
-        p = Pool(process_count)
-        logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
-        for arg in make_args_group(task_args, extra_args):
-            p.apply_async(main_task, args=(arg,))
-        p.close()
-        p.join()
+        extra_args = self._prepare_extra_args(extra_args)
+        task_args = self._prepare_task_args(task_args)
+        if process_count is None:
+            process_count = self._calculate_process_count(task_args)
+        else:
+            process_count = min(process_count, len(task_args), self.max_process_count)
+        self._execute_tasks(process_count, task_args, extra_args)
         if is_gen_allure:
-            self.allure_env_prop()
-            self.gen_allure()
-            gen_reports()
+            self._generate_reports()
 
 
 class ThreadsRunner(Runner):
