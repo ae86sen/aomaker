@@ -227,18 +227,18 @@ def _call_dependence(dependent_api: Callable or Text, api_name: Text, imp_module
         depend_api_name = eval(f"{class_}.{method_}.__name__")
         logger.info(f"==========<{api_name}>前置依赖<{depend_api_name}>执行==========")
         try:
-            res = eval(f'{class_}.{method_}(*{out_args},**{out_kwargs})')
+            res = eval(f'{class_}().{method_}(*{out_args},**{out_kwargs})')
         except TypeError as te:
             logger.error(f"dependence参数传递错误，错误参数：{dependent_api}")
             raise te
-        depend_api_info = {"name": method_, "module": imp_module, "ao": class_.lower()}
+        depend_api_info = {"name": method_, "module": imp_module, "ao": class_}
     else:
         # 不同类下的接口
         depend_api_name = dependent_api.__name__
         logger.info(f"==========<{api_name}>前置依赖<{depend_api_name}>执行==========")
         res = dependent_api(*out_args, **out_kwargs)
         depend_api_info = {"name": depend_api_name, "module": _get_module_name_by_method_obj(dependent_api),
-                           "ao": type(dependent_api.__self__).__name__.lower()}
+                           "ao": type(dependent_api.__self__).__name__}
     return res, depend_api_info
 
 
@@ -251,7 +251,17 @@ def _call_dependence_for_update(api_info: Dict, *out_args, **out_kwargs) -> Dict
     except AttributeError as e:
         logger.error(f"在{api_module}中未找到ao对象<{api_info.get('ao')}>！")
         raise e
-    res = getattr(ao, api_name)(*out_args, **out_kwargs)
+    ao_obj = ao()
+    try:
+        method_to_call = getattr(ao_obj, api_name)  # 尝试获取 ao_obj 实例上名为 api_name 的方法
+    except AttributeError as e:
+        logger.error(f"在对象 {ao.__name__} 中未找到方法 {api_name}！")
+        raise e
+    try:
+        res = method_to_call(*out_args, **out_kwargs)  # 调用方法并传递 out_args 和 out_kwargs
+    except Exception as e:
+        logger.error(f"调用方法 {api_name} 时发生错误！")
+        raise e
     return res
 
 
