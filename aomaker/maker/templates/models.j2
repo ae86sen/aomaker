@@ -1,0 +1,16 @@
+{# templates/models.py.jinja #}
+{% for import in imports %}
+{{ import }}
+{% endfor %}
+
+
+{% for model in referenced_models %}
+@define(kw_only=True)
+class {{ model.name }}:
+        {% for field in model.fields %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %} =field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+
+{% endfor %}
+

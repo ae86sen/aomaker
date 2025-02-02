@@ -1,5 +1,5 @@
-black==23.10.0
-Jinja2==3.1.2
+black==25.1.0
+Jinja2==3.1.5
 jsonpath==0.82.2
 loguru==0.7.2
 PyMySQL
@@ -7,8 +7,6 @@ pytest==7.4.2
 PyYAML==6.0
 requests==2.31.0
 allure-pytest==2.8.24
-pydantic==1.10.2
-mitmproxy==9.0.1
 colorlog==6.7.0
 jsonschema==4.19.1
 genson==1.2.2
@@ -17,3 +15,4 @@ emoji==2.2.0
 click-help-colors==0.9.1
 tenacity==8.2.3
 ruamel.yaml==0.17.21
+pydantic==2.10.5

@@ -1,0 +1,48 @@
+{% for import in imports %}
+{{ import }}
+{% endfor %}
+
+{% for endpoint in endpoints %}
+@define(kw_only=True)
+@router.{{ endpoint.method }}("{{ endpoint.path }}")
+class {{ endpoint.class_name }}(BaseAPIObject):
+    """{{ endpoint.description }}"""
+    {% if endpoint.path_parameters %}
+    @define
+    class PathParams:
+        {% for field in endpoint.path_parameters %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+    {% endif %}
+
+    {% if endpoint.query_parameters %}
+    @define
+    class QueryParams:
+        {% for field in endpoint.query_parameters %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+    {% endif %}
+
+    {% if endpoint.request_body %}
+    @define
+    class RequestBodyModel:
+        {% for field in endpoint.request_body.fields %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+
+    request_body: RequestBodyModel
+    {% endif %}
+    {% if endpoint.path_parameters %}
+    path_params: PathParams
+    {% endif %}
+    {% if endpoint.query_parameters %}
+    query_params: Optional[QueryParams] = field(default=None)
+    {% endif %}
+    {% if endpoint.response %}
+    response: Optional[{{ endpoint.response.name }}] = field(default=None)
+    {% endif %}
+
+{% endfor %}
