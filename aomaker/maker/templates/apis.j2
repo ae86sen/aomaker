@@ -2,6 +2,8 @@
 {{ import }}
 {% endfor %}
 
+router = APIRouter({{ get_api_router_params() }})
+
 {% for endpoint in endpoints %}
 @define(kw_only=True)
 @router.{{ endpoint.method }}("{{ endpoint.path }}")

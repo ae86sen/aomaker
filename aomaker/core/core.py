@@ -8,7 +8,6 @@ from .base_model import EndpointConfig, BaseResponseModel, BaseRequestModel, Con
 from .converters import BaseConverter
 from .http_client import HTTPClient
 # from .middlewares.logging_middleware import logging_middleware
-import v2.middlewares as mw
 
 @define(kw_only=True)
 class BaseAPIObject:
@@ -19,8 +18,8 @@ class BaseAPIObject:
     query_params: Parameters = field(default=None)
 
     endpoint_config: EndpointConfig = field(default=None)
-    request_model: BaseRequestModel = field(default=None)
-    response_model: BaseResponseModel = field(default=None)
+    request_body: BaseRequestModel = field(default=None)
+    response: BaseResponseModel = field(default=None)
     content_type: ContentType = field(default=ContentType.JSON)
     http_client: HTTPClient = field(default=None)
     converter: Union[BaseConverter, Type[BaseConverter]] = field(default=None)
@@ -31,7 +30,7 @@ class BaseAPIObject:
             if self.endpoint_config is None:
                 raise ValueError("endpoint_config is not set in the class or instance.")
         if self.http_client is None:
-            self.http_client = HTTPClient(middlewares=[mw.logging_middleware.logging_middleware])
+            self.http_client = HTTPClient()
         if self.converter is None:
             self.converter = BaseConverter(api_object=self)
         elif isinstance(self.converter, type):

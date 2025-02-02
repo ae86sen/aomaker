@@ -30,7 +30,7 @@ class ClassNameStrategy:
     }
 
     @classmethod
-    def from_summary(cls, operation: 'Operation', method: str) -> str:
+    def from_summary(cls, operation: Operation, method: str) -> str:
         """智能处理中英文混合summary"""
         # if not operation.summary:
         #     return cls.fallback_name(operation, method)
@@ -140,6 +140,7 @@ class OpenAPIConfig:
     backend_prefix: Optional[str] = None        # 用户显式指定的后端前缀
     frontend_prefix: Optional[str] = None       # 用户显式指定的前端前缀
 
+
 class OpenAPIParser(JsonSchemaParser):
     def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None):
         super().__init__(openapi_data.get("components", {}).get("schemas", {}))
@@ -204,7 +205,7 @@ class OpenAPIParser(JsonSchemaParser):
             endpoint.imports.add(response_import)
             # for imp in endpoint.response.imports:
             #     endpoint.imports.add(imp)
-
+        endpoint.imports.add(Import(from_='typing',import_='Optional'))
         return endpoint
 
     def parse_parameters(self, parameters: List[Union[Reference, Parameter]]) -> Dict[str, List[DataModelField]]:
@@ -326,9 +327,6 @@ class OpenAPIParser(JsonSchemaParser):
                 for name, model in self.model_registry.models.items()
                 if not model.is_inline
             }
-
-    def _generate_class_name(self, summary: Optional[str]) -> str:
-        return f"{summary.replace(' ', '')}API" if summary else "AnonymousAPI"
 
 
 if __name__ == '__main__':

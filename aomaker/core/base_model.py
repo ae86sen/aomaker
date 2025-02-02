@@ -52,7 +52,8 @@ class EndpointConfig:
     route: str = field(default="")
     method: HTTPMethod = field(default="")
     route_params: List[str] = field(default=None)
-    common_route: str = field(default="")
+    backend_prefix: Optional[str] = field(default=None)
+    frontend_prefix: Optional[str] = field(default=None)
 
 
 class BaseRequestModel:

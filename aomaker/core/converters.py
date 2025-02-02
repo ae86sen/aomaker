@@ -25,8 +25,10 @@ class BaseConverter:
 
     def convert(self) -> dict:
         request_data = self.prepare()
+        request_data = self._remove_nones(request_data)
         builder = self.get_request_builder()
         req = builder.build_request(**request_data)
+        req = self._remove_nones(req)
         unstructure_req = unstructure(req)
         return unstructure_req
 
@@ -52,12 +54,12 @@ class BaseConverter:
     def route(self) -> str:
         route = self.endpoint_config.route
         # 替换路由参数
-        for param in self.endpoint_config.route_params:
-            if hasattr(self.api_object, param):
-                value = getattr(self.api_object, param)
-                route = route.replace(f"{{{param}}}", str(value))
+        for path_param in self.endpoint_config.route_params:
+            if hasattr(self.api_object.path_params, path_param):
+                value = getattr(self.api_object.path_params, path_param)
+                route = route.replace(f"{{{path_param}}}", str(value))
             else:
-                raise ValueError(f"Missing required route parameter: {param}")
+                raise ValueError(f"Missing required route parameter: {path_param}")
 
         return route
 
@@ -65,7 +67,7 @@ class BaseConverter:
         url = self.prepare_url()
         method = self.prepare_method()
         headers = self.prepare_headers()
-        params = self.prepare_params().get("query")
+        params = self.prepare_params()
         request_body = self.prepare_request_body()
 
         request_data = {
@@ -85,31 +87,26 @@ class BaseConverter:
 
     def prepare_url(self) -> str:
         base_url = self.base_url
-        common_route = self.endpoint_config.common_route
-        url = f"{base_url}/{common_route}/{self.route}" if common_route else f"{base_url}/{self.route}"
-        return url
+        route = self.endpoint_config.route
+        return f"{base_url}/{route}"
 
     def prepare_method(self) -> HTTPMethod:
-        method = self.endpoint_config.method
+        method = self.endpoint_config.method.value
         return method
 
     def prepare_headers(self) -> dict:
         return self.api_object.headers or {}
 
     def prepare_params(self) -> dict:
-        params = dict()
-        if self.api_object.path_params:
-            path_params = unstructure(self.api_object.path_params)
-            params["path"] = path_params
         if self.api_object.query_params:
             query_params = unstructure(self.api_object.query_params)
-            params["query"] = query_params
-        return params
+            return query_params
 
     def prepare_request_body(self) -> dict:
-        if not self.api_object.request_model:
+        if not self.api_object.request_body:
             return {}
-        request_body = unstructure(self.api_object.request_model)
+        print("req body:",self.api_object.request_body)
+        request_body = unstructure(self.api_object.request_body)
         request_body = self._remove_nones(request_body)
         return request_body
 

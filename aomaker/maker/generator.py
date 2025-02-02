@@ -1,13 +1,10 @@
 from collections import defaultdict
 from pathlib import Path
-import re
-import keyword
-import builtins
 from typing import Dict, List, Set
 import black
 from jinja2 import Environment, FileSystemLoader
 
-from .parser import APIGroup, Endpoint
+from .parser import APIGroup, Endpoint, OpenAPIConfig
 from .models import Import, DataModelField, DataModel
 
 
@@ -18,15 +15,16 @@ class ImportManager:
 
     def add_import(self, imp: Import):
         """添加一个导入项"""
-
         key = (imp.from_, imp.import_)
         self._imports[key].add(imp.alias)
 
 
 def collect_apis_imports(endpoints: List[Endpoint]) -> ImportManager:
     manager = ImportManager()
-    # todo: aomaker内部导入, BaseAPIObject和router导入
-    manager.add_import(Import(from_="attrs", import_="define,field"))
+    manager.add_import(Import(from_="attrs", import_="define, field"))
+    manager.add_import(Import(from_="aomaker.core.router", import_="APIRouter"))
+    # todo: 支持自定义AO导入
+    manager.add_import(Import(from_="aomaker.core.core", import_="BaseAPIObject"))
     for endpoint in endpoints:
         for imp in endpoint.imports:
             manager.add_import(imp)
@@ -35,7 +33,7 @@ def collect_apis_imports(endpoints: List[Endpoint]) -> ImportManager:
 
 def collect_models_imports(models: List[DataModel]) -> ImportManager:
     manager = ImportManager()
-    manager.add_import(Import(from_="attrs", import_="define,field"))
+    manager.add_import(Import(from_="attrs", import_="define, field"))
     combined_imports = set().union(*(model.imports for model in models))
     for imp in combined_imports:
         manager.add_import(imp)
@@ -109,6 +107,7 @@ def _format_item(item: tuple) -> str:
 
 
 class TemplateFunction:
+    config = OpenAPIConfig()
     @classmethod
     def render_field_default(cls, field: DataModelField) -> str:
         """优化后的默认值渲染函数"""
@@ -126,7 +125,6 @@ class TemplateFunction:
             # 字符串类型需要保留原始值的类型（例如 True -> "True"）
             return f'default="{default}"'
         elif data_type in ("list", "dict"):
-            # 容器类型使用 factory 语法（假设你的框架支持 factory=list/dict）
             return f"factory={type(default).__name__}"  # 动态获取类型名
         else:
             # 其他类型直接赋值（数字、布尔值等）
@@ -172,6 +170,12 @@ class TemplateFunction:
             return f"Optional[{base_type}]"
         return base_type
 
+    @classmethod
+    def get_api_router_params(cls) -> str:
+        if cls.config.backend_prefix and cls.config.frontend_prefix:
+            return f"backend_prefix={cls.config.backend_prefix}, frontend_prefix={cls.config.frontend_prefix}"
+        return ""
+
 
 class Generator:
     def __init__(self, output_dir: str):
@@ -181,87 +185,14 @@ class Generator:
             trim_blocks=True,
             lstrip_blocks=True
         )
-        # 注册自定义过滤器
-        self.env.filters.update({
-            'to_class_name': self._to_class_name,
-            'remove_spaces': self._remove_spaces,
-            'to_snake_case': self._to_snake_case,
-            'to_camel_case': self._to_camel_case,
-            'is_python_keyword': self.is_python_keyword,
-            'safe_field_name': self.safe_field_name,
-            'escape_description': self.escape_description,
-        })
 
         # 注册全局函数
         self.env.globals.update({
-            'format_docstring': self._format_docstring,
             'get_attrs_field': TemplateFunction.get_attrs_field_parameters,
             'get_field_metadata': TemplateFunction.render_field_metadata,
             'render_optional_hint': TemplateFunction.render_optional_hint,
+            'get_api_router_params': TemplateFunction.get_api_router_params,
         })
-
-    @staticmethod
-    def is_python_keyword(name: str) -> bool:
-        """检查是否是 Python 关键字或内置函数名"""
-        return name in keyword.kwlist or name in dir(builtins)
-
-    def safe_field_name(self, name: str) -> str:
-        """返回安全的字段名，如果是关键字则添加下划线后缀"""
-        return f"{name}_" if self.is_python_keyword(name) else name
-
-    @staticmethod
-    def escape_description(text: str) -> str:
-        """转义描述文本中的特殊字符
-
-        Args:
-            text: 原始描述文本
-        Returns:
-            str: 转义后的描述文本
-        """
-        if not text:
-            return ""
-        # 转义引号和其他特殊字符
-        escaped = text.replace('"', '\\"').replace('\n', '\\n')
-        return escaped
-
-    @staticmethod
-    def _to_class_name(text: str) -> str:
-        """将文本转换为合法的类名"""
-        # 移除空格和特殊字符，保留字母、数字和下划线
-        name = ''.join(c for c in text if c.isalnum() or c == ' ')
-        # 将空格分隔的词转为驼峰命名
-        words = name.split()
-        return ''.join(word.capitalize() for word in words)
-
-    @staticmethod
-    def _remove_spaces(text: str) -> str:
-        """移除字符串中的所有空格"""
-        return ''.join(text.split())
-
-    @staticmethod
-    def _to_snake_case(text: str) -> str:
-        """将驼峰命名转换为蛇形命名"""
-        name = re.sub('([A-Z])', r'_\1', text)
-        return name.lower().lstrip('_')
-
-    @staticmethod
-    def _to_camel_case(snake_str: str) -> str:
-        """将蛇形命名转换为驼峰命名"""
-        components = snake_str.split('_')
-        return ''.join(x.title() for x in components)
-
-    @staticmethod
-    def _format_docstring(text: str, indent: int = 4) -> str:
-        """格式化文档字符串"""
-        if not text:
-            return '""'
-        lines = text.split('\n')
-        if len(lines) == 1:
-            return f'"""{text}"""'
-
-        indent_str = ' ' * indent
-        formatted_lines = [f'"""'] + [f'{indent_str}{line.strip()}' for line in lines] + [f'{indent_str}"""']
-        return '\n'.join(formatted_lines)
 
     def generate(self, api_groups: List[APIGroup]):
         """生成所有API组的代码"""
