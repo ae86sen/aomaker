@@ -1,48 +1,44 @@
 # --coding:utf-8--
 from abc import ABC, abstractmethod
 
-from .base_model import JSONRequest, FormURLEncodedRequest, MultipartFormDataRequest, BaseHTTPRequest,HTTPMethod
+from .base_model import JSONRequest, FormURLEncodedRequest, MultipartFormDataRequest, BaseHTTPRequest, HTTPMethod, \
+    PreparedRequest
 
 
 class RequestBuilder(ABC):
     @abstractmethod
-    def build_request(self, *, url: str, method: str, headers: dict, params: dict = None,
-                      request_body: dict = None) -> BaseHTTPRequest:
+    def build_request(self, prepared_request: PreparedRequest) -> BaseHTTPRequest:
         pass
 
 
 class JSONRequestBuilder(RequestBuilder):
-    def build_request(self, *, url: str, method: HTTPMethod, headers: dict, params: dict = None,
-                      request_body: dict = None) -> JSONRequest:
+    def build_request(self, prepared_request: PreparedRequest) -> JSONRequest:
         return JSONRequest(
-            url=url,
-            method=method,
-            headers=headers,
-            params=params,
-            json=request_body
+            url=prepared_request.url,
+            method=prepared_request.method,
+            headers=prepared_request.headers,
+            params=prepared_request.params,
+            json=prepared_request.request_body
         )
 
 
 class FormURLEncodedRequestBuilder(RequestBuilder):
-    def build_request(self, *, url: str, method: HTTPMethod, headers: dict, params: dict = None,
-                      request_body: dict = None) -> FormURLEncodedRequest:
-        return FormURLEncodedRequest(
-            url=url,
-            method=method,
-            headers=headers,
-            params=params,
-            data=request_body
-        )
+    def build_request(self, prepared_request: PreparedRequest) -> FormURLEncodedRequest:
+        return FormURLEncodedRequest(url=prepared_request.url,
+                                     method=prepared_request.method,
+                                     headers=prepared_request.headers,
+                                     params=prepared_request.params,
+                                     data=prepared_request.request_body
+                                     )
 
 
 class MultipartFormDataRequestBuilder(RequestBuilder):
-    def build_request(self, *, url: str, method: HTTPMethod, headers: dict, params: dict = None,
-                      request_body: dict = None, files=None) -> MultipartFormDataRequest:
+    def build_request(self, prepared_request: PreparedRequest) -> MultipartFormDataRequest:
         return MultipartFormDataRequest(
-            url=url,
-            method=method,
-            headers=headers,
-            params=params,
-            data=request_body,
-            files=files
+            url=prepared_request.url,
+            method=prepared_request.method,
+            headers=prepared_request.headers,
+            params=prepared_request.params,
+            data=prepared_request.request_body,
+            files=prepared_request.files
         )

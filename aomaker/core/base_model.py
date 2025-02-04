@@ -2,7 +2,7 @@
 from __future__ import annotations
 from attrs import define, field
 from enum import Enum
-from typing import Dict, List, Any, Optional, Union, Type
+from typing import Dict, List, Any, Optional, TypeVar
 
 
 class HTTPMethod(str, Enum):
@@ -23,7 +23,7 @@ class ContentType(str, Enum):
 @define
 class BaseHTTPRequest:
     url: str = field(default="")
-    method: HTTPMethod = field(default="")
+    method: str = field(default="")
     headers: Dict[str, str] = field(factory=dict)
     params: Dict[str, Any] = field(default=None)
     data: Optional[Dict[str, Any]] = field(default=None)
@@ -56,15 +56,16 @@ class EndpointConfig:
     frontend_prefix: Optional[str] = field(default=None)
 
 
-class BaseRequestModel:
-    pass
+@define(frozen=True)
+class PreparedRequest:
+    method: str
+    url: str
+    headers: dict
+    params: Optional[dict] = field(default=None)
+    request_body: Optional[dict] = field(default=None)
+    files: Optional[dict] = field(default=None)
 
 
-class BaseResponseModel:
-    pass
-
-
-@define
-class Parameters:
-    pass
-
+_Parameters_T = TypeVar("_Parameters_T", bound=type)
+_RequestBody_T = TypeVar("_RequestBody_T", bound=type)
+_Response_T = TypeVar("_Response_T", bound=type)

@@ -12,13 +12,14 @@ from .middlewares.middlewares import middlewares_registry, MiddlewareCallable, R
 
 class HTTPClient:
     def __init__(self, middlewares: List[MiddlewareCallable] = None):
+        self.session = requests.Session()
         self.middlewares = middlewares_registry.copy()
         if middlewares:
             self.middlewares.extend(middlewares)
 
     def send_request(self, request: RequestType, **kwargs) -> ResponseType:
         def send(req: RequestType) -> ResponseType:
-            return requests.request(**req, **kwargs)
+            return self.session.request(**req, **kwargs)
 
         call_next = send
         for middleware in reversed(self.middlewares):
