@@ -1,65 +1,174 @@
 # --coding:utf-8--
 import json
-import time
 import traceback
-from json.decoder import JSONDecodeError
-from loguru import logger
+from json import JSONDecodeError
+from typing import Optional
+from jinja2 import Template
+import allure
+from emoji import emojize
+from aomaker.log import logger
 
 from .middlewares import RequestType, CallNext, ResponseType,register_middleware
 
+
+
+TEMPLATE = """
+{{tag}}
+{{emoji_api}} <API>: {{caller_name}} {{doc}}
+{{emoji_req}} <Request>
+     URL: {{url}}
+{% if method -%}
+{% raw %}     Method: {%endraw%}{{method}}
+{% endif -%}
+{% if headers -%}
+{% raw %}     Headers: {%endraw%}{{headers}}
+{% endif -%}
+{% if request_params -%}
+{% raw %}     Request Params: {%endraw%}{{request_params}}
+{% endif -%}
+{% if request_data -%}
+{% raw %}     Request Data: {%endraw%}{{request_data}}
+{% endif -%}
+{% if request_json -%}
+{% raw %}     Request Json: {%endraw%}{{request_json}}
+{% endif -%}
+{{emoji_rep}} <Response>
+{% if status_code -%}
+{% raw %}     Status Code: {%endraw%}{{status_code}}
+{% endif -%}
+{% raw %}     Response Body: {%endraw%}{{response_body}}
+{% if elapsed -%}
+    {% raw %}     Elapsed: {%endraw%}{{elapsed}}s
+{% endif -%}
+{{tag}}
+"""
+
+
 @register_middleware
-def logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
+def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
+    """支持多输出的结构化日志中间件"""
+    # 初始化基础数据
+    log_data = _init_log_data(request)
+    response = None
+
+    try:
+        # 执行请求
+        response = call_next(request)
+
+        # 收集响应信息
+        log_data |= _parse_response(response)
+        log_data["success"] = True
+
+    except Exception as e:
+        log_data["error"] = _parse_exception(e)
+        raise
+    finally:
+        # 无论成功与否都记录日志
+        _process_log_outputs(log_data, request, response)
+
+    return response
 
 
-    log_data = {
+def _init_log_data(request: RequestType) -> dict:
+    """初始化日志数据结构"""
+    return {
         "request": {
             "method": request.get("method"),
             "url": request.get("url"),
             "headers": request.get("headers", {}),
-            "params": request.get("params", {}),
+            "params": request.get("params"),
             "data": request.get("data"),
             "json": request.get("json"),
         },
-        "response": None,
-        "error": None,
-        "duration": None
+        "response": {},
+        "caller_name": "TODO",  # 需后续补充调用栈解析
+        "doc": ""
     }
 
-    start_time = time.time()
-    try:
-        response = call_next(request)
-    except Exception as e:
-        log_data["error"] = {
-            "type": type(e).__name__,
-            "message": str(e),
-            "traceback": traceback.format_exc()
-        }
-        log_data["duration"] = time.time() - start_time
-        logger.error(json.dumps(log_data))
-        raise
 
-    log_data["duration"] = time.time() - start_time
-
-    # 记录响应信息
-    response_info = {
+def _parse_response(response: ResponseType) -> dict:
+    """解析响应数据"""
+    result = {
         "status_code": response.status_code,
-        "headers": dict(response.headers),
-        "elapsed": response.elapsed.total_seconds() if response.elapsed else None
+        "elapsed": response.elapsed.total_seconds() if response.elapsed else None,
+        "response_body": _parse_response_body(response)
     }
+    return {"response": result}
 
-    # 解析响应体
+
+def _parse_response_body(response: ResponseType):
+    """自动解析响应体"""
     content_type = response.headers.get("Content-Type", "")
+
     if "application/json" in content_type:
         try:
-            response_info["body"] = response.json()
+            return response.json()
         except JSONDecodeError:
-            response_info["body"] = response.text
+            return response.text
     elif content_type.startswith("text/"):
-        response_info["body"] = response.text
+        return response.text
+    return "(binary data)"
+
+
+def _parse_exception(e: Exception) -> dict:
+    """解析异常信息"""
+    return {
+        "type": type(e).__name__,
+        "message": str(e),
+        "traceback": traceback.format_exc()
+    }
+
+
+def _process_log_outputs(log_data: dict, request: dict, response: Optional[ResponseType]):
+    """处理三路输出"""
+    # 填充模板变量
+    render_data = {
+        "tag": "=" * 100,
+        "emoji_api": emojize(":A_button_(blood_type):"),
+        "emoji_req": emojize(":rocket:"),
+        "emoji_rep": emojize(":check_mark_button:"),
+        **log_data["request"],
+        **log_data["response"],
+        "caller_name": log_data["caller_name"],
+        "doc": log_data["doc"]
+    }
+
+    # 渲染模板
+    formatted_log = Template(TEMPLATE).render(render_data)
+
+    # 控制台输出（根据日志级别）
+    if logger.level == 10:  # DEBUG
+        logger.debug(formatted_log)
     else:
-        response_info["body"] = "(binary data)"
+        logger.info(formatted_log)
 
-    log_data["response"] = response_info
-    logger.info(json.dumps(log_data))
+    # Allure 附件输出
+    _attach_allure_report(log_data, request, response)
 
-    return response
+
+def _attach_allure_report(log_data: dict, request: dict, response: Optional[ResponseType]):
+    """生成Allure附件"""
+    allure_info = {
+        "request": {
+            "url": request["url"],
+            "method": request.get("method"),
+            "params": request.get("params"),
+            "data": request.get("data"),
+            "json": request.get("json")
+        }
+    }
+
+    if response is not None:
+        allure_info["response"] = {
+            "status_code": response.status_code,
+            "body": log_data["response"]["response_body"]
+        }
+
+    try:
+        allure.attach(
+            json.dumps(allure_info, indent=2, ensure_ascii=False),
+            name=f"{log_data['caller_name']} Log",
+            attachment_type=allure.attachment_type.JSON
+        )
+    except Exception as e:
+        logger.warning(f"Allure附件生成失败: {str(e)}")
