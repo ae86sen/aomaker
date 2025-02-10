@@ -1,5 +1,5 @@
 # --coding:utf-8--
-from typing import Callable, Dict, Any, TypeVar
+from typing import Callable, Dict, Any, TypeVar, Optional
 
 
 RequestType = Dict[str, Any]
@@ -11,13 +11,21 @@ MiddlewareCallable = Callable[[RequestType, CallNext], ResponseType]
 middlewares_registry = []
 
 
-def register_middleware(middleware_func):
-    print("Registering middleware")
-    middlewares_registry.append(middleware_func)
-    return middleware_func
 
+def register_middleware(
+        middleware: Optional[MiddlewareCallable] = None, *, global_registry: bool = True
+):
+    """装饰器支持注册到全局或实例"""
 
-# @register_middleware
+    def decorator(func: MiddlewareCallable) -> MiddlewareCallable:
+        if global_registry:
+            middlewares_registry.append(func)
+        return func
+
+    if middleware is None:
+        return decorator
+    else:
+        return decorator(middleware)
 
 
 
