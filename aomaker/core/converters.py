@@ -1,12 +1,13 @@
 # --coding:utf-8--
 from __future__ import annotations
-from attrs import has, asdict, define, field
-from cattr import unstructure
-from typing import Dict, List, TypeVar, TYPE_CHECKING, Optional
+from attrs import has, define, field
+from cattrs import Converter as CattrsConverter
+from typing import Dict, List, TypeVar, TYPE_CHECKING, Optional, Type, Any
+from datetime import datetime
 
 if TYPE_CHECKING:
     from .core import BaseAPIObject
-from .base_model import ContentType, EndpointConfig, HTTPMethod, _Parameters_T, PreparedRequest, _RequestBody_T
+from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT
 from .request_builder import JSONRequestBuilder, FormURLEncodedRequestBuilder, MultipartFormDataRequestBuilder, \
     RequestBuilder
 
@@ -16,21 +17,43 @@ REQUEST_BUILDERS = {
     ContentType.MULTIPART: MultipartFormDataRequestBuilder,
 }
 
+T = TypeVar('T')
 
 
+def datetime_hook(value, _type):
+    if isinstance(value, str):
+        # 处理 ISO 格式字符��
+        return datetime.fromisoformat(value)
+    elif isinstance(value, (int, float)):
+        # 处理时间戳（假设是 UTC）
+        return datetime.utcfromtimestamp(value)
+    else:
+        raise ValueError(f"无法将 {value} 转换为 datetime")
 
-# converter = Converter()
+
+cattrs_converter = CattrsConverter()
+cattrs_converter.register_structure_hook(datetime, datetime_hook)
+
 
 @define
-class BaseConverter:
+class RequestConverter:
     api_object: BaseAPIObject = field(default=None)
+    _converter: CattrsConverter = field(default=cattrs_converter)
 
     def convert(self) -> dict:
         request_data = self.prepare()
         builder = self.get_request_builder()
         req = builder.build_request(request_data)
-        unstructured_req = self._unstructure_and_clean(req)
+        unstructured_req = self._serialize_data(req)
         return unstructured_req
+
+    def unstructure(self, data: Any) -> Any:
+        """结构化数据 -> 原始数据"""
+        return self._converter.unstructure(data)
+
+    def structure(self, data: Any, type_: Type[T]) -> Any:
+        """原始数据 -> 结构化数据"""
+        return self._converter.structure(data, type_)
 
     def get_request_builder(self) -> RequestBuilder:
         builder_class = REQUEST_BUILDERS.get(self.content_type)
@@ -69,7 +92,7 @@ class BaseConverter:
             "files": self.prepare_files() if self.content_type == ContentType.MULTIPART else None,
         }
 
-        unstructured_request_data = self._unstructure_and_clean(request_data)
+        unstructured_request_data = self._serialize_data(request_data)
         prepared_request_data = PreparedRequest(**unstructured_request_data)
         return self.post_prepare(prepared_request_data)
 
@@ -85,10 +108,10 @@ class BaseConverter:
     def prepare_headers(self) -> dict:
         return self.api_object.headers or {}
 
-    def prepare_params(self) -> Optional[_Parameters_T]:
+    def prepare_params(self) -> Optional[ParametersT]:
         return self.api_object.query_params
 
-    def prepare_request_body(self) -> Optional[_RequestBody_T]:
+    def prepare_request_body(self) -> Optional[RequestBodyT]:
         return self.api_object.request_body
 
     def prepare_files(self) -> dict:
@@ -106,9 +129,9 @@ class BaseConverter:
                 raise ValueError(f"Missing required route parameter: {path_param}")
         return route
 
-    def _unstructure_and_clean(self, data):
+    def _serialize_data(self, data):
         """统一解构 + 清理空值"""
-        unstructured = unstructure(data)
+        unstructured = self.unstructure(data)
         return self._remove_nones(unstructured)
 
     def _remove_nones(self, obj):
@@ -117,6 +140,6 @@ class BaseConverter:
         elif isinstance(obj, list):
             return [self._remove_nones(v) for v in obj if v is not None]
         elif has(obj):  # Check if it's an attrs class
-            return self._remove_nones(asdict(obj))
+            return self._remove_nones(self.unstructure(obj))
         else:
             return obj

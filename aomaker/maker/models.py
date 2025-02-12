@@ -5,13 +5,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
 from typing import Any, Dict, List, Optional, Union, Set, TYPE_CHECKING
-from pydantic import BaseModel, Field,ConfigDict
-
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class Reference(BaseModel):
     # name: str
     ref: str = Field(..., alias='$ref')  # 存储引用路径，例如 "#/components/schemas/Pet"
+
     class Config:
         populate_by_name = True  # 允许使用字段名而不是别名
 
@@ -22,7 +22,7 @@ class Import(BaseModel):
     import_: str
     alias: Optional[str] = None
     model_config = ConfigDict(
-        frozen=True,    # 冻结实例（Python 3.11+）
+        frozen=True,  # 冻结实例（Python 3.11+）
         extra='forbid'  # 禁止额外字段
     )
 
@@ -36,9 +36,9 @@ class DataType(BaseModel):
     is_optional: bool = False
     is_custom_type: bool = False
     is_forward_ref: bool = False  # 标记是否为前向引用
-    is_inline: bool = False       # 是否是内联类型（直接展开字段）
+    is_inline: bool = False  # 是否是内联类型（直接展开字段）
     imports: Set[Import] = field(default_factory=set)  # 新增字段
-    fields: List["DataModelField"] = field(default_factory=list) # 新增：内联字段（当 is_inline=True 时有效）
+    fields: List["DataModelField"] = field(default_factory=list)  # 新增：内联字段（当 is_inline=True 时有效）
 
     @property
     def type_hint(self) -> str:
@@ -66,8 +66,10 @@ class DataModelField(BaseModel):
     default: Optional[Any] = None
     description: Optional[str] = None
 
+
 DataType.model_rebuild()
 DataModelField.model_rebuild()
+
 
 class DataModel(BaseModel):
     """数据模型"""
@@ -80,7 +82,7 @@ class DataModel(BaseModel):
     description: Optional[str] = None
     base_class: str = "attrs.define"
     imports: Set[Import] = field(default_factory=set)
-    required:List[DataModelField] = field(default_factory=set)
+    required: List[DataModelField] = field(default_factory=set)
     is_forward_ref: bool = False
 
 
@@ -156,6 +158,7 @@ class Endpoint(BaseModel):
     class_name: str
     path: str
     method: str
+    endpoint_id: str = field(default=None)
     tags: List[str] = field(default_factory=list)
     description: Optional[str] = None
     path_parameters: List[DataModelField] = field(default_factory=list)
@@ -163,7 +166,7 @@ class Endpoint(BaseModel):
     header_parameters: List[DataModelField] = field(default_factory=list)
     request_body: Optional[DataModel] = None
     response: Optional[DataModel] = None
-    imports:Set[Import] = field(default_factory=set)
+    imports: Set[Import] = field(default_factory=set)
 
 
 class APIGroup(BaseModel):
@@ -177,6 +180,7 @@ class APIGroup(BaseModel):
         for model in model_registry.models.values():
             if self.tag in model.tags:
                 self.models[model.name] = model
+
 
 class JsonSchemaObject(BaseModel):
     """ 仅用于解析 OpenAPI Schema 的中间模型，与最终生成的 attrs 模型无关 """

@@ -1,8 +1,9 @@
 # --coding:utf-8--
 from __future__ import annotations
+import requests
 from attrs import define, field
 from enum import Enum
-from typing import Dict, List, Any, Optional, TypeVar
+from typing import Dict, List, Any, Optional, TypeVar, Generic,Callable
 
 
 class HTTPMethod(str, Enum):
@@ -66,6 +67,21 @@ class PreparedRequest:
     files: Optional[dict] = field(default=None)
 
 
-_Parameters_T = TypeVar("_Parameters_T", bound=type)
-_RequestBody_T = TypeVar("_RequestBody_T", bound=type)
-_Response_T = TypeVar("_Response_T", bound=type)
+ParametersT = TypeVar("ParametersT", bound=type)
+RequestBodyT = TypeVar("RequestBodyT", bound=type)
+ResponseT = TypeVar("ResponseT")
+
+
+@define
+class AoResponse(Generic[ResponseT]):
+    raw_response: requests.Response = field()
+    response_model: ResponseT = field()
+
+    def first(self) -> Optional[ResponseT]:
+        ...
+
+    def filter(self, condition: Callable[[ResponseT], bool]) -> "AoResponse[ResponseT]":
+        ...
+
+    def exists(self) -> bool:
+        ...

@@ -3,27 +3,34 @@ from attrs import define, field, has
 from aomaker.cache import config, cache
 from typing import Union, Type, TYPE_CHECKING, Generic, Optional, List
 
-from .base_model import EndpointConfig, ContentType, _RequestBody_T, _Response_T, _Parameters_T
+from aomaker.schema_manager import SchemaManager
+from jsonschema_extractor import extract_jsonschema
+from jsonschema import validate
 
-from .converters import BaseConverter
+from .base_model import EndpointConfig, ContentType, RequestBodyT, ResponseT, ParametersT, AoResponse
+
+from .converters import RequestConverter
 from .http_client import HTTPClient
-
 
 # from .middlewares.logging_middleware import logging_middleware
 _FIELD_TO_VALIDATE = ("path_params", "query_params", "request_body", "response")
+
+
 @define(kw_only=True)
-class BaseAPIObject:
+class BaseAPIObject(Generic[ResponseT]):
     base_url: str = field(factory=lambda: config.get("host").rstrip("/"))
     headers: dict = field(factory=lambda: cache.get("headers"))
-    path_params: Optional[_Parameters_T] = field(default=None)
-    query_params: Optional[_Parameters_T] = field(default=None)
-    request_body: Optional[_RequestBody_T] = field(default=None)
-    response: Optional[_Response_T] = field(default=None)
+    path_params: Optional[ParametersT] = field(default=None)
+    query_params: Optional[ParametersT] = field(default=None)
+    request_body: Optional[RequestBodyT] = field(default=None)
+    response: Optional[Type[ResponseT]] = field(default=None)
 
+    endpoint_id: Optional[str] = field(default=None)
     endpoint_config: EndpointConfig = field(default=None)
     content_type: ContentType = field(default=ContentType.JSON)
     http_client: HTTPClient = field(default=None)
-    converter: Union[BaseConverter, Type[BaseConverter]] = field(default=None)
+    converter: Union[RequestConverter, Type[RequestConverter]] = field(default=None)
+    enable_schema_validation: bool = field(default=True)
 
     def __attrs_post_init__(self):
         self._validate_field_is_attrs()
@@ -34,7 +41,7 @@ class BaseAPIObject:
         if self.http_client is None:
             self.http_client = HTTPClient()
         if self.converter is None:
-            self.converter = BaseConverter(api_object=self)
+            self.converter = RequestConverter(api_object=self)
         elif isinstance(self.converter, type):
             self.converter = self.converter(api_object=self)
 
@@ -44,7 +51,25 @@ class BaseAPIObject:
             if field_ is not None and not has(field_):
                 raise TypeError(f"{field_name} must be an attrs instance")
 
-    def send(self):
+    def send(self) -> AoResponse[ResponseT]:
         req = self.converter.convert()
-        res = self.http_client.send_request(request=req)
-        return res
+        raw_response = self.http_client.send_request(request=req)
+        response_data = raw_response.json()
+
+        if self.enable_schema_validation:
+            # 获取schema
+            schema_manager = SchemaManager()
+            existing_schema = schema_manager.get_schema(self)
+
+            if not existing_schema and self.response:
+                # 自动生成并存储
+                new_schema = extract_jsonschema(self.response)
+                schema_manager.save_schema(self, new_schema)
+                existing_schema = new_schema
+
+            # 执行校验
+            if existing_schema:
+                validate(instance=response_data, schema=existing_schema)
+
+        response_model: ResponseT = self.converter.structure(response_data, self.response)
+        return AoResponse(raw_response, response_model)

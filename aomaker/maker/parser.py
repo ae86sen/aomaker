@@ -176,6 +176,7 @@ class OpenAPIParser(JsonSchemaParser):
         class_name = self.config.class_name_strategy(operation, method)
         endpoint = Endpoint(
             class_name=class_name,
+            endpoint_id=operation.operationId,
             path=path,
             method=method,
             tags=operation.tags,
