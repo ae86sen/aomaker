@@ -4,7 +4,8 @@ from typing import Dict, List, Set
 import black
 from jinja2 import Environment, FileSystemLoader
 
-from .parser import APIGroup, Endpoint, OpenAPIConfig
+from .parser import APIGroup, Endpoint
+from .config import OpenAPIConfig
 from .models import Import, DataModelField, DataModel
 
 
@@ -19,12 +20,21 @@ class ImportManager:
         self._imports[key].add(imp.alias)
 
 
-def collect_apis_imports(endpoints: List[Endpoint]) -> ImportManager:
+def collect_apis_imports(endpoints: List[Endpoint], config: OpenAPIConfig) -> ImportManager:
     manager = ImportManager()
     manager.add_import(Import(from_="attrs", import_="define, field"))
     manager.add_import(Import(from_="aomaker.core.router", import_="APIRouter"))
     # todo: 支持自定义AO导入
-    manager.add_import(Import(from_="aomaker.core.core", import_="BaseAPIObject"))
+    # manager.add_import(Import(from_="aomaker.core.core", import_="BaseAPIObject"))
+    module_path, _, class_name = config.base_api_class.rpartition('.')
+    manager.add_import(
+        Import(
+            from_=module_path,
+            import_=class_name,
+            alias=config.base_api_class_alias
+        )
+    )
+
     for endpoint in endpoints:
         for imp in endpoint.imports:
             manager.add_import(imp)
@@ -106,8 +116,10 @@ def _format_item(item: tuple) -> str:
     return f"{name} as {alias}" if alias else name
 
 
-class TemplateFunction:
-    config = OpenAPIConfig()
+class TemplateRenderUtils:
+    def __init__(self, config: OpenAPIConfig):
+        self.config = config or OpenAPIConfig()
+
     @classmethod
     def render_field_default(cls, field: DataModelField) -> str:
         """优化后的默认值渲染函数"""
@@ -170,28 +182,35 @@ class TemplateFunction:
             return f"Optional[{base_type}]"
         return base_type
 
-    @classmethod
-    def get_api_router_params(cls) -> str:
-        if cls.config.backend_prefix and cls.config.frontend_prefix:
-            return f"backend_prefix={cls.config.backend_prefix}, frontend_prefix={cls.config.frontend_prefix}"
+    def get_api_router_params(self) -> str:
+        if self.config.backend_prefix and self.config.frontend_prefix:
+            return f'backend_prefix="{self.config.backend_prefix}", frontend_prefix="{self.config.frontend_prefix}"'
         return ""
+
+    def get_base_class(self) -> str:
+        _, _, class_name = self.config.base_api_class.rpartition(".")
+        if self.config.base_api_class_alias:
+            class_name = self.config.base_api_class_alias
+        return class_name
 
 
 class Generator:
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, config: OpenAPIConfig):
         self.output_dir = Path(output_dir)
+        self.config = config or OpenAPIConfig()
         self.env = Environment(
             loader=FileSystemLoader("templates"),
             trim_blocks=True,
             lstrip_blocks=True
         )
-
+        self.render_utils = TemplateRenderUtils(config=self.config)
         # 注册全局函数
         self.env.globals.update({
-            'get_attrs_field': TemplateFunction.get_attrs_field_parameters,
-            'get_field_metadata': TemplateFunction.render_field_metadata,
-            'render_optional_hint': TemplateFunction.render_optional_hint,
-            'get_api_router_params': TemplateFunction.get_api_router_params,
+            'get_attrs_field': self.render_utils.get_attrs_field_parameters,
+            'get_field_metadata': self.render_utils.render_field_metadata,
+            'render_optional_hint': self.render_utils.render_optional_hint,
+            'get_api_router_params': self.render_utils.get_api_router_params,
+            'get_base_class': self.render_utils.get_base_class
         })
 
     def generate(self, api_groups: List[APIGroup]):
@@ -246,7 +265,7 @@ class Generator:
         template = self.env.get_template("apis.j2")
         content = template.render(
             endpoints=endpoints,
-            imports=imports
+            imports=imports,
         )
         # 格式化代码
         try:
@@ -259,7 +278,7 @@ class Generator:
         (package_dir / "apis.py").write_text(format_content)
 
     def _generate_apis_imports(self, endpoints: List[Endpoint]) -> List[str]:
-        import_manager = collect_apis_imports(endpoints)
+        import_manager = collect_apis_imports(endpoints, self.config)
         imports = generate_imports(import_manager)
 
         return imports

@@ -7,7 +7,7 @@ router = APIRouter({{ get_api_router_params() }})
 {% for endpoint in endpoints %}
 @define(kw_only=True)
 @router.{{ endpoint.method }}("{{ endpoint.path }}")
-class {{ endpoint.class_name }}(BaseAPIObject{% if endpoint.response.name %}[{{ endpoint.response.name }}]{% endif %}):
+class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.name %}[{{ endpoint.response.name }}]{% endif %}):
     """{{ endpoint.description }}"""
     {% if endpoint.path_parameters %}
     @define
