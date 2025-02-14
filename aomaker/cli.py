@@ -15,10 +15,7 @@ from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
 from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
-from aomaker.make import main_make
-from aomaker.make_testcase import main_case, main_make_case
-from aomaker.extension.har_parse import main_har2yaml
-from aomaker.extension.recording import filter_expression, main_record
+
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
 
@@ -88,104 +85,6 @@ def create(project_name):
     create_scaffold(project_name)
     click.echo(emojize(":beer_mug: 项目脚手架创建完成！"))
 
-
-@main.command()
-@click.option("-t", "--template", help="Set template of swagger.Default template: restful.",
-              type=click.Choice(["qingcloud", "restful"]), default="restful")
-@click.argument("file_path", )
-def make(file_path, template):
-    """Make Api object by YAML/Swagger(Json)
-
-    Arguments:\n
-    FILE_PATH: Specify YAML/Swagger file path.The file suffix must be '.yaml','.yml' or '.json'.
-    """
-    main_make(file_path, template)
-    click.echo(emojize(":beer_mug: Api Object渲染完成！"))
-
-
-@main.command()
-@click.argument("file_path")
-def case(file_path):
-    """Make testcases by YAML.
-
-    Arguments:\n
-    FILE_PATH: YAML file path.
-    """
-    main_case(file_path)
-    click.echo(emojize(":beer_mug: 用例脚本编写完成！"))
-
-
-@main.command()
-@click.argument("file_path")
-def mcase(file_path):
-    """A combined command of 'make' and 'case'.
-
-    Arguments:\n
-    FILE_PATH: YAML file path.
-    """
-    main_make_case(file_path)
-    click.echo(emojize(":beer_mug: 测试用例生产完成！"))
-
-
-@main.command()
-@click.argument("har_path")
-@click.argument("yaml_path")
-@click.option("--filter_str", help="Specify filter keyword, only url include filter string will be converted.")
-@click.option("--exclude_str", help="Specify exclude keyword, url that includes exclude string will be ignored, "
-                                    "multiple keywords can be joined with '|'")
-@click.option("--save_response", is_flag=True, help="Save response.")
-@click.option("--save_headers", is_flag=True, help="Save headers.")
-def har2y(har_path, yaml_path, filter_str, exclude_str, save_response, save_headers):
-    """Convert HAR(HTTP Archive) to YAML testcases for AoMaker.
-
-    Arguments:\n
-    HAR_PATH: HAR file path.
-    FILE_PATH: YAML file path.
-    """
-
-    class Args:
-        def __init__(self):
-            self.har_path = har_path
-            self.yaml_path = yaml_path
-            self.filter_str = filter_str
-            self.exclude_str = exclude_str
-            self.save_response = save_response
-            self.save_headers = save_headers
-
-    main_har2yaml(Args())
-    click.echo(emojize(":beer_mug: har转换yaml完成！"))
-
-
-@main.command()
-@click.argument("file_name")
-@click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
-@click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
-@click.option("--flow_detail", type=int, default=0, help="""
-    The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
-    0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
-    1: full request URL with response status code.\n
-    2: 1 + HTTP headers.\n
-    3: 2 + truncated response content, content of WebSocket and TCP messages.\n
-    4: 3 + nothing is truncated.\n""")
-@click.option("--save_response", is_flag=True, help="Save response.")
-@click.option("--save_headers", is_flag=True, help="Save headers.")
-def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
-    """Record flows: parse command line options and run commands.
-
-    Arguments:\n
-    FILE_NAME: Specify YAML file name.
-    """
-
-    class Args:
-        def __init__(self):
-            self.file_name = file_name
-            self.filter_str = filter_str
-            self.port = port
-            self.level = flow_detail
-            self.save_response = save_response
-            self.save_headers = save_headers
-
-    main_record(Args())
 
 
 def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
@@ -296,23 +195,6 @@ def main_arun_alias():
     #     sys.argv.insert(1, "run")
     #     click.echo(sys.argv)
     main()
-
-
-def main_make_alias():
-    """ command alias
-        amake = aomaker make
-    """
-    sys.argv.insert(1, "make")
-    main()
-
-
-def main_record_alias():
-    """ command alias
-        arec = aomaker record
-    """
-    sys.argv.insert(1, "record")
-    main()
-
 
 def main_run(env: str = None,
              log_level: str = "info",
