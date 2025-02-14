@@ -1,8 +1,9 @@
 # --coding:utf-8--
-import re
 import json
 from collections import defaultdict
 from typing import Dict, List, Optional, Union, Callable
+
+from rich.console import Console
 
 from aomaker.maker.models import DataModelField, Operation, Reference, Response, RequestBody, Import, MediaType, \
     MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject
@@ -12,11 +13,12 @@ from .config import OpenAPIConfig
 
 
 class OpenAPIParser(JsonSchemaParser):
-    def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None):
+    def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None, console: Console = None):
         super().__init__(openapi_data.get("components", {}).get("schemas", {}))
         self.openapi_data = openapi_data
         self.api_groups: Dict[str, APIGroup] = {}
         self.config: OpenAPIConfig = config or OpenAPIConfig()
+        self.console = console or Console()
 
     def _register_component_schemas(self):
         """预注册所有组件模式"""
@@ -25,10 +27,21 @@ class OpenAPIParser(JsonSchemaParser):
 
     def parse(self) -> List[APIGroup]:
         """主解析流程"""
-        for path, path_item in self.openapi_data.get('paths', {}).items():
+        paths = self.openapi_data.get('paths', {})
+        total_paths = len(paths)
+        for idx, (path, path_item) in enumerate(paths.items(), 1):
             for method, op_data in path_item.items():
                 if method.lower() not in {'get', 'post', 'put', 'delete', 'patch'}:
                     continue
+                if self.console:
+                    self.console.log(
+                        f"[primary]✅ [bold]已解析:[/] "
+                        f"[accent]{method.upper()}[/] " 
+                        f"[muted]on[/] "
+                        f"[accent]{path}[/] " 
+                        f"[muted]({idx}/{total_paths})[/]"
+                    )
+                # 原有处理逻辑保持不变
                 operation = Operation.model_validate(op_data)
                 self.current_tags = operation.tags
                 endpoint = self.parse_endpoint(path, method, operation)
@@ -38,7 +51,6 @@ class OpenAPIParser(JsonSchemaParser):
                         self.api_groups[tag] = APIGroup(tag=tag)
                     self.api_groups[tag].endpoints.append(endpoint)
                     self.api_groups[tag].collect_models(self.model_registry)
-
         # self._organize_models()
         return list(self.api_groups.values())
 

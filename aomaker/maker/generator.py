@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Set
 import black
 from jinja2 import Environment, FileSystemLoader
-
+from rich.console import Console
 from .parser import APIGroup, Endpoint
 from .config import OpenAPIConfig
 from .models import Import, DataModelField, DataModel
@@ -24,8 +24,7 @@ def collect_apis_imports(endpoints: List[Endpoint], config: OpenAPIConfig) -> Im
     manager = ImportManager()
     manager.add_import(Import(from_="attrs", import_="define, field"))
     manager.add_import(Import(from_="aomaker.core.router", import_="APIRouter"))
-    # todo: 支持自定义AO导入
-    # manager.add_import(Import(from_="aomaker.core.core", import_="BaseAPIObject"))
+
     module_path, _, class_name = config.base_api_class.rpartition('.')
     manager.add_import(
         Import(
@@ -195,11 +194,13 @@ class TemplateRenderUtils:
 
 
 class Generator:
-    def __init__(self, output_dir: str, config: OpenAPIConfig):
+    def __init__(self, output_dir: str, config: OpenAPIConfig, console: Console = None):
         self.output_dir = Path(output_dir)
         self.config = config or OpenAPIConfig()
+        self.console = console or Console()
+
         self.env = Environment(
-            loader=FileSystemLoader("templates"),
+            loader=FileSystemLoader("aomaker/maker/templates"),
             trim_blocks=True,
             lstrip_blocks=True
         )
@@ -215,20 +216,27 @@ class Generator:
 
     def generate(self, api_groups: List[APIGroup]):
         """生成所有API组的代码"""
-        for api_group in api_groups:
+        total_groups = len(api_groups)
+        for idx, api_group in enumerate(api_groups, 1):
+            if self.console:
+                self.console.log(
+                    f"[primary]✅ [bold]已生成:[/] "
+                    f"[highlight]{api_group.tag}[/] "
+                    f"[muted]module[/] "
+                    f"([muted]{idx}/{total_groups}[/])"
+                )
             self._generate_package(api_group.tag, api_group)
+        # for api_group in api_groups:
+        #     self._generate_package(api_group.tag, api_group)
 
     def _generate_package(self, tag: str, api_group: APIGroup) -> None:
         """为每个tag生成一个Python包"""
         endpoints = api_group.endpoints
-        # models = api_group.models
-        # 创建包目录
         package_dir = self.output_dir / tag
         package_dir.mkdir(parents=True, exist_ok=True)
 
         # 生成导入语句
         apis_all_imports = self._generate_apis_imports(endpoints)
-        # referenced_models = self._get_referenced_models(apis_all_imports, models)
         referenced_models = list(api_group.models.values())
 
         models_all_imports = self._gen_models_imports(referenced_models)
@@ -294,7 +302,7 @@ class Generator:
         model_name_list = []
         if target_line:
             # 分割并清理类名
-            _, classes_part = target_line.split(' import ', 1)  # 安全分割
+            _, classes_part = target_line.split(' import ', 1)
             model_name_list = [cls.strip() for cls in classes_part.split(',')]
 
         referenced_models = [all_models[model] for model in model_name_list if model in all_models]
