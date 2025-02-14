@@ -18,6 +18,12 @@ from aomaker.scaffold import create_scaffold
 
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
+from aomaker.maker.config import OpenAPIConfig
+from aomaker.maker.parser import OpenAPIParser
+from aomaker.maker.generator import Generator
+import json
+from rich.console import Console
+from rich.theme import Theme
 
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()
@@ -85,6 +91,67 @@ def create(project_name):
     create_scaffold(project_name)
     click.echo(emojize(":beer_mug: 项目脚手架创建完成！"))
 
+
+@main.command()
+@click.option("--spec", "-s", required=True, type=click.Path(exists=True),
+              help="OpenAPI规范文件路径（JSON/YAML）")
+@click.option("--output", "-o", default="demo", show_default=True,
+              help="代码输出目录")
+@click.option("--backend-prefix", "-b",
+              help="后端服务URL前缀（如：aicp）")
+@click.option("--frontend-prefix", "-f",
+              help="前端接口前缀（如：portal_api）")
+@click.option("--base-api-class", "-B", default="aomaker.core.core.BaseAPIObject",
+              show_default=True,
+              help="API基类完整路径（module.ClassName格式）")
+@click.option("--base-api-class-alias", "-A",
+              help="基类在生成代码中的别名")
+def generate(spec, output, backend_prefix, frontend_prefix, base_api_class, base_api_class_alias):
+    """
+    Generate Python models from an OpenAPI specification.
+    """
+    config = OpenAPIConfig(
+        backend_prefix=backend_prefix,
+        frontend_prefix=frontend_prefix,
+        base_api_class=base_api_class,
+        base_api_class_alias=base_api_class_alias
+    )
+
+    with open(spec, 'r', encoding='utf-8') as f:
+        doc = json.load(f)
+
+    custom_theme = Theme({
+        "primary": "#7B61FF",
+        "secondary": "#00C7BE",
+        "success": "#34D399",
+        "warning": "#FBBF24",
+        "error": "#EF4444",
+        "highlight": "#F472B6",
+        "muted": "#94A3B8",
+        "accent": "#38BDF8",
+        "gradient_start": "#8B5CF6",
+        "gradient_end": "#EC4899"
+    })
+
+    console = Console(theme=custom_theme)
+    console.print(
+        "[bold gradient(75)][gradient_start]⚡[/][gradient_end]AOMaker OpenAPI Processor[/]",
+        justify="center"
+    )
+
+    with console.status("[primary]🚀 Initializing...[/]", spinner="dots") as status:
+        status.update("[gradient(75)]🔨 OpenAPI数据解析中...[/]")
+        parser = OpenAPIParser(doc, config=config, console=console)
+        api_groups = parser.parse()
+
+        status.update("[gradient(75)]⚡ Generating code[/]")
+        generator = Generator(output_dir=output, config=config, console=console)
+        generator.generate(api_groups)
+
+    console.print(
+        "[success on black]  🍺 [bold]All API Objects generation completed![/]  ",
+        style="blink bold", justify="center"
+    )
 
 
 def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
@@ -195,6 +262,7 @@ def main_arun_alias():
     #     sys.argv.insert(1, "run")
     #     click.echo(sys.argv)
     main()
+
 
 def main_run(env: str = None,
              log_level: str = "info",

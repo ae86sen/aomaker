@@ -4,6 +4,7 @@ from typing import Dict, List, Set
 import black
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
+
 from .parser import APIGroup, Endpoint
 from .config import OpenAPIConfig
 from .models import Import, DataModelField, DataModel
@@ -200,7 +201,7 @@ class Generator:
         self.console = console or Console()
 
         self.env = Environment(
-            loader=FileSystemLoader("aomaker/maker/templates"),
+            loader=FileSystemLoader(Path(__file__).parent / "templates"),
             trim_blocks=True,
             lstrip_blocks=True
         )

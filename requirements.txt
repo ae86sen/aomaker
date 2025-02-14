@@ -18,3 +18,6 @@ ruamel.yaml==0.17.21
 pydantic==2.10.5
 jsonschema-extractor==2.0.2
 rich==12.6.0
+attrs==25.1.0
+cattrs==24.1.2
+translate==3.6.1
