@@ -2,13 +2,15 @@
 import json
 import traceback
 from json import JSONDecodeError
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
+
 from jinja2 import Template
 import allure
 from emoji import emojize
-from aomaker.log import logger
 
-from .middlewares import RequestType, CallNext, ResponseType,register_middleware
+from aomaker.log import logger
+from .middlewares import RequestType, CallNext, ResponseType, register_middleware
 
 
 
@@ -23,14 +25,14 @@ TEMPLATE = """
 {% if headers -%}
 {% raw %}     Headers: {%endraw%}{{headers}}
 {% endif -%}
-{% if request_params -%}
-{% raw %}     Request Params: {%endraw%}{{request_params}}
+{% if params -%}
+{% raw %}     Request Params: {%endraw%}{{params}}
 {% endif -%}
-{% if request_data -%}
-{% raw %}     Request Data: {%endraw%}{{request_data}}
+{% if data -%}
+{% raw %}     Request Data: {%endraw%}{{data}}
 {% endif -%}
-{% if request_json -%}
-{% raw %}     Request Json: {%endraw%}{{request_json}}
+{% if json -%}
+{% raw %}     Request Json: {%endraw%}{{json}}
 {% endif -%}
 {{emoji_rep}} <Response>
 {% if status_code -%}
@@ -43,12 +45,20 @@ TEMPLATE = """
 {{tag}}
 """
 
+@dataclass
+class LogData:
+    request: Dict[str, Any] = field(default_factory=dict)
+    response: Dict[str, Any] = field(default_factory=dict)
+    caller_name: str = "TODO" # todo: 增加调用API名
+    doc: str = "" # todo: 获取API注释
+    success: bool = False
+    error: Optional[Dict[str, Any]] = None
+
 
 @register_middleware
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
-    # 初始化基础数据
-    log_data = _init_log_data(request)
+    log_data = LogData(request=request)
     response = None
 
     try:
@@ -56,11 +66,11 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
         response = call_next(request)
 
         # 收集响应信息
-        log_data |= _parse_response(response)
-        log_data["success"] = True
+        log_data.response = _parse_response(response)
+        log_data.success = True
 
     except Exception as e:
-        log_data["error"] = _parse_exception(e)
+        log_data.error = _parse_exception(e)
         raise
     finally:
         # 无论成功与否都记录日志
@@ -68,35 +78,15 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
 
     return response
 
-
-def _init_log_data(request: RequestType) -> dict:
-    """初始化日志数据结构"""
-    return {
-        "request": {
-            "method": request.get("method"),
-            "url": request.get("url"),
-            "headers": request.get("headers", {}),
-            "params": request.get("params"),
-            "data": request.get("data"),
-            "json": request.get("json"),
-        },
-        "response": {},
-        "caller_name": "TODO",  # 需后续补充调用栈解析
-        "doc": ""
-    }
-
-
-def _parse_response(response: ResponseType) -> dict:
+def _parse_response(response: ResponseType) -> Dict[str, Any]:
     """解析响应数据"""
-    result = {
+    return {
         "status_code": response.status_code,
         "elapsed": response.elapsed.total_seconds() if response.elapsed else None,
         "response_body": _parse_response_body(response)
     }
-    return {"response": result}
 
-
-def _parse_response_body(response: ResponseType):
+def _parse_response_body(response: ResponseType) -> Any:
     """自动解析响应体"""
     content_type = response.headers.get("Content-Type", "")
 
@@ -109,8 +99,7 @@ def _parse_response_body(response: ResponseType):
         return response.text
     return "(binary data)"
 
-
-def _parse_exception(e: Exception) -> dict:
+def _parse_exception(e: Exception) -> Dict[str, Any]:
     """解析异常信息"""
     return {
         "type": type(e).__name__,
@@ -118,8 +107,7 @@ def _parse_exception(e: Exception) -> dict:
         "traceback": traceback.format_exc()
     }
 
-
-def _process_log_outputs(log_data: dict, request: dict, response: Optional[ResponseType]):
+def _process_log_outputs(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
     """处理三路输出"""
     # 填充模板变量
     render_data = {
@@ -127,12 +115,11 @@ def _process_log_outputs(log_data: dict, request: dict, response: Optional[Respo
         "emoji_api": emojize(":A_button_(blood_type):"),
         "emoji_req": emojize(":rocket:"),
         "emoji_rep": emojize(":check_mark_button:"),
-        **log_data["request"],
-        **log_data["response"],
-        "caller_name": log_data["caller_name"],
-        "doc": log_data["doc"]
+        **log_data.request,
+        **log_data.response,
+        "caller_name": log_data.caller_name,
+        "doc": log_data.doc
     }
-
     # 渲染模板
     formatted_log = Template(TEMPLATE).render(render_data)
 
@@ -145,8 +132,7 @@ def _process_log_outputs(log_data: dict, request: dict, response: Optional[Respo
     # Allure 附件输出
     _attach_allure_report(log_data, request, response)
 
-
-def _attach_allure_report(log_data: dict, request: dict, response: Optional[ResponseType]):
+def _attach_allure_report(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
     """生成Allure附件"""
     allure_info = {
         "request": {
@@ -161,13 +147,13 @@ def _attach_allure_report(log_data: dict, request: dict, response: Optional[Resp
     if response is not None:
         allure_info["response"] = {
             "status_code": response.status_code,
-            "body": log_data["response"]["response_body"]
+            "body": log_data.response["response_body"]
         }
 
     try:
         allure.attach(
             json.dumps(allure_info, indent=2, ensure_ascii=False),
-            name=f"{log_data['caller_name']} Log",
+            name=f"{log_data.caller_name} Log",
             attachment_type=allure.attachment_type.JSON
         )
     except Exception as e:
