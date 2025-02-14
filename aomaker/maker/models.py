@@ -173,6 +173,7 @@ class APIGroup(BaseModel):
     tag: str
     endpoints: List[Endpoint] = field(default_factory=list)
     models: Dict[str, DataModel] = field(default_factory=dict)
+    endpoint_names: Set[str] = field(default_factory=set)
 
     def collect_models(self, model_registry):
         """从全局注册表中收集属于当前 Tag 的模型"""
@@ -180,6 +181,17 @@ class APIGroup(BaseModel):
         for model in model_registry.models.values():
             if self.tag in model.tags:
                 self.models[model.name] = model
+
+    def add_endpoint(self, endpoint: Endpoint):
+        name = endpoint.class_name
+        if name in self.endpoint_names:
+            i = 1
+            while f"{name}_{i}" in self.endpoint_names:
+                i += 1
+            name = f"{name}_{i}"
+            endpoint.class_name = name
+        self.endpoint_names.add(name)
+        self.endpoints.append(endpoint)
 
 
 class JsonSchemaObject(BaseModel):

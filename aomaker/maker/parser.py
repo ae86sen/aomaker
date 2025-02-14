@@ -49,7 +49,7 @@ class OpenAPIParser(JsonSchemaParser):
                 for tag in operation.tags or ['default']:
                     if tag not in self.api_groups:
                         self.api_groups[tag] = APIGroup(tag=tag)
-                    self.api_groups[tag].endpoints.append(endpoint)
+                    self.api_groups[tag].add_endpoint(endpoint)
                     self.api_groups[tag].collect_models(self.model_registry)
         # self._organize_models()
         return list(self.api_groups.values())
