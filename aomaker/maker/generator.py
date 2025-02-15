@@ -193,6 +193,14 @@ class TemplateRenderUtils:
             class_name = self.config.base_api_class_alias
         return class_name
 
+    @classmethod
+    def get_all_api_class_name(cls, endpoints: List[Endpoint]):
+        return [endpoint.class_name for endpoint in endpoints]
+
+    @classmethod
+    def get_all_model_class_name(cls, datamodels: List[DataModel]):
+        return [datamodel.name for datamodel in datamodels]
+
 
 class Generator:
     def __init__(self, output_dir: str, config: OpenAPIConfig, console: Console = None):
@@ -212,7 +220,9 @@ class Generator:
             'get_field_metadata': self.render_utils.render_field_metadata,
             'render_optional_hint': self.render_utils.render_optional_hint,
             'get_api_router_params': self.render_utils.get_api_router_params,
-            'get_base_class': self.render_utils.get_base_class
+            'get_base_class': self.render_utils.get_base_class,
+            'get_all_api_class_name': self.render_utils.get_all_api_class_name,
+            'get_all_model_class_name': self.render_utils.get_all_model_class_name
         })
 
     def generate(self, api_groups: List[APIGroup]):
@@ -243,13 +253,18 @@ class Generator:
         models_all_imports = self._gen_models_imports(referenced_models)
 
         # 创建__init__.py
-        (package_dir / "__init__.py").touch()
+        self._generate_init(package_dir)
 
         # 生成models.py
         self._generate_models(package_dir, referenced_models, models_all_imports)
 
         # 生成apis.py
         self._generate_apis(package_dir, endpoints, apis_all_imports)
+
+    def _generate_init(self, package_dir: Path):
+        template = self.env.get_template("init.j2")
+        content = template.render()
+        (package_dir / "__init__.py").write_text(content)
 
     def _generate_models(self, package_dir: Path, referenced_models: List[DataModel], imports: List[str]):
         """生成models.py文件"""

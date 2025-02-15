@@ -3,6 +3,8 @@
 {{ import }}
 {% endfor %}
 
+__ALL__ = {{ get_all_model_class_name(referenced_models) }}
+
 
 {% for model in referenced_models %}
 @define(kw_only=True)

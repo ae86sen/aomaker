@@ -100,9 +100,9 @@ def create(project_name):
 @click.option("--output", "-o", default="demo", show_default=True,
               help="代码输出目录")
 @click.option("--backend-prefix", "-b",
-              help="后端服务URL前缀（如：aicp）")
+              help="后端服务路由前缀（如：api_service）")
 @click.option("--frontend-prefix", "-f",
-              help="前端接口前缀（如：portal_api）")
+              help="前端接口路由前缀（如：global_api）")
 @click.option("--base-api-class", "-B", default="aomaker.core.core.BaseAPIObject",
               show_default=True,
               help="API基类完整路径（module.ClassName格式）")
