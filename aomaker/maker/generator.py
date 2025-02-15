@@ -125,13 +125,16 @@ class TemplateRenderUtils:
         """优化后的默认值渲染函数"""
         # 获取 default 值（兼容字段不存在 default 的情况）
         default = getattr(field, "default", None)
-
         # 统一处理空值场景：None、空字符串、字段无 default
         if default in (None, ""):
             return "default=None"  # 强制统一为 None
 
         # 处理非空值场景
         data_type = field.data_type.type.lower()  # 类型名称转小写统一处理
+
+        if default is not None and data_type is not None:
+            if type(default).__name__ != data_type:
+                return "default=None"
 
         if data_type == "str":
             # 字符串类型需要保留原始值的类型（例如 True -> "True"）
