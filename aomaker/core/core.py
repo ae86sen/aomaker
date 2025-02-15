@@ -51,8 +51,22 @@ class BaseAPIObject(Generic[ResponseT]):
             if field_ is not None and not has(field_):
                 raise TypeError(f"{field_name} must be an attrs instance")
 
+    @property
+    def class_name(self):
+        return self.__class__.__name__
+
+    @property
+    def class_doc(self):
+        return self.__class__.__doc__ or ""
+
     def send(self) -> AoResponse[ResponseT]:
         req = self.converter.convert()
+
+        req["_api_meta"] = {
+            "class_name": self.class_name,
+            "class_doc": self.class_doc.strip()
+        }
+
         raw_response = self.http_client.send_request(request=req)
         response_data = raw_response.json()
 

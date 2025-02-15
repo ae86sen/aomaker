@@ -36,6 +36,7 @@ class HTTPClient:
         merged_request = {**request, **kwargs}
 
         def send(req: RequestType) -> ResponseType:
+            req.pop("_api_meta")
             raw_response = self.session.request(**req)
             return CachedResponse(raw_response)
 

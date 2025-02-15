@@ -16,7 +16,7 @@ from .middlewares import RequestType, CallNext, ResponseType, register_middlewar
 
 TEMPLATE = """
 {{tag}}
-{{emoji_api}} <API>: {{caller_name}} {{doc}}
+{{emoji_api}} <API>: {{class_name}} {{class_doc}}
 {{emoji_req}} <Request>
      URL: {{url}}
 {% if method -%}
@@ -49,8 +49,8 @@ TEMPLATE = """
 class LogData:
     request: Dict[str, Any] = field(default_factory=dict)
     response: Dict[str, Any] = field(default_factory=dict)
-    caller_name: str = "TODO" # todo: 增加调用API名
-    doc: str = "" # todo: 获取API注释
+    class_name: str = field(default="")
+    class_doc: str = field(default="")
     success: bool = False
     error: Optional[Dict[str, Any]] = None
 
@@ -58,7 +58,8 @@ class LogData:
 @register_middleware
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
-    log_data = LogData(request=request)
+    api_meta = request.get("_api_meta",{})
+    log_data = LogData(request=request, class_name=api_meta.get("class_name"), class_doc=api_meta.get("class_doc"))
     response = None
 
     try:
@@ -119,8 +120,8 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
         "emoji_rep": emojize(":check_mark_button:"),
         **log_data.request,
         **log_data.response,
-        "caller_name": log_data.caller_name,
-        "doc": log_data.doc,
+        "class_name": log_data.class_name,
+        "class_doc": log_data.class_doc,
         "log_level": log_current_level
     }
     # 渲染模板
@@ -156,7 +157,7 @@ def _attach_allure_report(log_data: LogData, request: RequestType, response: Opt
     try:
         allure.attach(
             json.dumps(allure_info, indent=2, ensure_ascii=False),
-            name=f"{log_data.caller_name} Log",
+            name=f"{log_data.class_name} Log",
             attachment_type=allure.attachment_type.JSON
         )
     except Exception as e:
