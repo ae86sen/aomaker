@@ -1,12 +1,15 @@
 # --coding:utf-8--
 import os
 import sys
+import json
 from typing import List, Text
 
 import click
 from ruamel.yaml import YAML
 from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
+from rich.console import Console
+from rich.theme import Theme
 
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
@@ -21,9 +24,8 @@ from aomaker.models import AomakerYaml
 from aomaker.maker.config import OpenAPIConfig
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
-import json
-from rich.console import Console
-from rich.theme import Theme
+
+
 
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()

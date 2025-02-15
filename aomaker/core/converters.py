@@ -1,9 +1,11 @@
 # --coding:utf-8--
 from __future__ import annotations
+from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any
+from datetime import datetime
+from uuid import UUID
+
 from attrs import has, define, field
 from cattrs import Converter as CattrsConverter
-from typing import Dict, List, TypeVar, TYPE_CHECKING, Optional, Type, Any
-from datetime import datetime
 
 if TYPE_CHECKING:
     from .core import BaseAPIObject
@@ -22,10 +24,8 @@ T = TypeVar('T')
 
 def datetime_hook(value, _type):
     if isinstance(value, str):
-        # 处理 ISO 格式字符��
         return datetime.fromisoformat(value)
     elif isinstance(value, (int, float)):
-        # 处理时间戳（假设是 UTC）
         return datetime.utcfromtimestamp(value)
     else:
         raise ValueError(f"无法将 {value} 转换为 datetime")
@@ -33,6 +33,7 @@ def datetime_hook(value, _type):
 
 cattrs_converter = CattrsConverter()
 cattrs_converter.register_structure_hook(datetime, datetime_hook)
+cattrs_converter.register_structure_hook(UUID, lambda value, _: UUID(value))
 
 
 @define
