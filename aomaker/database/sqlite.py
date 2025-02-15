@@ -16,7 +16,6 @@ class SQLiteDB:
         """
         Connect to the sqlite database
         """
-        # check_same_thread=False
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.connection.cursor()
 

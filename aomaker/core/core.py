@@ -1,9 +1,8 @@
 # --coding:utf-8--
 from attrs import define, field, has
-from aomaker.cache import config, cache
+from aomaker.cache import config, cache,schema
 from typing import Union, Type, TYPE_CHECKING, Generic, Optional, List
 
-from aomaker.schema_manager import SchemaManager
 from jsonschema_extractor import extract_jsonschema
 from jsonschema import validate, ValidationError
 from jsonschema.exceptions import best_match
@@ -72,14 +71,13 @@ class BaseAPIObject(Generic[ResponseT]):
         response_data = raw_response.json()
 
         if self.enable_schema_validation:
-            # 获取schema
-            schema_manager = SchemaManager()
-            existing_schema = schema_manager.get_schema(self)
+
+            existing_schema = schema.get_schema(self)
 
             if not existing_schema and self.response:
                 # 自动生成并存储
                 new_schema = extract_jsonschema(self.response)
-                schema_manager.save_schema(self, new_schema)
+                schema.save_schema(self, new_schema)
                 existing_schema = new_schema
 
             # 执行校验

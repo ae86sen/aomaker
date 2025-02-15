@@ -1,6 +1,8 @@
 # --coding:utf-8--
+import re
 import sqlite3
 import json
+import hashlib
 
 from jsonpath import jsonpath
 from multiprocessing import current_process
@@ -67,6 +69,32 @@ class Schema(SQLiteDB):
     def __init__(self):
         super(Schema, self).__init__()
         self.table = DataBase.SCHEMA_TABLE
+        self._create_table()
+
+    def _create_table(self):
+        sql = f""" CREATE TABLE IF NOT EXISTS {self.table} (
+                schema_key TEXT PRIMARY KEY,
+                schema_json TEXT NOT NULL,
+                original_route TEXT,
+                method TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"""
+        self.execute_sql(sql)
+
+    def save_schema(self, endpoint, schema_: dict):
+        key = SchemaKeyGenerator.get_schema_key(endpoint)
+        sql = f"""INSERT INTO {self.table} (schema_key, schema_json, original_route, method)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(schema_key) DO UPDATE SET schema_json=excluded.schema_json
+        """
+        self.execute_sql(sql,(key, json.dumps(schema_), endpoint.endpoint_config.route, endpoint.endpoint_config.method.value))
+
+    def get_schema(self, endpoint) -> dict:
+        key = SchemaKeyGenerator.get_schema_key(endpoint)
+        sql = f"SELECT schema_json FROM {self.table} WHERE schema_key="
+        self.execute_sql(sql,(key,))
+        row = self.cursor.fetchone()
+        return json.loads(row[0]) if row else None
 
     def set(self, key: str, value):
         sql = f"""insert into {self.table} (api_name,schema) values (:key,:value)"""
@@ -156,7 +184,7 @@ class Cache(SQLiteDB):
         res = self.get(key)
         extract_var = jsonpath(res, jsonpath_expr)
         if extract_var is False:
-            raise JsonPathExtractFailed(res,jsonpath_expr)
+            raise JsonPathExtractFailed(res, jsonpath_expr)
         extract_var = extract_var[expr_index]
         return extract_var
 
@@ -180,6 +208,27 @@ def _get_worker():
         "mp": current_process().name
     }
     return worker[run_mode]
+
+
+class SchemaKeyGenerator:
+    @staticmethod
+    def normalize_route(route: str) -> str:
+        """将路由路径标准化（处理参数化路径差异）"""
+        # 示例：/user/{id}/profile → /user/{}/profile
+        return re.sub(r'\{\w+\}', '{}', route)
+
+    @staticmethod
+    def generate_route_hash(method: str, route: str) -> str:
+        """生成路由指纹"""
+        normalized = SchemaKeyGenerator.normalize_route(route)
+        return hashlib.md5(f"{method}|{normalized}".encode()).hexdigest()[:8]
+
+    @classmethod
+    def get_schema_key(cls, endpoint) -> str:
+        """生成最终使用的复合键"""
+        if endpoint.endpoint_id:
+            return endpoint.endpoint_id
+        return f"{cls.generate_route_hash(endpoint.endpoint_config.method.value, endpoint.endpoint_config.route)}"
 
 
 cache = Cache()
