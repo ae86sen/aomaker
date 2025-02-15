@@ -5,7 +5,8 @@ from typing import Union, Type, TYPE_CHECKING, Generic, Optional, List
 
 from aomaker.schema_manager import SchemaManager
 from jsonschema_extractor import extract_jsonschema
-from jsonschema import validate
+from jsonschema import validate, ValidationError
+from jsonschema.exceptions import best_match
 
 from .base_model import EndpointConfig, ContentType, RequestBodyT, ResponseT, ParametersT, AoResponse
 
@@ -83,7 +84,27 @@ class BaseAPIObject(Generic[ResponseT]):
 
             # 执行校验
             if existing_schema:
-                validate(instance=response_data, schema=existing_schema)
+                self.schema_validate(instance=response_data, schema=existing_schema)
 
         response_model: ResponseT = self.converter.structure(response_data, self.response)
         return AoResponse(raw_response, response_model)
+
+    def schema_validate(self, instance, schema):
+        try:
+            validate(instance=instance, schema=schema)
+        except ValidationError as e:
+            if e.context:
+                best_error = best_match(e.context)
+                if best_error is not None:
+                    message = best_error.message
+                    error_path = best_error.absolute_path
+                else:
+                    message = e.message
+                    error_path = e.absolute_path
+            else:
+                message = e.message
+                error_path = e.absolute_path
+
+            error_path_str = ".".join(map(str, error_path)) if error_path else "root"
+
+            raise ValidationError(f"{message} (path: {error_path_str})") from None
