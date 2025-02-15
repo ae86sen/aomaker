@@ -9,7 +9,7 @@ from jinja2 import Template
 import allure
 from emoji import emojize
 
-from aomaker.log import logger
+from aomaker.log import logger,aomaker_logger
 from .middlewares import RequestType, CallNext, ResponseType, register_middleware
 
 
@@ -22,7 +22,7 @@ TEMPLATE = """
 {% if method -%}
 {% raw %}     Method: {%endraw%}{{method}}
 {% endif -%}
-{% if headers -%}
+{% if log_level==10 -%}
 {% raw %}     Headers: {%endraw%}{{headers}}
 {% endif -%}
 {% if params -%}
@@ -35,7 +35,7 @@ TEMPLATE = """
 {% raw %}     Request Json: {%endraw%}{{json}}
 {% endif -%}
 {{emoji_rep}} <Response>
-{% if status_code -%}
+{% if log_level==10 -%}
 {% raw %}     Status Code: {%endraw%}{{status_code}}
 {% endif -%}
 {% raw %}     Response Body: {%endraw%}{{response_body}}
@@ -109,6 +109,8 @@ def _parse_exception(e: Exception) -> Dict[str, Any]:
 
 def _process_log_outputs(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
     """处理三路输出"""
+    log_current_level = aomaker_logger.get_level()
+
     # 填充模板变量
     render_data = {
         "tag": "=" * 100,
@@ -118,13 +120,14 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
         **log_data.request,
         **log_data.response,
         "caller_name": log_data.caller_name,
-        "doc": log_data.doc
+        "doc": log_data.doc,
+        "log_level": log_current_level
     }
     # 渲染模板
     formatted_log = Template(TEMPLATE).render(render_data)
 
     # 控制台输出（根据日志级别）
-    if logger.level == 10:  # DEBUG
+    if log_current_level == 10:
         logger.debug(formatted_log)
     else:
         logger.info(formatted_log)
