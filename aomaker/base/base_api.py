@@ -84,10 +84,10 @@ def response_callback(payload: dict):
             print_info = _render_template(template, print_info)
             std_logger(print_info)
 
-            if isinstance(resp_body, dict):
-                to_schema = genson(resp_body)
-                schema.set(caller_of_method, to_schema)
-                logger.debug(f'接口{caller_name}的响应jsonschema已保存到schema表中')
+            # if isinstance(resp_body, dict):
+            #     to_schema = genson(resp_body)
+            #     schema.set(caller_of_method, to_schema)
+            #     logger.debug(f'接口{caller_name}的响应jsonschema已保存到schema表中')
 
             try:
                 allure.attach(json.dumps(allure_info, indent=2, separators=(',', ':'), ensure_ascii=False),
