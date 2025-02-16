@@ -157,7 +157,7 @@ def _attach_allure_report(log_data: LogData, request: RequestType, response: Opt
     try:
         allure.attach(
             json.dumps(allure_info, indent=2, ensure_ascii=False),
-            name=f"{log_data.class_name} Log",
+            name=f"{log_data.class_name}",
             attachment_type=allure.attachment_type.JSON
         )
     except Exception as e:

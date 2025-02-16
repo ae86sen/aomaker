@@ -163,7 +163,8 @@ class TemplateRenderUtils:
             formatted_desc = f'"{desc}"'
 
         if field.data_type.type == "UUID":
-            return f'metadata={{"description": {formatted_desc}, "jsonschema": {{"type": "string", "format": "uuid"}}}}'
+            type_ = "string" if field.required else ["string", "null"]
+            return f'metadata={{"description": {formatted_desc}, "jsonschema": {{"type": {type_}, "format": "uuid"}}}}'
 
         return f'metadata={{"description": {formatted_desc}}}'
 

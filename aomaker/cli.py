@@ -1,15 +1,21 @@
 # --coding:utf-8--
 import os
+import re
 import sys
 import json
 from typing import List, Text
+import webbrowser
+from threading import Timer
+from importlib import import_module
 
 import click
+import uvicorn
 from ruamel.yaml import YAML
 from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
 from rich.console import Console
 from rich.theme import Theme
+from tabulate import tabulate
 
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
@@ -24,8 +30,8 @@ from aomaker.models import AomakerYaml
 from aomaker.maker.config import OpenAPIConfig
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
-
-
+from aomaker.cache import stats
+from aomaker.service import app
 
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()
@@ -58,6 +64,17 @@ def main(ctx):
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
     cli_hook()
+
+@main.group()
+def show():
+    """Show various statistics."""
+    pass
+
+
+@main.group()
+def gen():
+    """Generate various statistics."""
+    pass
 
 
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
@@ -154,6 +171,89 @@ def generate(spec, output, backend_prefix, frontend_prefix, base_api_class, base
         "[success on black]  🍺 [bold]All API Objects generation completed![/]  ",
         style="blink bold", justify="center"
     )
+
+
+@show.command(name="stats")
+@click.option("--package", help="Package name to filter by.")
+@click.option("--module", help="Module name to filter by.")
+@click.option("--class", "class_", help="Class name to filter by.", metavar='CLASS')
+@click.option("--api", help="API name to filter by.")
+@click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
+def query_stats(package, module, class_, api, showindex):
+    """Query API statistics with optional filtering."""
+    conditions = {}
+
+    if package:
+        conditions['package'] = package
+    if module:
+        conditions['module'] = module
+    if class_:
+        conditions['class'] = class_
+    if api:
+        conditions['api'] = api
+
+    showindex_value = "always" if showindex else "default"
+
+    results = stats.get(conditions=conditions)
+    print(f"Total APIs: {len(results)}")
+    headers = ["Package", "Module", "Class", "API"]
+    print(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
+
+
+@gen.command(name="stats")
+def gen_stats():
+    generate_apis()
+    print("接口统计完毕！")
+
+
+@main.command(help="Start a web service.")
+@click.option('--web', is_flag=True, help="Open the web interface in a browser.")
+@click.option('--port', default=8888, help="Specify the port number to run the server on. Default is 8888.")
+def service(web, port):
+    progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
+
+    def open_web(url):
+        webbrowser.open(url)
+
+    if web:
+        Timer(2, open_web, args=[progress_url]).start()
+    uvicorn.run(app, host="127.0.0.1", port=port)
+
+
+def generate_apis():
+    class_pattern = re.compile(r'^class (\w+)\((?!object\))', re.MULTILINE)
+    method_pattern = re.compile(r'^\s+def (\w+)\(self[,\s\w=]*\):', re.MULTILINE)
+
+    def remove_comments(text):
+        text = re.sub(r'(\'\'\'(.*?)\'\'\'|\"\"\"(.*?)\"\"\")', '', text, flags=re.DOTALL)
+        text = re.sub(r'#.*', '', text)
+        return text
+
+    root_dir = 'apis'
+    table_data = []
+    stats.clear()
+
+    for root, dirs, files in os.walk(root_dir):
+        for file in files:
+            if file.endswith('.py') and file != '__init__.py' and file != 'base.py':
+                file_path = os.path.join(root, file)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    content = remove_comments(content)
+                    # 匹配子类的类名
+                    classes = class_pattern.findall(content)
+                    if classes:
+                        module_name = os.path.splitext(file)[0]
+                        relative_root = os.path.relpath(root, root_dir)
+                        package_name = relative_root.replace(os.sep, '.')
+                        for cls in classes:
+                            methods = method_pattern.findall(content)
+                            for method in methods:
+                                if not method.startswith('_'):
+                                    class_name = cls.split('(')[0].strip()  # 只保留类名
+                                    table_data.append([package_name, module_name, class_name, method])
+                                    stats.set(package=package_name, module=module_name, api_class=class_name,
+                                              api=method)
 
 
 def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,

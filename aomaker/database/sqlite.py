@@ -62,7 +62,7 @@ class SQLiteDB:
         """
         sql = """select * from {}""".format(table)
         if where is not None:
-            sql += 'where {};'.format(self.dict_to_str_and(where))
+            sql += ' where {}'.format(self.dict_to_str_and(where))
         return self.query_sql(sql)
 
     def update_data(self, table: str, data: dict, where: dict):
@@ -72,7 +72,7 @@ class SQLiteDB:
         sql = """update {} set """.format(table)
         sql += self.dict_to_str(data)
         if where:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
+            sql += ' where {}'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
     def delete_data(self, table: str, where: dict = None):
@@ -81,7 +81,7 @@ class SQLiteDB:
         """
         sql = """delete from {}""".format(table)
         if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
+            sql += ' where {}'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
     def init_table(self, table_data: dict):

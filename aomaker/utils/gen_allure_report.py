@@ -119,6 +119,64 @@ def _count_passed_rate(results: dict) -> dict:
     return new_results
 
 
+def rewrite_summary():
+    try:
+        case_summary = CaseSummary()
+    except FileNotFoundError:
+        class NewCaseSummary:
+            passed_rate = "0%"
+            failed_rate = "0%"
+            broken_rate = "0%"
+            skipped_rate = "0%"
+            total_count = 0
+            passed_count = 0
+            failed_count = 0
+            broken_count = 0
+            skipped_count = 0
+            duration = "0s"
+            start_time = "--"
+            stop_time = "--"
+
+        case_summary = NewCaseSummary()
+
+    reports = get_allure_results(sep="_")
+    if reports:
+        markdown_li = []
+        for product, result in reports.items():
+            mark_dic = {"format_wechat": "", "format_email": ""}
+            mark_dic["format_wechat"] = f"<font color='info'>🎯「{product}」成功率: {result['passed_rate']}</font>"
+            mark_dic["format_email"] = f"「{product}」成功率: {result['passed_rate']}"
+            mark_dic[product] = result['passed_rate']
+            markdown_li.append(mark_dic)
+        marks_rate = markdown_li
+    else:
+        marks_rate = []
+
+    new_summary = {
+        "summary":
+            {
+                "passed_rate": case_summary.passed_rate,
+                "failed_rate": case_summary.failed_rate,
+                "skipped_rate": case_summary.skipped_rate,
+                "broken_rate": case_summary.broken_rate,
+                "total_count": case_summary.total_count,
+                "passed_count": case_summary.passed_count,
+                "failed_count": case_summary.failed_count,
+                "broken_count": case_summary.broken_count,
+                "skipped_count": case_summary.skipped_count,
+                "duration": case_summary.duration,
+                "start_time": case_summary.start_time,
+                "stop_time": case_summary.stop_time,
+                "marks_rate": marks_rate
+            }
+    }
+    #
+    if os.path.exists(SUMMARY_JSON_PATH):
+        with open(SUMMARY_JSON_PATH, "w") as f:
+            case_summary.allure_summary.update(new_summary)
+            f.write(json.dumps(case_summary.allure_summary))
+
+
 class CaseSummary:
     def __init__(self):
         self.allure_summary = gen_allure_summary()
