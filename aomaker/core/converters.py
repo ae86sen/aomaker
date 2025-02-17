@@ -8,7 +8,7 @@ from attrs import has, define, field
 from cattrs import Converter as CattrsConverter
 
 if TYPE_CHECKING:
-    from .core import BaseAPIObject
+    from .api_object import BaseAPIObject
 from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT
 from .request_builder import JSONRequestBuilder, FormURLEncodedRequestBuilder, MultipartFormDataRequestBuilder, \
     RequestBuilder

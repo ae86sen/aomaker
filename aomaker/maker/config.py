@@ -124,13 +124,13 @@ class OpenAPIConfig:
     class_name_strategy: Callable = field(default=ClassNameStrategy.from_summary)
     backend_prefix: Optional[str] = field(default=None)  # 显式指定的后端前缀
     frontend_prefix: Optional[str] = field(default=None)  # 显式指定的前端前缀
-    base_api_class: str = field(default="aomaker.core.core.BaseAPIObject")  # 默认基类路径
+    base_api_class: str = field(default="aomaker.core.api_object.BaseAPIObject")  # 默认基类路径
     base_api_class_alias: Optional[str] = field(default=None)  # 自定义别名
 
     @base_api_class.validator
     def check(self,attribute,value):
         if value.count('.') < 1:
-            raise ValueError("必须包含完整模块路径（例如：module.submodule.ClassName）")
+            raise ValueError("必须包含完整模块路径（例如：package.module.subModule.ClassName）")
         return value
 
 if __name__ == '__main__':
