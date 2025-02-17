@@ -63,10 +63,8 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
     response = None
 
     try:
-        # 执行请求
         response = call_next(request)
 
-        # 收集响应信息
         log_data.response = _parse_response(response)
         log_data.success = True
 
@@ -74,7 +72,6 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
         log_data.error = _parse_exception(e)
         raise
     finally:
-        # 无论成功与否都记录日志
         _process_log_outputs(log_data, request, response)
 
     return response
@@ -112,7 +109,6 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
     """处理三路输出"""
     log_current_level = aomaker_logger.get_level()
 
-    # 填充模板变量
     render_data = {
         "tag": "=" * 100,
         "emoji_api": emojize(":A_button_(blood_type):"),
@@ -124,7 +120,7 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
         "class_doc": log_data.class_doc,
         "log_level": log_current_level
     }
-    # 渲染模板
+
     formatted_log = Template(TEMPLATE).render(render_data)
 
     # 控制台输出（根据日志级别）
@@ -133,7 +129,6 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
     else:
         logger.info(formatted_log)
 
-    # Allure 附件输出
     _attach_allure_report(log_data, request, response)
 
 def _attach_allure_report(log_data: LogData, request: RequestType, response: Optional[ResponseType]):

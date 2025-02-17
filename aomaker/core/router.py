@@ -15,12 +15,9 @@ class APIRouter:
 
     def route(self, path: str, method: HTTPMethod, **kwargs):
         def decorator(cls):
-            # 原始路径处理
             original_path = path.strip("/")
 
-            # 执行路径替换（如果有配置）
             if self.backend_prefix and self.frontend_prefix:
-                # 确保 backend_prefix 出现在路径开头
                 if original_path.startswith(f"{self.backend_prefix}/"):
                     replaced_path = original_path.replace(
                         f"{self.backend_prefix}/",
@@ -28,19 +25,14 @@ class APIRouter:
                         1  # 仅替换第一个匹配项
                     )
                 else:
-                    # 如果路径不匹配 backend_prefix，保持原路径（或抛出警告）
                     replaced_path = original_path
             else:
-                # 未配置替换时，直接使用原路径
                 replaced_path = original_path
 
-            # 构建完整前端路径（确保以斜杠开头）
             frontend_full_path = f"/{replaced_path}"
 
-            # 提取路径参数
             route_params = re.findall(r'{(\w+)}', frontend_full_path)
 
-            # 存储配置
             endpoint_config = EndpointConfig(
                 route=frontend_full_path,
                 method=method,

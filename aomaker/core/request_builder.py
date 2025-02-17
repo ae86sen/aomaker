@@ -1,7 +1,7 @@
 # --coding:utf-8--
 from abc import ABC, abstractmethod
 
-from .base_model import JSONRequest, FormURLEncodedRequest, MultipartFormDataRequest, BaseHTTPRequest, HTTPMethod, \
+from .base_model import JSONRequest, FormURLEncodedRequest, MultipartFormDataRequest, BaseHTTPRequest, \
     PreparedRequest
 
 

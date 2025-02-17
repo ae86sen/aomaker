@@ -12,10 +12,7 @@ middlewares_registry = []
 
 
 
-def register_middleware(
-        middleware: Optional[MiddlewareCallable] = None, *, global_registry: bool = True
-):
-    """装饰器支持注册到全局或实例"""
+def register_middleware(middleware: Optional[MiddlewareCallable] = None, *, global_registry: bool = True):
 
     def decorator(func: MiddlewareCallable) -> MiddlewareCallable:
         if global_registry:
