@@ -33,7 +33,7 @@ custom_theme = Theme({
 def main():
     console = Console(theme=custom_theme)
     config = OpenAPIConfig(backend_prefix="aicp", frontend_prefix="portal_api")
-    with open("/Users/zhanglinsen/Projects/aomaker/aomaker/api.json", 'r', encoding='utf-8') as f:
+    with open("/api.json", 'r', encoding='utf-8') as f:
         doc = json.load(f)
 
     console.print(

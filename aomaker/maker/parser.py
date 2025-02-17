@@ -216,7 +216,7 @@ class OpenAPIParser(JsonSchemaParser):
 
 
 if __name__ == '__main__':
-    with open("../api.json", 'r', encoding='utf-8') as f:
+    with open("../../api.json", 'r', encoding='utf-8') as f:
         doc = json.load(f)
     parser = OpenAPIParser(doc)
     api_groups = parser.parse()

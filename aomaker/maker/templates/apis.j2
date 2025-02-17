@@ -33,6 +33,7 @@ class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.na
     class RequestBodyModel:
         {% for field in endpoint.request_body.fields %}
         {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
         {% endfor %}
 
     request_body: RequestBodyModel

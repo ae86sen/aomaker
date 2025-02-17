@@ -27,7 +27,7 @@ from aomaker.scaffold import create_scaffold
 
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
-from aomaker.maker.config import OpenAPIConfig, NamingStrategy
+from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
 from aomaker.cache import stats
@@ -118,8 +118,8 @@ def create(project_name):
 @click.option("--output", "-o", default="demo", show_default=True,
               help="代码输出目录")
 @click.option("--class-name-strategy", "-c",
-              type=click.Choice([e.name.lower() for e in NamingStrategy], case_sensitive=False),
-              default=NamingStrategy.OPERATION_ID.name.lower(),
+              type=click.Choice(list(NAMING_STRATEGIES.keys()), case_sensitive=False),
+              default="operation_id",
               show_default=True,
               help="API Object Class name生成策略（operation_id/summary/tags）")
 @click.option("--backend-prefix", "-b",
@@ -136,10 +136,10 @@ def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefi
     """
     Generate Attrs models from an OpenAPI specification.
     """
-    naming_strategy = NamingStrategy[class_name_strategy.upper()]
+    naming_strategy = NAMING_STRATEGIES[class_name_strategy]
 
     config = OpenAPIConfig(
-        class_name_strategy=naming_strategy.value,
+        class_name_strategy=naming_strategy,
         backend_prefix=backend_prefix,
         frontend_prefix=frontend_prefix,
         base_api_class=base_api_class,

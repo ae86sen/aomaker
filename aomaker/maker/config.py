@@ -1,9 +1,8 @@
 # --coding:utf-8--
 import re
-from enum import Enum
 from typing import Optional, Callable
 
-from inflection import camelize, underscore
+from inflection import camelize
 from attrs import define, field
 
 from aomaker.maker.models import Operation
@@ -71,15 +70,15 @@ class ClassNameStrategy:
         return f"{camelized}{suffix}" if suffix else camelized
 
 
-class NamingStrategy(Enum):
-    OPERATION_ID = ClassNameStrategy.from_operation_id
-    SUMMARY = ClassNameStrategy.from_summary
-    TAGS = ClassNameStrategy.from_tags
-
+NAMING_STRATEGIES = {
+    "operation_id": ClassNameStrategy.from_operation_id,
+    "summary": ClassNameStrategy.from_summary,
+    "tags": ClassNameStrategy.from_tags,
+}
 
 @define
 class OpenAPIConfig:
-    class_name_strategy: Callable = field(default=NamingStrategy.TAGS)
+    class_name_strategy: Callable = field(default=NAMING_STRATEGIES["operation_id"])
     enable_translation: bool = field(default=False)
     backend_prefix: Optional[str] = field(default=None)  # 显式指定的后端前缀
     frontend_prefix: Optional[str] = field(default=None)  # 显式指定的前端前缀
