@@ -234,13 +234,20 @@ class Stats(SQLiteDB):
     def __init__(self):
         super(Stats, self).__init__()
         self.table = DataBase.STATS_TABLE
+        self.create_table()
 
-    def set(self, *, package: str, module: str, api_class: str, api: str):
-        sql = f"""insert into {self.table} (package,module,class,api) values (:package,:module,:api_class,:api)"""
-        self.execute_sql(sql, (package, module, api_class, api))
+
+    def create_table(self):
+        sql = f"""CREATE TABLE IF NOT EXISTS {self.table} (package TEXT, api_name TEXT);"""
+        self.execute_sql(sql)
+
+    def set(self, *, package: str, api_name: str):
+        sql = f"""insert into {self.table} (package,api_name) values (:package,:api_name)"""
+        self.execute_sql(sql, (package, api_name))
 
     def get(self, conditions: dict = None):
         return self.select_data(table=self.table, where=conditions)
+
 
 def _get_worker():
     run_mode = config.get("run_mode")

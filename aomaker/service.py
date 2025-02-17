@@ -47,20 +47,11 @@ def read_config(param: str):
 
 
 @app.get("/stats")
-def get_stats(package: Optional[str] = Query(None, description="Package name to filter by."),
-              module: Optional[str] = Query(None, description="Module name to filter by."),
-              class_: Optional[str] = Query(None, alias="class", description="Class name to filter by."),
-              api: Optional[str] = Query(None, description="API name to filter by."), ):
+def get_stats(package: Optional[str] = Query(None, description="Package name to filter by."), ):
     conditions = {}
 
     if package:
         conditions['package'] = package
-    if module:
-        conditions['module'] = module
-    if class_:
-        conditions['class'] = class_
-    if api:
-        conditions['api'] = api
 
     results = stats.get(conditions=conditions)
     return results

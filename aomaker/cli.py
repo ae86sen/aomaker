@@ -1,12 +1,12 @@
 # --coding:utf-8--
 import os
-import re
+import ast
 import sys
 import json
 from typing import List, Text
 import webbrowser
 from threading import Timer
-from importlib import import_module
+from pathlib import Path
 
 import click
 import uvicorn
@@ -65,6 +65,7 @@ def main(ctx):
         click.echo(ctx.get_help())
     cli_hook()
 
+
 @main.group()
 def show():
     """Show various statistics."""
@@ -73,7 +74,7 @@ def show():
 
 @main.group()
 def gen():
-    """Generate various statistics."""
+    """Generate various statistics or attrs models."""
     pass
 
 
@@ -111,9 +112,9 @@ def create(project_name):
     click.echo(emojize(":beer_mug: 项目脚手架创建完成！"))
 
 
-@main.command()
+@gen.command(name="models")
 @click.option("--spec", "-s", required=True, type=click.Path(exists=True),
-              help="OpenAPI规范文件路径（JSON/YAML）")
+              help="OpenAPI规范文件路径（JSON/YAML），暂时只支持openapi3.0")
 @click.option("--output", "-o", default="demo", show_default=True,
               help="代码输出目录")
 @click.option("--backend-prefix", "-b",
@@ -125,9 +126,9 @@ def create(project_name):
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
-def generate(spec, output, backend_prefix, frontend_prefix, base_api_class, base_api_class_alias):
+def gen_models(spec, output, backend_prefix, frontend_prefix, base_api_class, base_api_class_alias):
     """
-    Generate Python models from an OpenAPI specification.
+    Generate Attrs models from an OpenAPI specification.
     """
     config = OpenAPIConfig(
         backend_prefix=backend_prefix,
@@ -175,35 +176,28 @@ def generate(spec, output, backend_prefix, frontend_prefix, base_api_class, base
 
 @show.command(name="stats")
 @click.option("--package", help="Package name to filter by.")
-@click.option("--module", help="Module name to filter by.")
-@click.option("--class", "class_", help="Class name to filter by.", metavar='CLASS')
-@click.option("--api", help="API name to filter by.")
+
 @click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
-def query_stats(package, module, class_, api, showindex):
+def query_stats(package, showindex):
     """Query API statistics with optional filtering."""
     conditions = {}
 
     if package:
         conditions['package'] = package
-    if module:
-        conditions['module'] = module
-    if class_:
-        conditions['class'] = class_
-    if api:
-        conditions['api'] = api
 
     showindex_value = "always" if showindex else "default"
 
     results = stats.get(conditions=conditions)
     print(f"Total APIs: {len(results)}")
-    headers = ["Package", "Module", "Class", "API"]
+    headers = ["Package", "ApiName",]
     print(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
 
 
 @gen.command(name="stats")
-def gen_stats():
-    generate_apis()
-    print("接口统计完毕！")
+@click.option("--api-dir", default="apis", type=click.Path(exists=True), show_default=True, help="Specify the api dir.")
+def gen_stats(api_dir):
+    _generate_apis(api_dir)
+    click.echo(emojize(":beer_mug: 接口信息统计完毕！"))
 
 
 @main.command(help="Start a web service.")
@@ -220,40 +214,36 @@ def service(web, port):
     uvicorn.run(app, host="127.0.0.1", port=port)
 
 
-def generate_apis():
-    class_pattern = re.compile(r'^class (\w+)\((?!object\))', re.MULTILINE)
-    method_pattern = re.compile(r'^\s+def (\w+)\(self[,\s\w=]*\):', re.MULTILINE)
+def _parse_all_from_ast(filepath: Path):
+    with filepath.open(encoding='utf-8') as f:
+        tree = ast.parse(f.read())
 
-    def remove_comments(text):
-        text = re.sub(r'(\'\'\'(.*?)\'\'\'|\"\"\"(.*?)\"\"\")', '', text, flags=re.DOTALL)
-        text = re.sub(r'#.*', '', text)
-        return text
+    # AST解析逻辑保持不变
+    all_items = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            if node.targets[0].id == '__ALL__':
+                if isinstance(node.value, (ast.List, ast.Tuple)):
+                    for element in node.value.elts:
+                        if isinstance(element, (ast.Str, ast.Constant)):
+                            all_items.append(element.s if isinstance(element, ast.Str) else element.value)
+    return all_items
 
-    root_dir = 'apis'
-    table_data = []
-    stats.clear()
 
-    for root, dirs, files in os.walk(root_dir):
-        for file in files:
-            if file.endswith('.py') and file != '__init__.py' and file != 'base.py':
-                file_path = os.path.join(root, file)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    content = remove_comments(content)
-                    # 匹配子类的类名
-                    classes = class_pattern.findall(content)
-                    if classes:
-                        module_name = os.path.splitext(file)[0]
-                        relative_root = os.path.relpath(root, root_dir)
-                        package_name = relative_root.replace(os.sep, '.')
-                        for cls in classes:
-                            methods = method_pattern.findall(content)
-                            for method in methods:
-                                if not method.startswith('_'):
-                                    class_name = cls.split('(')[0].strip()  # 只保留类名
-                                    table_data.append([package_name, module_name, class_name, method])
-                                    stats.set(package=package_name, module=module_name, api_class=class_name,
-                                              api=method)
+def _generate_apis(api_dir: str):
+    root_dir = Path(api_dir)
+
+    for apis_path in root_dir.rglob('apis.py'):
+        try:
+            package_path = apis_path.parent.relative_to(root_dir)
+        except ValueError:
+            continue
+
+        package_name = '.'.join(package_path.parts) if package_path.parts else ''
+        interfaces = _parse_all_from_ast(apis_path)
+
+        for interface in interfaces:
+            stats.set(package=package_name, api_name=interface)
 
 
 def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
