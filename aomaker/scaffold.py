@@ -72,7 +72,9 @@ def create_scaffold(project_name):
             DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE, 'worker': DB.CACHE_WORKER,
                              'api_info': DB.CACHE_API_INFO},
             DB.CONFIG_TABLE: {'key': DB.CONFIG_KEY, 'value': DB.CONFIG_VALUE},
-            DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA}
+            DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA},
+            DB.STATS_TABLE: {'package': DB.STATS_PACKAGE, 'api_name': DB.STATS_API_NAME}
+
         }
         return tables_attr.get(table_name)
 
@@ -228,6 +230,7 @@ class Login(BaseLogin):
     create_table(db, DB.CONFIG_TABLE)
     create_table(db, DB.CACHE_TABLE)
     create_table(db, DB.SCHEMA_TABLE)
+    create_table(db, DB.STATS_TABLE)
     logger.info("---------------------脚手架创建完成---------------------")
 
     return 0

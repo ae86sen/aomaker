@@ -15,10 +15,8 @@ class DataBase:
     CONFIG_VALUE = 'value'
     SCHEMA_API_NAME = 'api_name'
     SCHEMA_SCHEMA = 'schema'
-    STATS_MODULE = 'module'
     STATS_PACKAGE = 'package'
-    STATS_CLASS = 'class'
-    STATS_API = 'api'
+    STATS_API_NAME = 'api_name'
 
 
 # log
