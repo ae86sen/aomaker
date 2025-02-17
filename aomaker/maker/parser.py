@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 from rich.console import Console
 
 from aomaker.maker.models import DataModelField, Operation, Reference, Response, RequestBody, Import, MediaType, \
-    MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject
+    MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject, DataModel
 from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser
 from .config import OpenAPIConfig
@@ -54,7 +54,7 @@ class OpenAPIParser(JsonSchemaParser):
         return list(self.api_groups.values())
 
     def parse_endpoint(self, path: str, method: str, operation: Operation) -> Endpoint:
-        class_name = self.config.class_name_strategy(operation, method)
+        class_name = self.config.class_name_strategy(operation)
         endpoint = Endpoint(
             class_name=class_name,
             endpoint_id=operation.operationId,
@@ -75,9 +75,13 @@ class OpenAPIParser(JsonSchemaParser):
         # 解析请求体
         if operation.requestBody:
             request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
-            endpoint.request_body = self.model_registry.get(request_body_datatype.type)
+            if request_body_datatype.reference:
+                endpoint.request_body = self.model_registry.get(request_body_datatype.type)
+            else:
+                endpoint.request_body = request_body_datatype
             for imp in endpoint.request_body.imports:
                 endpoint.imports.add(imp)
+
 
         # 解析响应
         if operation.responses:
@@ -134,7 +138,6 @@ class OpenAPIParser(JsonSchemaParser):
 
         # 2. 生成上下文名称
         context_name = f"{endpoint_name}RequestBody"
-
         # 3. 解析类型
         body_type = self.parse_schema(content.schema_, context_name)
 

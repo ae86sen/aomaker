@@ -27,7 +27,7 @@ from aomaker.scaffold import create_scaffold
 
 from aomaker.utils.utils import load_yaml
 from aomaker.models import AomakerYaml
-from aomaker.maker.config import OpenAPIConfig
+from aomaker.maker.config import OpenAPIConfig, NamingStrategy
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
 from aomaker.cache import stats
@@ -117,6 +117,11 @@ def create(project_name):
               help="OpenAPI规范文件路径（JSON/YAML），暂时只支持openapi3.0")
 @click.option("--output", "-o", default="demo", show_default=True,
               help="代码输出目录")
+@click.option("--class-name-strategy", "-c",
+              type=click.Choice([e.name.lower() for e in NamingStrategy], case_sensitive=False),
+              default=NamingStrategy.OPERATION_ID.name.lower(),
+              show_default=True,
+              help="API Object Class name生成策略（operation_id/summary/tags）")
 @click.option("--backend-prefix", "-b",
               help="后端服务路由前缀（如：api_service）")
 @click.option("--frontend-prefix", "-f",
@@ -126,11 +131,15 @@ def create(project_name):
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
-def gen_models(spec, output, backend_prefix, frontend_prefix, base_api_class, base_api_class_alias):
+def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefix, base_api_class,
+               base_api_class_alias):
     """
     Generate Attrs models from an OpenAPI specification.
     """
+    naming_strategy = NamingStrategy[class_name_strategy.upper()]
+
     config = OpenAPIConfig(
+        class_name_strategy=naming_strategy.value,
         backend_prefix=backend_prefix,
         frontend_prefix=frontend_prefix,
         base_api_class=base_api_class,
@@ -176,7 +185,6 @@ def gen_models(spec, output, backend_prefix, frontend_prefix, base_api_class, ba
 
 @show.command(name="stats")
 @click.option("--package", help="Package name to filter by.")
-
 @click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
 def query_stats(package, showindex):
     """Query API statistics with optional filtering."""
@@ -189,7 +197,7 @@ def query_stats(package, showindex):
 
     results = stats.get(conditions=conditions)
     print(f"Total APIs: {len(results)}")
-    headers = ["Package", "ApiName",]
+    headers = ["Package", "ApiName", ]
     print(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
 
 

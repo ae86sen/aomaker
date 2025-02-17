@@ -8,7 +8,7 @@ from rich.console import Console
 
 from .parser import APIGroup, Endpoint
 from .config import OpenAPIConfig
-from .models import Import, DataModelField, DataModel
+from .models import Import, DataModelField, DataModel, DataType
 
 
 class ImportManager:
@@ -207,6 +207,14 @@ class TemplateRenderUtils:
     def get_all_model_class_name(cls, datamodels: List[DataModel]):
         return [datamodel.name for datamodel in datamodels]
 
+    @classmethod
+    def is_datamodel(cls, value):
+        return isinstance(value, DataModel)
+
+    @classmethod
+    def is_datatype(cls, value):
+        return isinstance(value, DataType)
+
 
 class Generator:
     def __init__(self, output_dir: str, config: OpenAPIConfig, console: Console = None):
@@ -230,6 +238,8 @@ class Generator:
             'get_all_api_class_name': self.render_utils.get_all_api_class_name,
             'get_all_model_class_name': self.render_utils.get_all_model_class_name
         })
+        self.env.tests['datamodel'] = self.render_utils.is_datamodel
+        self.env.tests['datatype'] = self.render_utils.is_datatype
 
     def generate(self, api_groups: List[APIGroup]):
         """生成所有API组的代码"""

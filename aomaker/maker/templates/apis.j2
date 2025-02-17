@@ -28,15 +28,16 @@ class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.na
         {% endfor %}
     {% endif %}
 
-    {% if endpoint.request_body %}
+    {% if endpoint.request_body is datamodel %}
     @define
     class RequestBodyModel:
         {% for field in endpoint.request_body.fields %}
         {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
-
         {% endfor %}
 
     request_body: RequestBodyModel
+    {% elif endpoint.request_body is datatype %}
+    request_body: {{ endpoint.request_body.type }} = field()
     {% endif %}
     {% if endpoint.path_parameters %}
     path_params: PathParams
