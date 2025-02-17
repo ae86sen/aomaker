@@ -1,7 +1,7 @@
 # --coding:utf-8--
 from attrs import define, field, has
 from aomaker.cache import config, cache,schema
-from typing import Union, Type, TYPE_CHECKING, Generic, Optional, List
+from typing import Union, Type, Generic, Optional
 
 from jsonschema_extractor import extract_jsonschema
 from jsonschema import validate, ValidationError
@@ -51,6 +51,9 @@ class BaseAPIObject(Generic[ResponseT]):
             if field_ is not None and not has(field_):
                 raise TypeError(f"{field_name} must be an attrs instance")
 
+    def __call__(self, *args, **kwargs):
+        self.send()
+
     @property
     def class_name(self):
         return self.__class__.__name__
@@ -75,12 +78,10 @@ class BaseAPIObject(Generic[ResponseT]):
             existing_schema = schema.get_schema(self)
 
             if not existing_schema and self.response:
-                # 自动生成并存储
                 new_schema = extract_jsonschema(self.response)
                 schema.save_schema(self, new_schema)
                 existing_schema = new_schema
 
-            # 执行校验
             if existing_schema:
                 self.schema_validate(instance=response_data, schema=existing_schema)
 
@@ -105,4 +106,4 @@ class BaseAPIObject(Generic[ResponseT]):
 
             error_path_str = ".".join(map(str, error_path)) if error_path else "root"
 
-            raise ValidationError(f"{message} (path: {error_path_str})") from None
+            raise AssertionError(f"{message} (path: {error_path_str})") from None

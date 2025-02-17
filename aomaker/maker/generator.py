@@ -1,6 +1,7 @@
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Set
+
 import black
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
@@ -51,7 +52,6 @@ def collect_models_imports(models: List[DataModel]) -> ImportManager:
 
 
 def generate_imports(manager: ImportManager, exclude_internal: bool = False) -> List[str]:
-    # 预定义的模块分类（示例列表，需根据实际情况扩展）
     stdlib_modules = {"typing", "datetime", "uuid"}
     third_party_modules = {"attrs", "aomaker"}
 
@@ -79,7 +79,6 @@ def generate_imports(manager: ImportManager, exclude_internal: bool = False) -> 
             categorized[category]["direct_imports"].add((import_, alias))
 
     imports = []
-    # 根据exclude_internal调整分类顺序
     categories_order = ["stdlib", "third_party", "internal"]
     if exclude_internal:
         categories_order = ["stdlib", "third_party"]
@@ -106,7 +105,7 @@ def generate_imports(manager: ImportManager, exclude_internal: bool = False) -> 
 
 def _gen_models_imports(models: List[DataModel]) -> List[str]:
     imports_manager = collect_models_imports(models)
-    imports = generate_imports(imports_manager, exclude_internal=True)  # 添加参数排除内部模块
+    imports = generate_imports(imports_manager, exclude_internal=True)
     return imports
 
 
@@ -127,10 +126,10 @@ class TemplateRenderUtils:
         default = getattr(field, "default", None)
         # 统一处理空值场景：None、空字符串、字段无 default
         if default in (None, ""):
-            return "default=None"  # 强制统一为 None
+            return "default=None"
 
         # 处理非空值场景
-        data_type = field.data_type.type.lower()  # 类型名称转小写统一处理
+        data_type = field.data_type.type.lower()
 
         if default is not None and data_type is not None:
             if type(default).__name__ != data_type:

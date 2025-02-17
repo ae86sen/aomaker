@@ -1,7 +1,7 @@
 # --coding:utf-8--
 import json
 from collections import defaultdict
-from typing import Dict, List, Optional, Union, Callable
+from typing import Dict, List, Optional, Union
 
 from rich.console import Console
 
@@ -41,7 +41,6 @@ class OpenAPIParser(JsonSchemaParser):
                         f"[accent]{path}[/] " 
                         f"[muted]({idx}/{total_paths})[/]"
                     )
-                # 原有处理逻辑保持不变
                 operation = Operation.model_validate(op_data)
                 self.current_tags = operation.tags
                 endpoint = self.parse_endpoint(path, method, operation)
@@ -152,6 +151,7 @@ class OpenAPIParser(JsonSchemaParser):
             class_name: str
     ) -> Optional[DataType]:
         """解析响应并生成对应数据模型，保持与请求体处理逻辑一致"""
+        # todo：暂时只处理成功响应
         # 1. 定位成功响应（2xx状态码）
         success_code = next(
             (code for code in responses.keys() if str(code).startswith('2')),

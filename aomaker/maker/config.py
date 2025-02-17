@@ -4,10 +4,11 @@ from typing import Optional,Callable
 
 from translate import Translator
 from attrs import define,field
+
 from aomaker.maker.models import Operation
 
 class ClassNameStrategy:
-    # 内置术语词典（可扩展）
+    # 内置术语词典
     TERM_MAP = {
         "对外端口": "ExternalPort",
         "工作空间": "Workspace",
@@ -45,7 +46,6 @@ class ClassNameStrategy:
         is_english = False
 
         for char in text:
-            # 检测语言切换
             if cls._is_chinese(char):
                 if is_english and current_segment:
                     buffer.append(''.join(current_segment))
@@ -59,7 +59,6 @@ class ClassNameStrategy:
                 is_english = True
                 current_segment.append(char)
 
-        # 处理最后一段
         if current_segment:
             if is_english:
                 buffer.append(''.join(current_segment))
@@ -90,7 +89,6 @@ class ClassNameStrategy:
         words = re.findall(r'[A-Z]?[a-z]+|\d+|[A-Z]+(?=[A-Z]|$)', text)
         core_name = ''.join(word.title() for word in words if word)
 
-        # 示例："AddNotebookExternalPort"
         return core_name
 
     # @classmethod
@@ -124,8 +122,8 @@ class ClassNameStrategy:
 @define
 class OpenAPIConfig:
     class_name_strategy: Callable = field(default=ClassNameStrategy.from_summary)
-    backend_prefix: Optional[str] = field(default=None)  # 用户显式指定的后端前缀
-    frontend_prefix: Optional[str] = field(default=None)  # 用户显式指定的前端前缀
+    backend_prefix: Optional[str] = field(default=None)  # 显式指定的后端前缀
+    frontend_prefix: Optional[str] = field(default=None)  # 显式指定的前端前缀
     base_api_class: str = field(default="aomaker.core.core.BaseAPIObject")  # 默认基类路径
     base_api_class_alias: Optional[str] = field(default=None)  # 自定义别名
 

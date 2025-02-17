@@ -1,10 +1,8 @@
 # --coding:utf-8--
-# from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import field
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, List, Optional, Union, Set, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, Set
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -13,7 +11,7 @@ class Reference(BaseModel):
     ref: str = Field(..., alias='$ref')  # 存储引用路径，例如 "#/components/schemas/Pet"
 
     class Config:
-        populate_by_name = True  # 允许使用字段名而不是别名
+        populate_by_name = True
 
 
 class Import(BaseModel):
@@ -22,8 +20,8 @@ class Import(BaseModel):
     import_: str
     alias: Optional[str] = None
     model_config = ConfigDict(
-        frozen=True,  # 冻结实例（Python 3.11+）
-        extra='forbid'  # 禁止额外字段
+        frozen=True,
+        extra='forbid'
     )
 
 
@@ -35,10 +33,10 @@ class DataType(BaseModel):
     is_dict: bool = False
     is_optional: bool = False
     is_custom_type: bool = False
-    is_forward_ref: bool = False  # 标记是否为前向引用
-    is_inline: bool = False  # 是否是内联类型（直接展开字段）
-    imports: Set[Import] = field(default_factory=set)  # 新增字段
-    fields: List["DataModelField"] = field(default_factory=list)  # 新增：内联字段（当 is_inline=True 时有效）
+    is_forward_ref: bool = False
+    is_inline: bool = False
+    imports: Set[Import] = field(default_factory=set)
+    fields: List["DataModelField"] = field(default_factory=list)
 
     @property
     def type_hint(self) -> str:
@@ -197,7 +195,6 @@ class APIGroup(BaseModel):
 class JsonSchemaObject(BaseModel):
     """ 仅用于解析 OpenAPI Schema 的中间模型，与最终生成的 attrs 模型无关 """
 
-    # 基础字段
     type: Union[str, List[str], None] = None
     format: Optional[str] = None
     items: Union['JsonSchemaObject', List['JsonSchemaObject'], None] = None
@@ -208,7 +205,6 @@ class JsonSchemaObject(BaseModel):
     nullable: bool = False
     title: str = None
 
-    # 约束字段（可选，根据是否需要校验逻辑保留）
     minimum: Optional[Union[int, float]] = None
     maximum: Optional[Union[int, float]] = None
     min_length: Optional[int] = Field(None, alias='minLength')
@@ -217,7 +213,7 @@ class JsonSchemaObject(BaseModel):
     oneOf: List["JsonSchemaObject"] = field(default_factory=list)
     anyOf: List["JsonSchemaObject"] = field(default_factory=list)
     allOf: List["JsonSchemaObject"] = field(default_factory=list)
-    # 其他字段（按需添加）
+
     description: Optional[str] = None
     default: Any = None
 
@@ -237,7 +233,6 @@ class JsonSchemaObject(BaseModel):
         )
 
 
-# 处理前向引用
 JsonSchemaObject.model_rebuild()
 
 if __name__ == '__main__':

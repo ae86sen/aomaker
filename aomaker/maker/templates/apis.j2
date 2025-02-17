@@ -42,7 +42,7 @@ class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.na
     path_params: PathParams
     {% endif %}
     {% if endpoint.query_parameters %}
-    query_params: Optional[QueryParams] = field(default=None)
+    query_params: QueryParams = field(factory=QueryParams)
     {% endif %}
     {% if endpoint.response %}
     response: Optional[{{ endpoint.response.name }}] = field(default={{ endpoint.response.name }})

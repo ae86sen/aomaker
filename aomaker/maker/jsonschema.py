@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional, Any, List, Dict, Union, Set, Tuple, Literal
+from typing import Optional, List, Dict, Set, Tuple, Literal
 
-from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Parameter, RequestBody, \
-    Response, Reference
+from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference
 
 TypeMap = {
     'string': ('str', set()),
@@ -17,11 +16,10 @@ TypeMap = {
 class ReferenceResolver:
     def __init__(self, schemas: Dict):
         self.schemas = schemas
-        self.schema_objects: Dict[str, JsonSchemaObject] = self._preprocess_schemas()  # 预处理所有模式
-        self.registry: Dict[str, DataModel] = {}  # 模型注册表
+        self.schema_objects: Dict[str, JsonSchemaObject] = self._preprocess_schemas()
+        self.registry: Dict[str, DataModel] = {}
 
     def _preprocess_schemas(self) -> Dict[str, JsonSchemaObject]:
-        """预处理所有组件模式（关键初始化步骤）"""
         return {
             name: JsonSchemaObject.model_validate(schema_)
             for name, schema_ in self.schemas.items()
@@ -39,17 +37,14 @@ class ModelRegistry:
         self.placeholders: Set[str] = set()
 
     def add_placeholder(self, name: str):
-        """注册占位符处理前向引用"""
         self.placeholders.add(name)
 
     def register(self, model: DataModel):
-        """注册完整模型"""
         if model.name in self.placeholders:
             self.placeholders.remove(model.name)
         self.models[model.name] = model
 
     def get(self, name: str) -> DataModel:
-        """获取已注册模型"""
         if name in self.placeholders:
             raise
             # raise ModelNotGeneratedError(f"Model {name} is still a placeholder")
@@ -73,7 +68,7 @@ class JsonSchemaParser:
             if self._should_be_literal(schema_obj.oneOf):
                 union_type = "Literal"
             else:
-                union_type = "Union"  # 根据规范 anyOf≈Union，oneOf≈Literal（需根据实际需求调整）
+                union_type = "Union"
             return self._parse_union_type(
                 schema_obj.anyOf or schema_obj.oneOf,
                 context,
@@ -96,16 +91,13 @@ class JsonSchemaParser:
 
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
-        # 生成唯一模型名
         model_name = context
 
 
-        # 解析字段
         fields = []
         required_fields = schema_obj.required or []
         is_add_optional_import = False
         for prop_name, prop_schema in schema_obj.properties.items():
-            # 递归解析属性
             prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
             field = DataModelField(
                 name=prop_name,
@@ -114,7 +106,6 @@ class JsonSchemaParser:
                 default=prop_schema.default,
                 description=prop_schema.description,
             )
-            # 构建字段
             fields.append(field)
             if field.required:
                 is_add_optional_import = True
@@ -123,7 +114,7 @@ class JsonSchemaParser:
         imports_from_fields = self._collect_imports_from_fields(fields)
         if is_add_optional_import:
             imports_from_fields.add(Import(from_='typing', import_='Optional'))
-        # 注册完整模型
+
         data_model = DataModel(
             name=model_name,
             fields=fields,
@@ -140,7 +131,6 @@ class JsonSchemaParser:
         )
 
     def _parse_basic_datatype(self, schema_obj: JsonSchemaObject) -> DataType:
-        """增强版基础类型解析"""
         base_type, imports = self._get_type_mapping(schema_obj.type, schema_obj.format)
 
         return DataType(
@@ -150,7 +140,6 @@ class JsonSchemaParser:
         )
 
     def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
-        """统一管理类型映射逻辑"""
         if schema_type == 'string':
             if schema_format == 'date-time':
                 return 'datetime', {Import(from_='datetime', import_='datetime')}
@@ -162,7 +151,6 @@ class JsonSchemaParser:
         return TypeMap.get(schema_type, ('Any', {Import(from_='typing', import_='Any')}))
 
     def _is_basic_type(self, schema_obj: JsonSchemaObject) -> bool:
-        """扩展判断逻辑：无额外约束的基础类型"""
         return (
                 schema_obj.type in {'string', 'integer', 'number', 'boolean'}
                 and not schema_obj.properties
@@ -174,14 +162,11 @@ class JsonSchemaParser:
         )
 
     def _parse_array_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
-        """解析数组类型"""
-        # 解析数组元素类型
         item_schema = schema_obj.items
         item_type = self.parse_schema(item_schema, f"{context}Item")
 
-        # 处理多维数组
         if item_type.is_list:
-            return item_type  # 直接复用已有列表类型
+            return item_type
 
         return DataType(
             type=f"List[{item_type.type_hint}]",
@@ -192,18 +177,14 @@ class JsonSchemaParser:
 
     def _parse_reference(self, ref: str) -> DataType:
         """处理 $ref 引用，返回已注册模型的DataType"""
-        # 提取模型名称（假设引用格式为 #/components/schemas/ModelName）
         ref_name = ref.split("/")[-1]
-        # 检查是否已解析过该模型
         if ref_name not in self.model_registry.models:
-            # 若未解析，先解析被引用的Schema
             ref_schema = self.resolver.get_ref_schema(ref_name)
             self.parse_schema(ref_schema, ref_name)
         else:
-            # 模型已存在，更新其 tags 及其嵌套模型的 tags
             model = self.model_registry.get(ref_name)
             if model:
-                self._update_model_tags_recursive(model)  # 关键修改：递归更新
+                self._update_model_tags_recursive(model)
         datatype = DataType(
             type=ref_name,
             is_custom_type=True,
@@ -228,7 +209,6 @@ class JsonSchemaParser:
             child_types.append(child_type)
             imports.update(child_type.imports)
 
-        # 生成联合类型表达式
         type_hint = f"{union_type}[{', '.join(t.type_hint for t in child_types)}]"
 
         return DataType(
@@ -246,52 +226,34 @@ class JsonSchemaParser:
         """解析 allOf 结构，合并所有子模式的属性和约束"""
         if len(schemas) == 1:
             return self.parse_schema(schemas[0], context)
-        # 初始化合并容器
+
         merged_fields: List[DataModelField] = []
         merged_required: Set[str] = set()
         merged_imports: Set[Import] = set()
         merged_descriptions: List[str] = []
 
-        # 递归解析每个子模式
         for schema_ in schemas:
-            # 解析子模式（自动处理引用和内联）
             data_type = self.parse_schema(schema_, f"{context}_AllOfPart")
             data_model = self.model_registry.get(data_type.type)
-            # 处理引用模型
-            # if data_type.is_custom_type and data_type.reference:
-            #     ref_model = self.resolver.get_ref_schema(data_type.reference.ref)
-            #
-            #     if not ref_model:
-            #         raise ValueError(f"引用的模型未找到: {data_type.reference.ref}")
+
 
             merged_fields.extend(data_model.fields)
             merged_required.update(data_model.required)
             merged_imports.update(data_model.imports)
 
-            # 处理内联字段
-            # elif data_type.is_inline:
-            #     merged_fields.extend(data_type.fields)
-            #     merged_required.update(
-            #         field_.name for field_ in data_type.fields
-            #         if field_.required
-            #     )
-            #     merged_imports.update(data_type.imports)
 
-            # 收集描述信息
             if data_model.description:
                 merged_descriptions.append(schema_.description)
 
-        # 生成合并后的模型
         merged_model = DataModel(
             name=f"{context}Combined",
-            fields=self._merge_fields(merged_fields),  # 处理字段冲突
+            fields=self._merge_fields(merged_fields),
             required=merged_required,
             imports=merged_imports,
             tags=self.current_tags,
             description="\n".join(merged_descriptions)
         )
 
-        # 注册模型
         self.model_registry.register(merged_model)
 
         return DataType(
@@ -310,10 +272,8 @@ class JsonSchemaParser:
         return list(reversed(seen.values()))
 
     def _parse_enum(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
-        # 确定基础类型
-        base_type = self._parse_basic_datatype(schema_obj)  # 根据schema.type判断基础类型
+        base_type = self._parse_basic_datatype(schema_obj)
 
-        # 生成枚举模型
         enum_model = DataModel(
             name=f"{context}Enum",
             is_enum=True,
@@ -327,7 +287,6 @@ class JsonSchemaParser:
             ]
         )
 
-        # 注册枚举模型
         self.model_registry.register(enum_model)
 
         return DataType(
@@ -337,36 +296,27 @@ class JsonSchemaParser:
         )
 
     def _collect_imports_from_fields(self, fields: List[DataModelField]) -> Set[Import]:
-        """从字段列表中收集 imports"""
         imports = set()
         for f in fields:
             imports.update(f.data_type.imports)
         return imports
 
     def _generate_enum_name(self, schema_obj: JsonSchemaObject) -> str:
-        """生成枚举类名（示例逻辑）"""
         return schema_obj.title.replace(' ', '') if schema_obj.title else f"AnonymousEnum_{id(schema_obj)}"
 
     def _should_be_literal(self, schemas: List[JsonSchemaObject]) -> bool:
-        """检查是否所有子模式都是单值枚举"""
         return all(s.enum and len(s.enum) == 1 for s in schemas)
 
     def _update_model_tags_recursive(self, model: DataModel):
-        """递归更新模型及其所有嵌套子模型的 tags"""
-        # 更新当前模型的 tags
         for tag in self.current_tags:
             if tag not in model.tags:
                 model.tags.append(tag)
 
-        # 递归处理字段中的嵌套模型
         for field in model.fields:
-            # 如果字段类型是自定义模型类型
             if field.data_type.is_custom_type and not field.data_type.is_forward_ref:
                 nested_model_name = field.data_type.type
-                # 获取嵌套模型
                 nested_model = self.model_registry.get(nested_model_name)
                 if nested_model:
-                    # 递归调用
                     self._update_model_tags_recursive(nested_model)
 if __name__ == '__main__':
     x = {
