@@ -61,7 +61,7 @@ class SQLiteDB:
         select sql statement
         """
         sql = """select * from {}""".format(table)
-        if where is not None:
+        if where:
             sql += ' where {}'.format(self.dict_to_str_and(where))
         return self.query_sql(sql)
 

@@ -15,6 +15,9 @@ class ClassNameStrategy:
         "新增": "Add"
     }
 
+
+    _translator = Translator(to_lang="en", from_lang="zh-cn")
+
     @classmethod
     def from_summary(cls, operation: Operation, method: str) -> str:
         """智能处理中英文混合summary"""
@@ -23,8 +26,9 @@ class ClassNameStrategy:
 
         # 预处理：术语替换 → 分词 → 混合翻译
         processed = cls._preprocess_text(operation.summary)
-        translated = cls._translate_mixed_text(processed)
-        class_name = cls._format_class_name(translated, method)
+        # todo: 优化
+        # translated = cls._translate_mixed_text(processed)
+        class_name = cls._format_class_name(processed, method)
 
         return f"{class_name}API"
 
@@ -75,7 +79,7 @@ class ClassNameStrategy:
     def _translate_chinese(cls, text: str) -> str:
         """仅翻译纯中文部分"""
         try:
-            return Translator(to_lang="en", from_lang="zh-cn").translate(text).title()
+            return cls._translator.translate(text).title()
         except:
             return text  # 翻译失败时返回原文
 
@@ -122,6 +126,7 @@ class ClassNameStrategy:
 @define
 class OpenAPIConfig:
     class_name_strategy: Callable = field(default=ClassNameStrategy.from_summary)
+    enable_translation: bool = field(default=False)
     backend_prefix: Optional[str] = field(default=None)  # 显式指定的后端前缀
     frontend_prefix: Optional[str] = field(default=None)  # 显式指定的前端前缀
     base_api_class: str = field(default="aomaker.core.api_object.BaseAPIObject")  # 默认基类路径
@@ -134,4 +139,7 @@ class OpenAPIConfig:
         return value
 
 if __name__ == '__main__':
-    OpenAPIConfig(base_api_class="x.asd")
+    # OpenAPIConfig(base_api_class="x.asd")
+    text = "你好"
+    x = Translator(to_lang="en", from_lang="zh-cn").translate(text).title()
+    print(text)
