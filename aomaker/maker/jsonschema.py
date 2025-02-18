@@ -1,6 +1,7 @@
 from __future__ import annotations
+import re
 
-from typing import Optional, List, Dict, Set, Tuple, Literal
+from typing import Optional, List, Dict, Set, Tuple, Literal, Any
 
 from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference
 
@@ -12,6 +13,7 @@ TypeMap = {
     'array': ('List', {Import(from_='typing', import_='List')}),
     'object': ('Dict', {Import(from_='typing', import_='Dict')}),
 }
+
 
 class ReferenceResolver:
     def __init__(self, schemas: Dict):
@@ -60,10 +62,10 @@ class JsonSchemaParser:
         self.current_tags: List[str] = list()
 
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
-        # 0. 处理引用（优先级最高）
+
         if schema_obj.ref:
             return self._parse_reference(schema_obj.ref)
-        # 1. 处理复合类型（新增）
+
         if schema_obj.anyOf or schema_obj.oneOf:
             if self._should_be_literal(schema_obj.oneOf):
                 union_type = "Literal"
@@ -77,7 +79,6 @@ class JsonSchemaParser:
         if schema_obj.allOf:
             return self._parse_all_of(schema_obj.allOf, context)
 
-        # 2. 处理枚举类型
         if schema_obj.enum:
             return self._parse_enum(schema_obj, context)
 
@@ -92,7 +93,6 @@ class JsonSchemaParser:
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
         model_name = context
-
 
         fields = []
         required_fields = schema_obj.required or []
@@ -114,6 +114,16 @@ class JsonSchemaParser:
         imports_from_fields = self._collect_imports_from_fields(fields)
         if is_add_optional_import:
             imports_from_fields.add(Import(from_='typing', import_='Optional'))
+
+        if model_name.endswith("RequestBody"):
+            # request_body非引用的情况
+            return DataType(
+                type=model_name,
+                is_custom_type=False,
+                is_inline=True,
+                fields=fields,
+                imports=imports_from_fields
+            )
 
         data_model = DataModel(
             name=model_name,
@@ -236,11 +246,9 @@ class JsonSchemaParser:
             data_type = self.parse_schema(schema_, f"{context}_AllOfPart")
             data_model = self.model_registry.get(data_type.type)
 
-
             merged_fields.extend(data_model.fields)
             merged_required.update(data_model.required)
             merged_imports.update(data_model.imports)
-
 
             if data_model.description:
                 merged_descriptions.append(schema_.description)
@@ -275,15 +283,15 @@ class JsonSchemaParser:
         base_type = self._parse_basic_datatype(schema_obj)
 
         enum_model = DataModel(
-            name=f"{context}Enum",
+            name=context,
             is_enum=True,
             tags=self.current_tags,
-            fields=[
-                DataModelField(
-                    name=str(value),
-                    data_type=base_type,
-                    default=repr(value)
-                ) for value in schema_obj.enum
+            imports={Import(from_="enum", import_="Enum")},
+            fields=[DataModelField(
+                name=normalize_name(value),
+                data_type=base_type,
+                default=repr(value)
+            ) for value in schema_obj.enum
             ]
         )
 
@@ -291,7 +299,7 @@ class JsonSchemaParser:
 
         return DataType(
             type=enum_model.name,
-            imports={Import(from_='models', import_=enum_model.name)},
+            imports={Import(from_='.models', import_=enum_model.name)},
             is_custom_type=True
         )
 
@@ -318,6 +326,25 @@ class JsonSchemaParser:
                 nested_model = self.model_registry.get(nested_model_name)
                 if nested_model:
                     self._update_model_tags_recursive(nested_model)
+
+
+def normalize_name(value: Any) -> str:
+    """规范化枚举值名称"""
+    # 转换为字符串
+    str_value = str(value)
+    # 替换特殊字符为下划线
+    name = re.sub(r'[^a-zA-Z0-9]', '_', str_value)
+    # 处理数字开头的情况
+    if name[0].isdigit():
+        name = f'value_{name}'
+    # 处理纯下划线的情况
+    if name.strip('_') == '':
+        name = f'value_{str_value}'
+    # 确保是有效的 Python 标识符
+    name = name.lower()
+    return name
+
+
 if __name__ == '__main__':
     x = {
         'properties': {

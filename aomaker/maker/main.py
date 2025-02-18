@@ -1,6 +1,7 @@
 # --coding:utf-8--
 import json
 import sys
+from pathlib import Path
 
 sys.path.insert(0, '/Users/zhanglinsen/Projects/aomaker')
 from aomaker.maker.config import OpenAPIConfig
@@ -33,7 +34,8 @@ custom_theme = Theme({
 def main():
     console = Console(theme=custom_theme)
     config = OpenAPIConfig(backend_prefix="aicp", frontend_prefix="portal_api")
-    with open("/api.json", 'r', encoding='utf-8') as f:
+    file_path = Path(__file__).parent.parent.parent / "aicp-dev.json"
+    with open(file_path, 'r', encoding='utf-8') as f:
         doc = json.load(f)
 
     console.print(

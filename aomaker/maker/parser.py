@@ -11,6 +11,16 @@ from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser
 from .config import OpenAPIConfig
 
+SUPPORTED_CONTENT_TYPES = [
+    MediaTypeEnum.JSON.value,
+    MediaTypeEnum.FORM.value,
+    MediaTypeEnum.MULTIPART.value,
+    MediaTypeEnum.BINARY.value,
+    MediaTypeEnum.XML.value,
+    MediaTypeEnum.TEXT.value,
+    MediaTypeEnum.HTML.value
+]
+
 
 class OpenAPIParser(JsonSchemaParser):
     def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None, console: Console = None):
@@ -36,9 +46,9 @@ class OpenAPIParser(JsonSchemaParser):
                 if self.console:
                     self.console.log(
                         f"[primary]✅ [bold]已解析:[/] "
-                        f"[accent]{method.upper()}[/] " 
+                        f"[accent]{method.upper()}[/] "
                         f"[muted]on[/] "
-                        f"[accent]{path}[/] " 
+                        f"[accent]{path}[/] "
                         f"[muted]({idx}/{total_paths})[/]"
                     )
                 operation = Operation.model_validate(op_data)
@@ -77,11 +87,18 @@ class OpenAPIParser(JsonSchemaParser):
             request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
             if request_body_datatype.reference:
                 endpoint.request_body = self.model_registry.get(request_body_datatype.type)
+            elif request_body_datatype.is_inline is True:
+                endpoint.request_body = DataModel(
+                    name="RequestBody",
+                    fields=request_body_datatype.fields,
+                    imports=request_body_datatype.imports
+                )
             else:
                 endpoint.request_body = request_body_datatype
-            for imp in endpoint.request_body.imports:
-                endpoint.imports.add(imp)
 
+            if endpoint.request_body is not None:
+                for imp in endpoint.request_body.imports:
+                    endpoint.imports.add(imp)
 
         # 解析响应
         if operation.responses:
@@ -130,23 +147,23 @@ class OpenAPIParser(JsonSchemaParser):
             endpoint_name: str
     ) -> Optional[DataType]:
         """解析请求体，返回类型并触发模型生成"""
+        for content_type in SUPPORTED_CONTENT_TYPES:
+            # 1. 获取JSON Schema
+            content = request_body.content.get(content_type)
+            if not content or not content.schema_:
+                return None
 
-        # 1. 获取JSON Schema
-        content = request_body.content.get(MediaTypeEnum.JSON.value)
-        if not content or not content.schema_:
-            return None
+            # 2. 生成上下文名称
+            context_name = f"{endpoint_name}RequestBody"
+            # 3. 解析类型
+            body_type = self.parse_schema(content.schema_, context_name)
 
-        # 2. 生成上下文名称
-        context_name = f"{endpoint_name}RequestBody"
-        # 3. 解析类型
-        body_type = self.parse_schema(content.schema_, context_name)
+            # 4. 如果是对象类型，确保模型已生成
+            if body_type.is_custom_type and body_type.type not in self.model_registry.models:
+                raise
+                # raise ModelNotGeneratedError(f"模型 {body_type.type} 尚未生成")
 
-        # 4. 如果是对象类型，确保模型已生成
-        if body_type.is_custom_type and body_type.type not in self.model_registry.models:
-            raise
-            # raise ModelNotGeneratedError(f"模型 {body_type.type} 尚未生成")
-
-        return body_type
+            return body_type
 
     def parse_response(
             self,
@@ -164,18 +181,19 @@ class OpenAPIParser(JsonSchemaParser):
             logger.debug(f"未找到成功响应状态码: {class_name}")
             return None
         response = responses[success_code]
-        content = response.content.get(MediaTypeEnum.JSON.value)
-        if not content or not content.schema_:
-            logger.debug(f"响应未定义JSON Schema: {class_name}")
-            return None
+        for content_type in SUPPORTED_CONTENT_TYPES:
+            content = response.content.get(content_type)
+            if not content or not content.schema_:
+                logger.debug(f"响应未定义JSON Schema: {class_name}")
+                return None
 
-        # 4. 统一解析Schema（自动处理嵌套引用）
-        context_name = f"{class_name}Response"
+            # 4. 统一解析Schema（自动处理嵌套引用）
+            context_name = f"{class_name}Response"
 
-        response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
-        if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-            raise
-        return response_type
+            response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
+            if response_type.is_custom_type and response_type.type not in self.model_registry.models:
+                raise
+            return response_type
 
     def _parse_content_schema(
             self,
@@ -183,7 +201,6 @@ class OpenAPIParser(JsonSchemaParser):
             content: Dict[str, MediaType]
     ) -> DataType:
         """解析 content 类型的参数 Schema"""
-        # 示例：仅处理 application/json
         media_type = content.get(MediaTypeEnum.JSON.value)
         if not media_type or not media_type.schema_:
             raise ValueError("仅支持 JSON 类型的 content 参数")

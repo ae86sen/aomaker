@@ -52,7 +52,7 @@ def collect_models_imports(models: List[DataModel]) -> ImportManager:
 
 
 def generate_imports(manager: ImportManager, exclude_internal: bool = False) -> List[str]:
-    stdlib_modules = {"typing", "datetime", "uuid"}
+    stdlib_modules = {"typing", "datetime", "uuid", "enum"}
     third_party_modules = {"attrs", "aomaker"}
 
     categorized = {
@@ -236,7 +236,7 @@ class Generator:
             'get_api_router_params': self.render_utils.get_api_router_params,
             'get_base_class': self.render_utils.get_base_class,
             'get_all_api_class_name': self.render_utils.get_all_api_class_name,
-            'get_all_model_class_name': self.render_utils.get_all_model_class_name
+            'get_all_model_class_name': self.render_utils.get_all_model_class_name,
         })
         self.env.tests['datamodel'] = self.render_utils.is_datamodel
         self.env.tests['datatype'] = self.render_utils.is_datatype
