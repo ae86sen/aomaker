@@ -290,12 +290,7 @@ class Generator:
             imports=imports,
         )
 
-        # 格式化代码
-        try:
-            format_content = black.format_str(content, mode=black.FileMode())
-        except Exception as e:
-            print(content)
-            raise e
+        format_content = self._format_content(content)
 
         # 写入文件
         (package_dir / "models.py").write_text(format_content)
@@ -307,12 +302,8 @@ class Generator:
             endpoints=endpoints,
             imports=imports,
         )
-        # 格式化代码
-        try:
-            format_content = black.format_str(content, mode=black.FileMode())
-        except Exception as e:
-            print(content)
-            raise e
+
+        format_content = self._format_content(content)
 
         # 写入文件
         (package_dir / "apis.py").write_text(format_content)
@@ -339,3 +330,13 @@ class Generator:
 
         referenced_models = [all_models[model] for model in model_name_list if model in all_models]
         return referenced_models
+
+    def _format_content(self, content: str):
+        try:
+            return black.format_str(content, mode=black.FileMode())
+        except black.InvalidInput as e:
+            print(f"❌ 语法错误 @ : {e}")
+            raise e
+        except Exception as e:
+            print(f"⚠️ 未知格式化错误: {type(e).__name__}")
+            raise
