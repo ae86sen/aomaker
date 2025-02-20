@@ -6,7 +6,7 @@ import yaml
 
 from aomaker._printer import printer
 from aomaker.path import CONF_DIR
-from aomaker.cache import cache, config
+from aomaker.storage import cache, config
 from aomaker.exceptions import FileNotFound, ConfKeyError
 from aomaker._constants import Conf
 

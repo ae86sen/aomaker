@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 import pytest
 
 from aomaker._printer import printer
-from aomaker.cache import config, cache
+from aomaker.storage import config, cache
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, aomaker_logger
 from aomaker._constants import Allure

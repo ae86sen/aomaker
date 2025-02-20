@@ -1,11 +1,23 @@
 import os
 import sqlite3
 import threading
+from pathlib import Path
 
 from aomaker._constants import DataBase
-from aomaker.path import DB_DIR
 
-DB_PATH = os.path.join(DB_DIR, DataBase.DB_NAME)
+
+def get_db_path():
+    current_dir = Path(os.getcwd()).resolve()
+    while True:
+        db_path = current_dir / 'database' / DataBase.DB_NAME
+        if db_path.exists():
+            return db_path
+        if current_dir.parent == current_dir:
+            raise FileNotFoundError(f"未找到数据库文件{DataBase.DB_NAME}")
+        current_dir = current_dir.parent
+
+
+DB_PATH = get_db_path()
 
 lock = threading.RLock()
 
@@ -26,17 +38,11 @@ class SQLiteDB:
         self.connection.close()
 
     def execute_sql(self, sql: str, *args, **kwargs):
-        """
-        Execute SQL
-        """
         with lock:
             self.cursor.execute(sql, *args, **kwargs)
             self.connection.commit()
 
     def insert_data(self, table: str, data: dict):
-        """
-        insert sql statement
-        """
         for key in data:
             data[key] = "'" + str(data[key]) + "'"
         key = ','.join(data.keys())
@@ -45,10 +51,6 @@ class SQLiteDB:
         self.execute_sql(sql)
 
     def query_sql(self, sql: str, *args, **kwargs):
-        """
-        Query SQL
-        return: query data
-        """
         data_list = []
         with lock:
             rows = self.cursor.execute(sql, *args, **kwargs)
@@ -57,18 +59,12 @@ class SQLiteDB:
             return data_list
 
     def select_data(self, table: str, where: dict = None):
-        """
-        select sql statement
-        """
         sql = """select * from {}""".format(table)
         if where:
             sql += ' where {}'.format(self.dict_to_str_and(where))
         return self.query_sql(sql)
 
     def update_data(self, table: str, data: dict, where: dict):
-        """
-        update sql statement
-        """
         sql = """update {} set """.format(table)
         sql += self.dict_to_str(data)
         if where:
@@ -76,18 +72,12 @@ class SQLiteDB:
         self.execute_sql(sql)
 
     def delete_data(self, table: str, where: dict = None):
-        """
-        delete table data
-        """
         sql = """delete from {}""".format(table)
         if where is not None:
             sql += ' where {}'.format(self.dict_to_str_and(where))
         self.execute_sql(sql)
 
     def init_table(self, table_data: dict):
-        """
-        init table data
-        """
         for table, data_list in table_data.items():
             self.delete_data(table)
             for data in data_list:

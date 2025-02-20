@@ -13,26 +13,18 @@ from aomaker._constants import DataBase
 from aomaker.exceptions import JsonPathExtractFailed
 from aomaker.log import logger
 
+__ALL__ = ["config", "schema", "stats", "cache"]
+
 
 class Config(SQLiteDB):
     def __init__(self):
         super(Config, self).__init__()
         self.table = DataBase.CONFIG_TABLE
 
-    @property
-    def worker(self):
-        run_mode = config.get("run_mode")
-        worker = {
-            "main": "MainProcess",
-            "mt": current_thread().name,
-            "mp": current_process().name
-        }
-        return worker[run_mode]
     def set(self, key: str, value):
-        sql = f"""insert into {self.table}(key,value) values (:key,:value)"""
-        value = json.dumps(value)
+        data = {"key": key, "value": json.dumps(value)}
         try:
-            self.execute_sql(sql, (key, value))
+            self.insert_data(self.table, data=data)
         except sqlite3.IntegrityError as ie:
             logger.debug(f"config全局配置已加载=====>key: {key}, value: {value}")
             self.connection.commit()
@@ -62,25 +54,20 @@ class Config(SQLiteDB):
         return dic
 
     def clear(self):
-        """清空表"""
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
+        self.delete_data(table=self.table)
 
     def del_(self, where: dict = None):
         """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
+        self.delete_data(table=self.table, where=where)
 
 
 class Schema(SQLiteDB):
     def __init__(self):
         super(Schema, self).__init__()
         self.table = DataBase.SCHEMA_TABLE
-        self._create_table()
+        self.create_table()
 
-    def _create_table(self):
+    def create_table(self):
         sql = f""" CREATE TABLE IF NOT EXISTS {self.table} (
                 schema_key TEXT PRIMARY KEY,
                 schema_json TEXT NOT NULL,
@@ -92,48 +79,28 @@ class Schema(SQLiteDB):
 
     def save_schema(self, endpoint, schema_: dict):
         key = SchemaKeyGenerator.get_schema_key(endpoint)
-        sql = f"""INSERT INTO {self.table} (schema_key, schema_json, original_route, method)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(schema_key) DO UPDATE SET schema_json=excluded.schema_json
-        """
-        self.execute_sql(sql,(key, json.dumps(schema_), endpoint.endpoint_config.route, endpoint.endpoint_config.method.value))
+        data = {
+            "schema_key": key,
+            "schema_json": json.dumps(schema_),
+            "original_route": endpoint.endpoint_config.route,
+            "method": endpoint.endpoint_config.method.value
+        }
+
+        self.insert_data(self.table, data=data)
 
     def get_schema(self, endpoint) -> dict:
         key = SchemaKeyGenerator.get_schema_key(endpoint)
         sql = f"SELECT schema_json FROM {self.table} WHERE schema_key=:key"
-        self.execute_sql(sql,(key,))
+        self.execute_sql(sql, (key,))
         row = self.cursor.fetchone()
         return json.loads(row[0]) if row else None
 
-    def set(self, key: str, value):
-        sql = f"""insert into {self.table} (api_name,schema) values (:key,:value)"""
-        try:
-            self.execute_sql(sql, (key, json.dumps(value)))
-        except sqlite3.IntegrityError:
-            logger.debug(f"Schema表插入重复数据，key: {key},已被忽略！")
-            self.connection.commit()
-
-    def get(self, key: str):
-        sql = f"""select schema from {self.table} where api_name=:key"""
-        query_res = self.query_sql(sql, (key,))
-        try:
-            res = query_res[0][0]
-        except IndexError:
-            return None
-        res = json.loads(res)
-
-        return res
-
     def clear(self):
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
+        self.delete_data(table=self.table)
 
     def del_(self, where: dict = None):
         """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
+        self.delete_data(table=self.table, where=where)
 
     def count(self):
         """数量统计"""
@@ -182,11 +149,10 @@ class Cache(SQLiteDB):
             raise e
 
     def update(self, key, value):
-        worker = self.worker
         key_value = {"response": json.dumps(value)}
-        condition = {"worker": worker, "var_name": key}
+        condition = {"worker": self.worker, "var_name": key}
         self.update_data(self.table, key_value, where=condition)
-        logger.info(f"缓存数据更新完成, 表：{self.table},\n var_name: {key},\n response: {value},\n worker: {worker}")
+        logger.info(f"缓存数据更新完成, 表：{self.table},\n var_name: {key},\n response: {value},\n worker: {self.worker}")
 
     def get(self, key: str, select_field="response"):
         worker = self.worker
@@ -219,15 +185,11 @@ class Cache(SQLiteDB):
         return keys
 
     def clear(self):
-        sql = """delete from {}""".format(self.table)
-        self.execute_sql(sql)
+        self.delete_data(table=self.table)
 
     def del_(self, where: dict = None):
         """根据条件删除"""
-        sql = """delete from {}""".format(self.table)
-        if where is not None:
-            sql += ' where {};'.format(self.dict_to_str_and(where))
-        self.execute_sql(sql)
+        self.delete_data(table=self.table, where=where)
 
 
 class Stats(SQLiteDB):
@@ -236,27 +198,15 @@ class Stats(SQLiteDB):
         self.table = DataBase.STATS_TABLE
         self.create_table()
 
-
     def create_table(self):
         sql = f"""CREATE TABLE IF NOT EXISTS {self.table} (package TEXT, api_name TEXT);"""
         self.execute_sql(sql)
 
     def set(self, *, package: str, api_name: str):
-        sql = f"""insert into {self.table} (package,api_name) values (:package,:api_name)"""
-        self.execute_sql(sql, (package, api_name))
+        self.insert_data(self.table, data={"package": package, "api_name": api_name})
 
     def get(self, conditions: dict = None):
         return self.select_data(table=self.table, where=conditions)
-
-
-def _get_worker():
-    run_mode = config.get("run_mode")
-    worker = {
-        "main": "MainProcess",
-        "mt": current_thread().name,
-        "mp": current_process().name
-    }
-    return worker[run_mode]
 
 
 class SchemaKeyGenerator:

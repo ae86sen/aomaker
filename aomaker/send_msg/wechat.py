@@ -4,7 +4,7 @@ import os
 
 from aomaker.utils.gen_allure_report import CaseSummary, get_allure_results
 from aomaker.utils.utils import load_yaml
-from aomaker.cache import Config
+from aomaker.storage import Config
 from aomaker.path import CONF_DIR
 from aomaker._constants import Conf
 

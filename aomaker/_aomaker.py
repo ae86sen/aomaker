@@ -11,7 +11,7 @@ import click
 from jsonpath import jsonpath
 from genson import SchemaBuilder
 
-from aomaker.cache import cache
+from aomaker.storage import cache
 from aomaker.log import logger
 from aomaker.path import BASEDIR
 from aomaker.exceptions import FileNotFound, YamlKeyError, JsonPathExtractFailed

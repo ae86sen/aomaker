@@ -30,7 +30,7 @@ from aomaker.models import AomakerYaml
 from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
-from aomaker.cache import stats
+from aomaker.storage import stats
 from aomaker.service import app
 
 SUBCOMMAND_RUN_NAME = "run"
@@ -411,7 +411,7 @@ def main_run(env: str = None,
 
     result = runner.invoke(run, args=args, standalone_mode=False)
     if result.exit_code != 0:
-        from aomaker.cache import cache, config
+        from aomaker.storage import cache, config
         cache.clear()
         cache.close()
         config.close()

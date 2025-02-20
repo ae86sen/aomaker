@@ -11,7 +11,7 @@ from jinja2 import Template
 from dataclasses import is_dataclass
 
 from aomaker.log import logger, aomaker_logger
-from aomaker.cache import Config, Cache, schema
+from aomaker.storage import Config, Cache, schema
 from aomaker._aomaker import genson
 from aomaker.exceptions import HttpRequestError
 from aomaker.aomaker import AoMakerRetry

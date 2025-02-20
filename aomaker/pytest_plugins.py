@@ -1,5 +1,5 @@
 # --coding:utf-8--
-from aomaker.cache import cache
+from aomaker.storage import cache
 
 deselected_cases = 0
 

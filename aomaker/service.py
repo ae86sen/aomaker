@@ -8,7 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from aomaker.cache import stats, cache
+from aomaker.storage import stats, cache
 from aomaker.path import LOG_FILE_path
 from aomaker.utils.gen_allure_report import gen_allure_summary
 
