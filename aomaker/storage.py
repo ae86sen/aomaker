@@ -22,14 +22,15 @@ class Config(SQLiteDB):
         self.table = DataBase.CONFIG_TABLE
 
     def set(self, key: str, value):
-        data = {"key": key, "value": json.dumps(value)}
+        serialized_value = json.dumps(value)
+        data = {"key": key, "value": serialized_value}
         try:
             self.insert_data(self.table, data=data)
         except sqlite3.IntegrityError as ie:
             logger.debug(f"config全局配置已加载=====>key: {key}, value: {value}")
             self.connection.commit()
             sql = "update {} set value=? where key=?".format(self.table)
-            self.execute_sql(sql, (value, key))
+            self.execute_sql(sql, (serialized_value, key))
 
     def get(self, key: str):
         sql = f"""select value from {self.table} where key=:key"""
