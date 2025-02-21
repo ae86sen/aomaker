@@ -1,10 +1,14 @@
 # --coding:utf-8--
 from functools import partial
-from typing import List, Any
+from typing import List, Any, Type
+from contextlib import contextmanager
+from copy import deepcopy
 
 import requests
 
+from aomaker.storage import cache
 from .middlewares.middlewares import middlewares_registry, MiddlewareCallable, RequestType, ResponseType
+
 
 class CachedResponse:
     def __init__(self, raw_response: requests.Response):
@@ -27,8 +31,13 @@ class HTTPClient:
         if middlewares:
             self.middlewares.extend(middlewares)
 
-    def send_request(self, request: RequestType, **kwargs) -> ResponseType:
-        merged_request = {**request, **kwargs}
+    def send_request(self, request: RequestType, override_headers: bool = False, **kwargs) -> ResponseType:
+        if override_headers:
+            final_headers = request.get("headers", {})
+        else:
+            final_headers = {**self.session.headers, **request.get("headers", {})}
+
+        merged_request = {**request, **kwargs, "headers": final_headers}
 
         def send(req: RequestType) -> ResponseType:
             req.pop("_api_meta")
@@ -41,3 +50,21 @@ class HTTPClient:
 
         return call_next(merged_request)
 
+    @contextmanager
+    def headers_override_scope(self, headers: dict):
+        """上下文管理器：临时完全替换请求头"""
+        original_headers = deepcopy(self.session.headers)
+        try:
+            self.session.headers.clear()
+            self.session.headers.update(headers)
+            yield
+        finally:
+            self.session.headers = original_headers
+
+
+def get_http_client(default_client: Type[HTTPClient]) -> HTTPClient:
+    if not hasattr(get_http_client, "client"):
+        get_http_client.client = default_client()
+        headers = cache.get("headers")
+        get_http_client.client.session.headers.update(headers)
+    return get_http_client.client

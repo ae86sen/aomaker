@@ -6,10 +6,10 @@ from jsonschema import validate, ValidationError
 from jsonschema.exceptions import best_match
 from attrs import define, field, has
 
-from aomaker.storage import config, cache,schema
+from aomaker.storage import config, schema
 from .base_model import EndpointConfig, ContentType, RequestBodyT, ResponseT, ParametersT, AoResponse
 from .converters import RequestConverter
-from .http_client import HTTPClient
+from .http_client import get_http_client, HTTPClient
 
 # from .middlewares.logging_middleware import logging_middleware
 _FIELD_TO_VALIDATE = ("path_params", "query_params", "request_body", "response")
@@ -18,7 +18,7 @@ _FIELD_TO_VALIDATE = ("path_params", "query_params", "request_body", "response")
 @define(kw_only=True)
 class BaseAPIObject(Generic[ResponseT]):
     base_url: str = field(factory=lambda: config.get("host").rstrip("/"))
-    headers: dict = field(factory=lambda: cache.get("headers"))
+    headers: dict = field(factory=dict)
     path_params: Optional[ParametersT] = field(default=None)
     query_params: Optional[ParametersT] = field(default=None)
     request_body: Optional[RequestBodyT] = field(default=None)
@@ -27,7 +27,7 @@ class BaseAPIObject(Generic[ResponseT]):
     endpoint_id: Optional[str] = field(default=None)
     endpoint_config: EndpointConfig = field(default=None)
     content_type: ContentType = field(default=ContentType.JSON)
-    http_client: HTTPClient = field(default=None)
+    http_client: Union[HTTPClient, Type[HTTPClient]] = field(default=HTTPClient)
     converter: Union[RequestConverter, Type[RequestConverter]] = field(default=None)
     enable_schema_validation: bool = field(default=True)
 
@@ -37,8 +37,7 @@ class BaseAPIObject(Generic[ResponseT]):
             self.endpoint_config = getattr(self.__class__, '_endpoint_config', None)
             if self.endpoint_config is None:
                 raise ValueError("endpoint_config is not set in the class or instance.")
-        if self.http_client is None:
-            self.http_client = HTTPClient()
+        self.http_client = get_http_client(default_client=self.http_client)
         if self.converter is None:
             self.converter = RequestConverter(api_object=self)
         elif isinstance(self.converter, type):
@@ -51,7 +50,7 @@ class BaseAPIObject(Generic[ResponseT]):
                 raise TypeError(f"{field_name} must be an attrs instance")
 
     def __call__(self, *args, **kwargs):
-        self.send()
+        self.send(*args, **kwargs)
 
     @property
     def class_name(self):
@@ -61,7 +60,7 @@ class BaseAPIObject(Generic[ResponseT]):
     def class_doc(self):
         return self.__class__.__doc__ or ""
 
-    def send(self) -> AoResponse[ResponseT]:
+    def send(self, override_headers: bool = False) -> AoResponse[ResponseT]:
         req = self.converter.convert()
 
         req["_api_meta"] = {
@@ -69,7 +68,7 @@ class BaseAPIObject(Generic[ResponseT]):
             "class_doc": self.class_doc.strip()
         }
 
-        raw_response = self.http_client.send_request(request=req)
+        raw_response = self.http_client.send_request(request=req, override_headers=override_headers)
         response_data = raw_response.json()
 
         if self.enable_schema_validation:
