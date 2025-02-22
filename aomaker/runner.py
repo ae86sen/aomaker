@@ -287,8 +287,7 @@ def make_args_group(args: list, extra_args: list):
 
 def _progress_init(pytest_args: list):
     if len(pytest_args) > 0:
-        cache.set(f"_progress.{cache.worker}", {"target": pytest_args[0], "total": 0, "completed": 0},
-                  is_rewrite=True)
+        cache.set(f"_progress.{cache.worker}", {"target": pytest_args[0], "total": 0, "completed": 0})
 
 
 run = Runner().run

@@ -1,7 +1,7 @@
 import os
 import sys
 
-from aomaker._constants import DataBase as DB
+from aomaker.storage import cache,config,schema,stats
 from aomaker._log import logger
 
 
@@ -49,34 +49,6 @@ def create_scaffold(project_name):
             f.write(file_content)
         msg = f"创建文件: {path}"
         logger.info(msg)
-
-    def create_table(db_object, table_name: str):
-        table_attr = get_table_attribute(table_name)
-        key = table_attr.get('key')
-        value = table_attr.get('value')
-        worker = table_attr.get('worker')
-        api_info = table_attr.get('api_info')
-        if worker is not None:
-            sql = f"""create table {table_name}({key} text,{value} text,{worker} text,{api_info} text);"""
-        else:
-            sql = f"""create table {table_name}({key} text,{value} text);"""
-        db_object.execute_sql(sql)
-        if table_name != "cache":
-            sql2 = f"""create unique index {table_name}_{key}_uindex on {table_name} ({key});"""
-            db_object.execute_sql(sql2)
-        msg = f"创建数据表：{table_name}"
-        logger.info(msg)
-
-    def get_table_attribute(table_name: str):
-        tables_attr = {
-            DB.CACHE_TABLE: {'key': DB.CACHE_VAR_NAME, 'value': DB.CACHE_RESPONSE, 'worker': DB.CACHE_WORKER,
-                             'api_info': DB.CACHE_API_INFO},
-            DB.CONFIG_TABLE: {'key': DB.CONFIG_KEY, 'value': DB.CONFIG_VALUE},
-            DB.SCHEMA_TABLE: {'key': DB.SCHEMA_API_NAME, 'value': DB.SCHEMA_SCHEMA},
-            DB.STATS_TABLE: {'package': DB.STATS_PACKAGE, 'api_name': DB.STATS_API_NAME}
-
-        }
-        return tables_attr.get(table_name)
 
     logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
@@ -224,13 +196,6 @@ class Login(BaseLogin):
     create_folder(os.path.join(project_name, "logs"))
     db_dir_path = os.path.join(project_name, "database")
     create_folder(db_dir_path)
-    from aomaker.database.sqlite import SQLiteDB
-    db_file_path = os.path.join(db_dir_path, DB.DB_NAME)
-    db = SQLiteDB(db_path=db_file_path)
-    create_table(db, DB.CONFIG_TABLE)
-    create_table(db, DB.CACHE_TABLE)
-    create_table(db, DB.SCHEMA_TABLE)
-    create_table(db, DB.STATS_TABLE)
     logger.info("---------------------脚手架创建完成---------------------")
 
     return 0

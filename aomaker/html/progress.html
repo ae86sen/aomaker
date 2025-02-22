@@ -326,9 +326,7 @@
 <script>
     let log_ws;
     let isLogWebSocketInitialized = false;
-    {#const hostname = window.location.hostname;#}
     const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-    {#const url = `http://${hostname}:${port}/config/current`#}
 
 
     function getConfig() {
