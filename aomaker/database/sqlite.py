@@ -1,33 +1,40 @@
-import os
 import sqlite3
 import threading
 from pathlib import Path
 
-from aomaker._constants import DataBase
+from aomaker._constants import PROJECT_ROOT_FILE, DataBase
 
 
-def get_db_path():
-    current_dir = Path(os.getcwd()).resolve()
-    while True:
-        db_path = current_dir / 'database' / DataBase.DB_NAME
-        if db_path.exists():
-            return db_path
-        if current_dir.parent == current_dir:
-            raise FileNotFoundError(f"未找到数据库文件{DataBase.DB_NAME}")
-        current_dir = current_dir.parent
+def find_project_root(start_path: Path) -> Path:
+    current_path = start_path.resolve()
+    while current_path != current_path.parent:
+        if (current_path / PROJECT_ROOT_FILE).exists() or (current_path / "run.py").exists():
+            return current_path
+        current_path = current_path.parent
+    raise FileNotFoundError(f"未找到项目根目录（缺少{PROJECT_ROOT_FILE}文件，可能不在aomaker项目中）")
 
 
-DB_PATH = get_db_path()
+def get_db_path() -> Path:
+    project_root = find_project_root(Path.cwd())
+    database_dir = project_root / DataBase.DB_DIR_NAME
+    if not database_dir.exists():
+        database_dir.mkdir(parents=True, exist_ok=True)
+        print(f"创建 database 目录: {database_dir}")
+    db_path = database_dir / DataBase.DB_NAME
+    return db_path
+
 
 lock = threading.RLock()
 
 
 class SQLiteDB:
 
-    def __init__(self, db_path=DB_PATH):
+    def __init__(self, db_path=None):
         """
         Connect to the sqlite database
         """
+        if db_path is None:
+            db_path = get_db_path()
         self.connection = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.connection.cursor()
 

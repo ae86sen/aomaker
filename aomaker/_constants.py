@@ -1,7 +1,11 @@
 # --coding:utf-8--
 
+PROJECT_ROOT_FILE = ".aomaker"
+
+
 # database
 class DataBase:
+    DB_DIR_NAME = "database"
     DB_NAME = "aomaker.db"
     CONFIG_TABLE = 'config'
     CACHE_TABLE = 'cache'

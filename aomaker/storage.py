@@ -8,12 +8,12 @@ from aomaker.database.sqlite import SQLiteDB
 from aomaker._constants import DataBase
 from aomaker.log import logger
 
-__ALL__ = ["config", "schema", "stats", "cache"]
+# __ALL__ = ["config", "schema", "stats", "cache","Config"]
 
 
 class Config(SQLiteDB):
-    def __init__(self):
-        super(Config, self).__init__()
+    def __init__(self,db_path=None):
+        super(Config, self).__init__(db_path)
         self.table = DataBase.CONFIG_TABLE
         self.create_table()
 
@@ -64,8 +64,8 @@ class Config(SQLiteDB):
 
 
 class Schema(SQLiteDB):
-    def __init__(self):
-        super(Schema, self).__init__()
+    def __init__(self,db_path=None):
+        super(Schema, self).__init__(db_path)
         self.table = DataBase.SCHEMA_TABLE
         self.create_table()
 
@@ -105,8 +105,8 @@ class Schema(SQLiteDB):
 
 
 class Cache(SQLiteDB):
-    def __init__(self):
-        super(Cache, self).__init__()
+    def __init__(self,db_path=None):
+        super(Cache, self).__init__(db_path)
         self.table = DataBase.CACHE_TABLE
         self.create_table()
 
@@ -174,8 +174,8 @@ class Cache(SQLiteDB):
 
 
 class Stats(SQLiteDB):
-    def __init__(self):
-        super(Stats, self).__init__()
+    def __init__(self,db_path=None):
+        super(Stats, self).__init__(db_path)
         self.table = DataBase.STATS_TABLE
         self.create_table()
 

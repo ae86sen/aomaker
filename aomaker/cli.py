@@ -30,8 +30,6 @@ from aomaker.models import AomakerYaml
 from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
-from aomaker.storage import stats
-from aomaker.service import app
 
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()
@@ -188,6 +186,7 @@ def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefi
 @click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
 def query_stats(package, showindex):
     """Query API statistics with optional filtering."""
+    from aomaker.storage import stats
     conditions = {}
 
     if package:
@@ -212,6 +211,7 @@ def gen_stats(api_dir):
 @click.option('--web', is_flag=True, help="Open the web interface in a browser.")
 @click.option('--port', default=8888, help="Specify the port number to run the server on. Default is 8888.")
 def service(web, port):
+    from aomaker.service import app
     progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
 
     def open_web(url):
@@ -239,6 +239,7 @@ def _parse_all_from_ast(filepath: Path):
 
 
 def _generate_apis(api_dir: str):
+    from aomaker.storage import stats
     root_dir = Path(api_dir)
 
     for apis_path in root_dir.rglob('apis.py'):

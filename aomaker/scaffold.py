@@ -1,8 +1,9 @@
 import os
 import sys
+from sqlite3 import DatabaseError
 
-from aomaker.storage import cache,config,schema,stats
 from aomaker._log import logger
+from aomaker._constants import PROJECT_ROOT_FILE, DataBase
 
 
 class ExtraArgument:
@@ -50,8 +51,17 @@ def create_scaffold(project_name):
         msg = f"创建文件: {path}"
         logger.info(msg)
 
+    def init_db(db_dir_path):
+        from aomaker import storage
+        db_path = os.path.join(db_dir_path, DataBase.DB_NAME)
+        storage.Config(db_path=db_path)
+        storage.Cache(db_path=db_path)
+        storage.Stats(db_path=db_path)
+        storage.Schema(db_path=db_path)
+
     logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
+    create_file(os.path.join(project_name, PROJECT_ROOT_FILE), "")
     create_folder(os.path.join(project_name, "yamlcase"))
     create_folder(os.path.join(project_name, "apis"))
     create_file(os.path.join(project_name, "apis", "__init__.py"))
@@ -196,6 +206,7 @@ class Login(BaseLogin):
     create_folder(os.path.join(project_name, "logs"))
     db_dir_path = os.path.join(project_name, "database")
     create_folder(db_dir_path)
+    init_db(db_dir_path)
     logger.info("---------------------脚手架创建完成---------------------")
 
     return 0
