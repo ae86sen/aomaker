@@ -7,6 +7,8 @@ from copy import deepcopy
 import requests
 
 from aomaker.storage import cache
+# todo: 自动注册
+from .middlewares.logging_middleware import structured_logging_middleware
 from .middlewares.middlewares import middlewares_registry, MiddlewareCallable, RequestType, ResponseType
 
 

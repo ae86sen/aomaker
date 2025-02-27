@@ -17,7 +17,7 @@ _FIELD_TO_VALIDATE = ("path_params", "query_params", "request_body", "response")
 
 @define(kw_only=True)
 class BaseAPIObject(Generic[ResponseT]):
-    base_url: str = field(factory=lambda: config.get("host").rstrip("/"))
+    base_url: str = field(factory=lambda: config.get("base_url").rstrip("/"))
     headers: dict = field(factory=dict)
     path_params: Optional[ParametersT] = field(default=None)
     query_params: Optional[ParametersT] = field(default=None)

@@ -75,6 +75,16 @@ def gen():
     """Generate various statistics or attrs models."""
     pass
 
+@main.group()
+def service():
+    """Aomaker Service."""
+    pass
+
+
+@main.group()
+def mock():
+    """Aomaker mock server."""
+    pass
 
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.option("-e", "--env", help="Switch test environment.")
@@ -111,8 +121,8 @@ def create(project_name):
 
 
 @gen.command(name="models")
-@click.option("--spec", "-s", required=True, type=click.Path(exists=True),
-              help="OpenAPI规范文件路径（JSON/YAML），暂时只支持openapi3.0")
+@click.option("--spec", "-s", required=True,
+              help="OpenAPI规范文件路径（JSON/YAML/URL），暂时只支持openapi3.0")
 @click.option("--output", "-o", default="demo", show_default=True,
               help="代码输出目录")
 @click.option("--class-name-strategy", "-c",
@@ -124,7 +134,7 @@ def create(project_name):
               help="后端服务路由前缀（如：api_service）")
 @click.option("--frontend-prefix", "-f",
               help="前端接口路由前缀（如：global_api）")
-@click.option("--base-api-class", "-B", default="aomaker.core.core.BaseAPIObject",
+@click.option("--base-api-class", "-B", default="aomaker.core.api_object.BaseAPIObject",
               show_default=True,
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
@@ -135,6 +145,53 @@ def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefi
     Generate Attrs models from an OpenAPI specification.
     """
     naming_strategy = NAMING_STRATEGIES[class_name_strategy]
+    import yaml
+
+    if spec.startswith(('http://', 'https://')):
+        import requests
+        try:
+            response = requests.get(spec)
+            response.raise_for_status()
+            content_type = response.headers.get('Content-Type', '')
+
+            if 'json' in content_type:
+                doc = response.json()
+            elif 'yaml' in content_type or 'yml' in content_type:
+                doc = yaml.safe_load(response.text)
+            else:
+                try:
+                    doc = response.json()
+                except:
+                    doc = yaml.safe_load(response.text)
+        except Exception as e:
+            click.echo(f"获取或解析URL失败: {e}", err=True)
+            return
+    else:
+        spec_path = Path(spec)
+
+        if not spec_path.exists():
+            click.echo(f"文件不存在: {spec}", err=True)
+            return
+
+        file_suffix = spec_path.suffix.lower()
+        try:
+            with spec_path.open('r', encoding='utf-8') as f:
+                if file_suffix == '.json':
+                    doc = json.load(f)
+                elif file_suffix in ['.yaml', '.yml']:
+                    doc = yaml.safe_load(f)
+                else:
+                    content = f.read()
+                    try:
+                        doc = json.loads(content)
+                    except json.JSONDecodeError:
+                        doc = yaml.safe_load(content)
+        except Exception as e:
+            click.echo(f"读取或解析文件失败: {e}", err=True)
+            return
+
+    output_path = Path(output)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     config = OpenAPIConfig(
         class_name_strategy=naming_strategy,
@@ -143,9 +200,6 @@ def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefi
         base_api_class=base_api_class,
         base_api_class_alias=base_api_class_alias
     )
-
-    with open(spec, 'r', encoding='utf-8') as f:
-        doc = json.load(f)
 
     custom_theme = Theme({
         "primary": "#7B61FF",
@@ -207,20 +261,32 @@ def gen_stats(api_dir):
     click.echo(emojize(":beer_mug: 接口信息统计完毕！"))
 
 
-@main.command(help="Start a web service.")
+@service.command(help="Start a web service.")
 @click.option('--web', is_flag=True, help="Open the web interface in a browser.")
 @click.option('--port', default=8888, help="Specify the port number to run the server on. Default is 8888.")
-def service(web, port):
+def start(web, port):
     from aomaker.service import app
     progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
-
-    def open_web(url):
-        webbrowser.open(url)
-
     if web:
         Timer(2, open_web, args=[progress_url]).start()
     uvicorn.run(app, host="127.0.0.1", port=port)
 
+
+@mock.command(help="Start the mock server.")
+@click.option('--web', is_flag=True, help="Open the API documentation in a browser.")
+@click.option('--port', default=6666, help="Specify the port number to run the mock server on. Default is 6666.")
+def start(web, port):
+    """Start the mock server."""
+    from aomaker.mock.mock_server import app
+    docs_url = f"http://127.0.0.1:{port}/api/docs"
+    if web:
+        Timer(2, open_web, args=[docs_url]).start()
+    click.echo(f"🚀 启动Mock服务器在端口 {port}")
+    click.echo(f"📚 API文档地址: {docs_url}")
+    uvicorn.run(app, host="127.0.0.1", port=port)
+
+def open_web(url):
+    webbrowser.open(url)
 
 def _parse_all_from_ast(filepath: Path):
     with filepath.open(encoding='utf-8') as f:

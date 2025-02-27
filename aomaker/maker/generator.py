@@ -183,7 +183,8 @@ class TemplateRenderUtils:
     def render_optional_hint(cls, field: DataModelField) -> str:
         """渲染字段的类型注解，非必填字段添加 Optional 包装"""
         base_type = field.data_type.type
-
+        if field.data_type.is_optional:
+            return base_type
         if field.required is False:
             return f"Optional[{base_type}]"
         return base_type

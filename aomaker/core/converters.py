@@ -1,7 +1,9 @@
 # --coding:utf-8--
 from __future__ import annotations
 from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any
-from datetime import datetime
+from datetime import datetime, date, time
+from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
 from attrs import has, define, field
@@ -21,8 +23,13 @@ REQUEST_BUILDERS = {
 
 T = TypeVar('T')
 
+cattrs_converter = CattrsConverter()
 
-def datetime_hook(value, _type):
+
+# ===== 结构化钩子（将原始数据转换为对象）=====
+
+# datetime 结构化钩子
+def datetime_structure_hook(value, _type):
     if isinstance(value, str):
         return datetime.fromisoformat(value)
     elif isinstance(value, (int, float)):
@@ -31,9 +38,57 @@ def datetime_hook(value, _type):
         raise ValueError(f"无法将 {value} 转换为 datetime")
 
 
-cattrs_converter = CattrsConverter()
-cattrs_converter.register_structure_hook(datetime, datetime_hook)
+# date 结构化钩子
+def date_structure_hook(value, _type):
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    else:
+        raise ValueError(f"无法将 {value} 转换为 date")
+
+
+# time 结构化钩子
+def time_structure_hook(value, _type):
+    if isinstance(value, str):
+        return time.fromisoformat(value)
+    else:
+        raise ValueError(f"无法将 {value} 转换为 time")
+
+
+# 注册结构化钩子
+cattrs_converter.register_structure_hook(datetime, datetime_structure_hook)
+cattrs_converter.register_structure_hook(date, date_structure_hook)
+cattrs_converter.register_structure_hook(time, time_structure_hook)
 cattrs_converter.register_structure_hook(UUID, lambda value, _: UUID(value))
+cattrs_converter.register_structure_hook(Decimal, lambda value, _: Decimal(str(value)))
+cattrs_converter.register_structure_hook(Enum, lambda value, cls: cls(value))
+
+# ===== 反结构化钩子（将对象转换为可序列化数据）=====
+
+# 注册反结构化钩子
+cattrs_converter.register_unstructure_hook(
+    datetime,
+    lambda dt: dt.isoformat() if dt else None
+)
+cattrs_converter.register_unstructure_hook(
+    date,
+    lambda d: d.isoformat() if d else None
+)
+cattrs_converter.register_unstructure_hook(
+    time,
+    lambda t: t.isoformat() if t else None
+)
+cattrs_converter.register_unstructure_hook(
+    UUID,
+    lambda uuid_obj: str(uuid_obj) if uuid_obj else None
+)
+cattrs_converter.register_unstructure_hook(
+    Decimal,
+    lambda dec: str(dec) if dec else None
+)
+cattrs_converter.register_unstructure_hook(
+    Enum,
+    lambda enum_obj: enum_obj.value if enum_obj else None
+)
 
 
 @define
@@ -76,7 +131,7 @@ class RequestConverter:
 
     @property
     def route(self) -> str:
-        route = self._replace_route_params(self.endpoint_config.route)
+        route = self._replace_route_params(self.endpoint_config.route).lstrip("/")
         return route
 
     def post_prepare(self, prepared_data: PreparedRequest) -> PreparedRequest:
@@ -99,8 +154,7 @@ class RequestConverter:
 
     def prepare_url(self) -> str:
         base_url = self.base_url
-        route = self.endpoint_config.route
-        return f"{base_url}/{route}"
+        return f"{base_url}/{self.route}"
 
     def prepare_method(self) -> HTTPMethod:
         method = self.endpoint_config.method.value

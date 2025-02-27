@@ -208,24 +208,74 @@ class JsonSchemaParser:
             self,
             schemas: List[JsonSchemaObject],
             context: str,
-            union_type: Literal["Union", "Literal"] = Literal["Union"]
+            union_type: Literal["Union", "Literal"] = "Union"
     ) -> DataType:
         """通用方法处理 anyOf/oneOf"""
         child_types = []
         imports = set()
+        has_null = False
 
         for i, schema_ in enumerate(schemas):
+            # 检查是否有null类型
+            if schema_.type == 'null':
+                has_null = True
+                continue
+
             child_type = self.parse_schema(schema_, f"{context}_{union_type}{i}")
             child_types.append(child_type)
             imports.update(child_type.imports)
 
-        type_hint = f"{union_type}[{', '.join(t.type_hint for t in child_types)}]"
+        # 处理空列表情况（所有元素都是null）
+        if not child_types:
+            return DataType(
+                type="None",
+                imports=set(),
+                is_optional=True
+            )
 
+        # 检查是否有Any类型
+        any_types = [t for t in child_types if t.type_hint == "Any"]
+        if any_types:
+            # 如果有Any类型，简化为Any或Optional[Any]
+            if has_null:
+                return DataType(
+                    type="Optional[Any]",
+                    imports={Import(from_='typing', import_='Any'), Import(from_='typing', import_='Optional')},
+                    is_optional=True
+                )
+            else:
+                return DataType(
+                    type="Any",
+                    imports={Import(from_='typing', import_='Any')},
+                    is_optional=False
+                )
+
+        # 如果只有一个非null类型，且有null类型，则使用Optional
+        if has_null and len(child_types) == 1:
+            return DataType(
+                type=f"Optional[{child_types[0].type_hint}]",
+                data_types=child_types,
+                imports=imports | {Import(from_='typing', import_='Optional')},
+                is_optional=True
+            )
+
+        # 如果有多个非null类型，且有null类型，则使用Union加Optional
+        if has_null and len(child_types) > 1:
+            type_hint = f"Optional[Union[{', '.join(t.type_hint for t in child_types)}]]"
+            return DataType(
+                type=type_hint,
+                data_types=child_types,
+                imports=imports | {Import(from_='typing', import_='Optional'), Import(from_='typing', import_='Union')},
+                is_optional=True
+            )
+
+        # 如果没有null类型
+        type_hint = f"{union_type}[{', '.join(t.type_hint for t in child_types)}]"
         return DataType(
             type=type_hint,
             data_types=child_types,
             imports=imports | {Import(from_='typing', import_=union_type)},
-            is_optional=any(t.is_optional for t in child_types)
+            is_optional=False
         )
 
     def _parse_all_of(
@@ -313,6 +363,8 @@ class JsonSchemaParser:
         return schema_obj.title.replace(' ', '') if schema_obj.title else f"AnonymousEnum_{id(schema_obj)}"
 
     def _should_be_literal(self, schemas: List[JsonSchemaObject]) -> bool:
+        if not schemas:
+            return False
         return all(s.enum and len(s.enum) == 1 for s in schemas)
 
     def _update_model_tags_recursive(self, model: DataModel):
