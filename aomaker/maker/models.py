@@ -63,6 +63,7 @@ class DataModelField(BaseModel):
     required: bool = True
     default: Optional[Any] = None
     description: Optional[str] = None
+    alias: Optional[str] = None
 
 
 DataType.model_rebuild()

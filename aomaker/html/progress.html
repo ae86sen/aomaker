@@ -617,7 +617,7 @@
 
 <div class="main-container">
     <div class="header">
-        <img src="/statics/aomaker-logo.png" alt="Aomaker Logo" class="logo">
+        <img src="/static/img/logo.png" alt="Aomaker Logo" class="logo">
     </div>
 
     <div class="upper-container">
@@ -731,15 +731,28 @@
     function initializeLogWebSocket() {
         if (!log_ws || log_ws.readyState !== WebSocket.OPEN) {
             log_ws = new WebSocket(`ws://localhost:${port}/ws/logs`);
-            log_ws.onclose = () => console.log("Log WebSocket connection closed");
+            log_ws.onclose = () => {
+                console.log("Log WebSocket connection closed");
+                // 检查是否应该重新连接
+                setTimeout(() => {
+                    if (isLogWebSocketInitialized) {
+                        console.log("重新连接日志WebSocket");
+                        initializeLogWebSocket();
+                    }
+                }, 1000);
+            };
 
             log_ws.onmessage = function(event) {
+                // 确保不会在日志活动时错误地显示空状态
+                const logEmptyState = document.getElementById('logEmptyState');
+                if (logEmptyState) {
+                    logEmptyState.remove();
+                }
+
                 logQueue.push(event.data);
-                // 立即开始处理或者安排处理
                 requestAnimationFrame(processLogQueue);
             };
 
-            // 设置更低的WebSocket超时时间
             log_ws.timeout = 2000;
         }
     }
@@ -796,8 +809,8 @@
             const workerIcon = document.querySelector(`.worker-icon[data-worker='${workerName}']`);
             const badgeElement = document.querySelector(`.badge[data-worker='${workerName}']`);
 
-            // 如果有target信息，保存到全局对象中
-            if (progressInfo.target) {
+            // 如果有target信息且不为空，保存到全局对象中
+            if (progressInfo.target && progressInfo.target.trim() !== '') {
                 workerTargets[workerName] = progressInfo.target;
             }
 
@@ -806,9 +819,9 @@
                 progressBarFill.style.width = width + '%';
                 progressText.innerHTML = `<span>${Math.round(width)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
 
-                // 更新badge内容，优先使用保存的target值
+                // 更新badge内容，无论任务是否完成，都使用保存的target值
                 if (badgeElement) {
-                    // 使用已保存的target或当前的target，避免显示"未知"
+                    // 优先使用已存储的target值
                     const targetToShow = workerTargets[workerName] || progressInfo.target || badgeElement.textContent;
                     if (targetToShow && targetToShow !== '未知') {
                         badgeElement.textContent = targetToShow;
@@ -843,15 +856,28 @@
         let data = JSON.parse(event.data);
         const progressContainer = document.getElementById('progressContainer');
 
-        // 检测是否是新任务（数据重置）
+        // 检测是否所有任务都已完成或者这是一个全新的任务
         const isNewTask = Object.keys(previousData).length > 0 &&
                          Object.keys(data).length > 0 &&
-                         Object.values(data).some(info => info.completed === 0);
+                         Object.values(data).some(info => info.completed === 0 &&
+                                                        info.total > 0);
+
+        // 检查是否至少有一个活动任务
+        const hasActiveTask = Object.values(data).some(info =>
+            info.completed < info.total && info.total > 0
+        );
 
         if (isNewTask) {
-            // 清空进度容器，重新开始
+            // 清空进度容器并重新开始
             progressContainer.innerHTML = '';
             previousData = {};
+
+            // 只有当没有活动任务时才清空日志容器
+            if (!hasActiveTask) {
+                const logContainer = document.getElementById('logContainer');
+                logContainer.innerHTML = '';
+                logContainer.appendChild(createEmptyState('等待日志输出...', 'fas fa-terminal'));
+            }
         }
 
         if (Object.keys(data).length !== 0) {
@@ -874,8 +900,8 @@
             // 检查是否已经存在此worker的进度条
             const existingWorkerProgress = document.querySelector(`.progress-container[data-worker='${workerName}']`);
 
-            // 如果有target信息，保存到全局对象中
-            if (progressInfo.target) {
+            // 如果有target信息且不为空，保存到全局对象中
+            if (progressInfo.target && progressInfo.target.trim() !== '') {
                 workerTargets[workerName] = progressInfo.target;
             }
 
@@ -929,7 +955,22 @@
         updateProgressBars(data);
         checkAllProgressCompleted(data);
 
-        // 保存当前数据用于下次比较
+        // 只有当所有任务都已完成时才重置WebSocket连接
+        const allTasksCompleted = Object.values(data).every(info =>
+            info.completed === info.total || info.total === 0
+        );
+
+        if (allTasksCompleted && isLogWebSocketInitialized) {
+            // 不要立即关闭连接，而是标记它可以关闭
+            // 这允许最终的日志消息被处理
+            setTimeout(() => {
+                if (allTasksCompleted) {
+                    isLogWebSocketInitialized = false;
+                }
+            }, 2000); // 给日志一些时间完成
+        }
+
+        // Save current data for next comparison
         previousData = {...data};
     };
 
@@ -946,6 +987,24 @@
             });
         }, 100);
     });
+
+    // Helper function to create empty state elements
+    function createEmptyState(message, iconClass) {
+        const emptyState = document.createElement('div');
+        emptyState.id = 'logEmptyState';
+        emptyState.className = 'empty-state';
+
+        const icon = document.createElement('i');
+        icon.className = iconClass;
+
+        const text = document.createElement('p');
+        text.textContent = message;
+
+        emptyState.appendChild(icon);
+        emptyState.appendChild(text);
+
+        return emptyState;
+    }
 </script>
 
 </body>

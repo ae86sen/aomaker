@@ -20,7 +20,6 @@ app = FastAPI()
 app.mount("/statics", StaticFiles(directory=base_html_path), name="statics")
 app.mount("/reports", StaticFiles(directory="reports"), name="reports")
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,6 +74,7 @@ def get_progress():
     for key in progress_keys:
         worker_name = key.split(".")[-1]
         progress_info = cache.get(key)
+
         progress_data[worker_name] = progress_info
 
     return progress_data
@@ -85,6 +85,8 @@ async def get_logs(websocket: WebSocket):
     await websocket.accept()
     with open(LOG_FILE_path, "r") as log_file:
         try:
+            log_file.seek(0, 2)  # Go to the end of file
+
             while True:
                 new_line = log_file.readline()
                 if new_line:
@@ -113,6 +115,8 @@ async def get_progress(websocket: WebSocket):
             for key in progress_keys:
                 worker_name = key.split(".")[-1]
                 progress_info = cache.get(key)  # {"target":"","completed":0,"total":0,"}
+                print("progress_info:", progress_info)
+
                 all_cases += progress_info["total"]
                 all_completed += progress_info["completed"]
                 progress_data[worker_name] = progress_info

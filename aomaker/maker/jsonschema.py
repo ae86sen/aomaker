@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import keyword
 
 from typing import Optional, List, Dict, Set, Tuple, Literal, Any
 
@@ -30,6 +31,10 @@ class ReferenceResolver:
     def get_ref_schema(self, name: str) -> Optional[JsonSchemaObject]:
         if name.startswith("#/components/schemas/"):
             name = name.split("/")[-1]
+        if "%" in name:
+            import urllib.parse
+            decoded_name = urllib.parse.unquote(name)
+            return self.schema_objects.get(decoded_name)
         return self.schema_objects.get(name)
 
 
@@ -99,12 +104,14 @@ class JsonSchemaParser:
         is_add_optional_import = False
         for prop_name, prop_schema in schema_obj.properties.items():
             prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
+            alias = f"{prop_name}_" if is_python_keyword(prop_name) else None
             field = DataModelField(
                 name=prop_name,
                 data_type=prop_type,
                 required=prop_name in required_fields,
                 default=prop_schema.default,
                 description=prop_schema.description,
+                alias=alias
             )
             fields.append(field)
             if field.required:
@@ -188,8 +195,12 @@ class JsonSchemaParser:
     def _parse_reference(self, ref: str) -> DataType:
         """处理 $ref 引用，返回已注册模型的DataType"""
         ref_name = ref.split("/")[-1]
+        import urllib.parse
+
+        if "%" in ref_name:
+            ref_name = urllib.parse.unquote(ref_name)
         if ref_name not in self.model_registry.models:
-            ref_schema = self.resolver.get_ref_schema(ref_name)
+            ref_schema = self.resolver.get_ref_schema(ref)
             self.parse_schema(ref_schema, ref_name)
         else:
             model = self.model_registry.get(ref_name)
@@ -331,18 +342,26 @@ class JsonSchemaParser:
 
     def _parse_enum(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         base_type = self._parse_basic_datatype(schema_obj)
-
+        fields = []
+        for value in schema_obj.enum:
+            field_name = normalize_name(value)
+            if is_python_keyword(field_name=field_name):
+                alias = f"{field_name}_"
+                field_name = alias
+            else:
+                alias = None
+            fields.append(DataModelField(
+                name=field_name,
+                data_type=base_type,
+                default=repr(value),
+                alias=alias
+            ))
         enum_model = DataModel(
             name=context,
             is_enum=True,
             tags=self.current_tags,
             imports={Import(from_="enum", import_="Enum")},
-            fields=[DataModelField(
-                name=normalize_name(value),
-                data_type=base_type,
-                default=repr(value)
-            ) for value in schema_obj.enum
-            ]
+            fields=fields
         )
 
         self.model_registry.register(enum_model)
@@ -395,6 +414,12 @@ def normalize_name(value: Any) -> str:
     # 确保是有效的 Python 标识符
     name = name.lower()
     return name
+
+
+def is_python_keyword(field_name: str) -> bool:
+    if field_name in keyword.kwlist:
+        return True
+    return False
 
 
 if __name__ == '__main__':
