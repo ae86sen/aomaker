@@ -3,1009 +3,1176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Progress - Aomaker</title>
+    <title>Test Dashboard - Aomaker</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #6366f1;
-            --primary-light: #818cf8;
-            --primary-dark: #4338ca;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --text-primary: #1f2937;
-            --text-secondary: #6b7280;
-            --bg-primary: #ffffff;
-            --bg-secondary: #f9fafb;
-            --bg-tertiary: #f3f4f6;
-            --border-color: #e5e7eb;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --radius-sm: 0.25rem;
-            --radius-md: 0.5rem;
-            --radius-lg: 1rem;
-            --transition: all 0.2s ease;
-            --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        }
-
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary-color: #6366f1;
-                --primary-light: #818cf8;
-                --primary-dark: #4f46e5;
-                --success-color: #10b981;
-                --warning-color: #f59e0b;
-                --danger-color: #ef4444;
-                --text-primary: #f9fafb;
-                --text-secondary: #e5e7eb;
-                --bg-primary: #1f2937;
-                --bg-secondary: #111827;
-                --bg-tertiary: #374151;
-                --border-color: #4b5563;
-            }
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-sans);
-            background-color: var(--bg-secondary);
-            color: var(--text-primary);
-            line-height: 1.5;
-            overflow-x: hidden;
-            min-height: 100vh;
-            background:
-                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .logo {
-            height: 2.5rem;
-            transition: var(--transition);
-        }
-
-        .logo:hover {
-            transform: scale(1.05);
-            filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.4));
-        }
-
-        h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1.25rem;
-            position: relative;
-            display: inline-block;
-            letter-spacing: 0.01em;
-        }
-
-        h2::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: -0.5rem;
-            width: 2.5rem;
-            height: 0.2rem;
-            background: var(--primary-color);
-            border-radius: var(--radius-sm);
-            transition: var(--transition);
-        }
-
-        h2:hover::after {
-            width: 100%;
-        }
-
-        .info-section, .log-container {
-            margin-bottom: 1.5rem;
-        }
-
-        .report-button {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-            color: white;
-            padding: 0.75rem 1.25rem;
-            text-decoration: none;
-            border-radius: var(--radius-md);
-            transition: var(--transition);
-            text-align: center;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            border: none;
-            cursor: pointer;
-            box-shadow: var(--shadow-md);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .report-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: all 0.65s ease;
-        }
-
-        .report-button:hover::before {
-            left: 100%;
-        }
-
-        .report-button:hover {
-            background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
-            box-shadow: var(--shadow-lg), 0 0 15px rgba(99, 102, 241, 0.4);
-            transform: translateY(-2px);
-        }
-
-        .report-button:active {
-            transform: translateY(1px);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .report-button i {
-            transition: var(--transition);
-        }
-
-        .report-button:hover i {
-            transform: translateX(4px);
-        }
-
-        .progress-bar {
-            height: 0.6rem;
-            background: var(--bg-tertiary);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
-            position: relative;
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 0.75rem;
-            border: 1px solid var(--border-color);
-        }
-
-        .progress-fill {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0;
-            background: linear-gradient(to right, var(--primary-dark) 0%, var(--primary-light) 100%);
-            border-radius: var(--radius-lg);
-            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .progress-text, .worker-name {
-            margin-top: 0.5rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--text-primary);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .worker-name {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .worker-name i {
-            color: var(--primary-color);
-            font-size: 0.9rem;
-        }
-
-        .badge {
-            background: var(--primary-color);
-            color: white;
-            padding: 0.125rem 0.5rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.7rem;
-            margin-left: 0.5rem;
-            font-weight: 500;
-            letter-spacing: 0.02em;
-            box-shadow: var(--shadow-sm);
-        }
-
-        @keyframes progress-animation {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
-        .progress-fill {
-            background-size: 200% 200%;
-            animation: progress-animation 2s ease infinite;
-        }
-
-        .progress-fill.completed {
-            background: linear-gradient(to right, var(--success-color), #34d399);
-            animation: none;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-        }
-
-        @keyframes glow-animation {
-            0% {
-                box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-            }
-            50% {
-                box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
-            }
-            100% {
-                box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-            }
-        }
-
-        .progress-fill.completed:hover {
-            animation: glow-animation 1.5s ease-in-out infinite;
-        }
-
-        #configTable {
-            font-size: 0.8rem;
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            table-layout: fixed;
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        #configTable pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            background-color: var(--bg-tertiary);
-            border-radius: var(--radius-sm);
-            padding: 0.5rem;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-        }
-
-        #configTable td, #configTable th {
-            border-bottom: 1px solid var(--border-color);
-            padding: 0.75rem 1rem;
-            text-align: left;
-            vertical-align: middle;
-        }
-
-        #configTable th {
-            background-color: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.05em;
-        }
-
-        #configTable tr:last-child td {
-            border-bottom: none;
-        }
-
-        #configTable td:first-child {
-            font-weight: 500;
-            color: var(--primary-color);
-            width: 30%;
-            border-right: 1px solid var(--border-color);
-        }
-
-        #configTable tr:hover {
-            background-color: var(--bg-tertiary);
-        }
-
-        #configTable tr:nth-child(odd) {
-            background-color: var(--bg-primary);
-        }
-
-        #configTable tr:nth-child(even) {
-            background-color: var(--bg-secondary);
-        }
-
-        .config-container {
-            padding: 1.5rem;
-        }
-
-        .progress-container {
-            margin-bottom: 1.25rem;
-            padding: 1rem;
-            background-color: var(--bg-primary);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-            border: 1px solid var(--border-color);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .progress-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--primary-color);
-            opacity: 0.7;
-        }
-
-        .progress-container:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .log-container {
-            height: 50vh;
-            overflow: hidden;
-            padding: 0;
-            box-sizing: border-box;
-            margin-bottom: 2rem;
-            display: flex;
-            flex-direction: column;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-        }
-
-        #logContainer {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-            background-color: var(--bg-secondary);
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            line-height: 1.5;
-            color: var(--text-primary);
-            height: calc(50vh - 60px);
-        }
-
-        .log-entry {
-            padding: 0.4rem 0;
-            border-bottom: 1px dashed var(--border-color);
-            white-space: pre-wrap;
-            word-break: break-all;
-            transition: background-color 0.2s;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-entry:hover {
-            background-color: var(--bg-tertiary);
-        }
-
-        .log-entry {
-            animation: none;
-            transform: none !important;
-            box-shadow: none;
-        }
-
-        .log-new {
-            background-color: rgba(99, 102, 241, 0.1);
-        }
-
-        .main-container {
-            max-width: 1400px;
-            margin: 2rem auto;
-            display: grid;
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto;
-            gap: 1.5rem;
-            padding: 0 1.5rem;
-        }
-
-        .upper-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .container {
-            background-color: var(--bg-primary);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-md);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: var(--transition);
-            overflow: hidden;
-        }
-
-        .container:hover {
-            box-shadow: var(--shadow-lg);
-        }
-
-        .config-container, .progress-main-container {
-            height: 60vh;
-            overflow: auto;
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary-light) var(--bg-tertiary);
-        }
-
-        .config-container::-webkit-scrollbar, .progress-main-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .config-container::-webkit-scrollbar-track, .progress-main-container::-webkit-scrollbar-track {
-            background: var(--bg-tertiary);
-            border-radius: var(--radius-sm);
-        }
-
-        .config-container::-webkit-scrollbar-thumb, .progress-main-container::-webkit-scrollbar-thumb {
-            background-color: var(--primary-light);
-            border-radius: var(--radius-sm);
-        }
-
-        .log-entry {
-            background-color: var(--bg-secondary);
-            border-left: 3px solid var(--primary-color);
-            padding: 0.75rem 1rem;
-            margin-bottom: 0.75rem;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-            transition: var(--transition);
-            box-shadow: var(--shadow-sm);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .log-entry:hover {
-            transform: translateX(2px);
-            box-shadow: var(--shadow-md);
-        }
-
-        /* Add a subtle animation to the page loading */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .container {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        /* Add animation delay for a sequence effect */
-        .config-container {
-            animation-delay: 0.1s;
-        }
-
-        .progress-main-container {
-            animation-delay: 0.2s;
-        }
-
-        .log-container {
-            animation-delay: 0.3s;
-        }
-
-        /* Responsive design improvements */
-        @media screen and (max-width: 992px) {
-            .upper-container {
-                grid-template-columns: 1fr;
-            }
-
-            .config-container, .progress-main-container, .log-container {
-                width: 100%;
-                height: auto;
-                max-height: 60vh;
-            }
-        }
-
-        /* Progressive loading indicator */
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
-
-        .loading {
-            animation: pulse 1.5s infinite;
-            background: linear-gradient(90deg, var(--bg-tertiary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
-            background-size: 200% 100%;
-            animation: pulse 1.5s infinite, progress-animation 2s linear infinite;
-        }
-
-        /* Empty state styling */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-        }
-
-        .empty-state i {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: var(--primary-light);
-            opacity: 0.8;
-        }
-
-        .empty-state p {
-            font-size: 0.9rem;
-            max-width: 80%;
-            line-height: 1.6;
-        }
-
-        /* 新增的卡片标题样式 */
-        .card-header {
-            display: flex;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            background-color: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .card-header h2 {
-            margin-bottom: 0;
-            margin-left: 0.5rem;
-        }
-
-        .card-header h2::after {
-            display: none;
-        }
-
-        .card-header i {
-            color: var(--primary-color);
-            font-size: 1.2rem;
-        }
-
-        .card-body {
-            padding: 1.5rem;
-        }
-
-        /* 新增的进度条动画效果 */
-        .progress-container.completed {
-            border-color: var(--success-color);
-        }
-
-        .progress-container.completed::before {
-            background: var(--success-color);
-        }
-
-        /* 新增的脉冲动画 */
-        @keyframes pulse-border {
-            0% {
-                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-            }
-            70% {
-                box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
-            }
-        }
-
-        .progress-container:not(.completed) {
-            animation: pulse-border 2s infinite;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f5f3ff',
+                            100: '#ede9fe',
+                            200: '#ddd6fe',
+                            300: '#c4b5fd',
+                            400: '#a78bfa',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95',
+                            950: '#2e1065',
+                        },
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        error: '#ef4444',
+                        info: '#3b82f6',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    keyframes: {
+                        fadeHighlight: {
+                          'from': { backgroundColor: 'rgba(139, 92, 246, 0.2)' },
+                          'to': { backgroundColor: 'transparent' },
+                        },
+                        fadeIn: {
+                          'from': { opacity: '0' },
+                          'to': { opacity: '1' },
+                        }
+                    },
+                    animation: {
+                        'fade-highlight': 'fadeHighlight 1s ease',
+                        'fade-in': 'fadeIn 1s ease',
+                    },
+                },
+            },
+        }
+    </script>
 </head>
-<body>
-
-<div class="main-container">
-    <div class="header">
-        <img src="/static/img/logo.png" alt="Aomaker Logo" class="logo">
-    </div>
-
-    <div class="upper-container">
-        <div class="container config-container">
-            <div class="card-header">
-                <i class="fas fa-cog"></i>
-                <h2>配置信息</h2>
-            </div>
-            <div class="card-body">
-                <div class="info-section" id="configSection">
-                    <div class="card">
-                        <table id="configTable">
-                            <tbody id="configTableBody">
-                                <!-- 配置信息将通过 JavaScript 动态加载 -->
-                            </tbody>
-                        </table>
-                        <div id="configEmptyState" class="empty-state" style="display: none;">
-                            <i class="fas fa-cog fa-spin"></i>
-                            <p>正在加载配置信息...</p>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <div class="min-h-screen flex flex-col">
+        <!-- Navbar -->
+        <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <img src="aomaker-logo.png" alt="Aomaker Logo" class="h-10 w-auto transform hover:scale-105 transition-transform">
+                        <span class="ml-3 text-xl font-semibold text-gray-900 dark:text-white"></span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <span id="testStatusBadge" class="hidden px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                Idle
+                            </span>
+                            <button id="darkModeToggle" class="p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="container progress-main-container">
-            <div class="card-header">
-                <i class="fas fa-tasks"></i>
-                <h2>测试进度</h2>
-            </div>
-            <div class="card-body">
-                <div id="progressContainer">
-                    <!-- 进度条将通过 JavaScript 动态加载 -->
-                    <div id="progressEmptyState" class="empty-state">
-                        <i class="fas fa-hourglass-start"></i>
-                        <p>正在等待测试开始...</p>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-grow">
+            <!-- Dashboard Overview -->
+            <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <div class="px-4 py-4 sm:px-0">
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                        <!-- Dashboard Card - Total Tests -->
+                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-primary-100 dark:bg-primary-900 rounded-md p-3">
+                                        <svg class="h-6 w-6 text-primary-600 dark:text-primary-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                                Total Tests
+                                            </dt>
+                                            <dd>
+                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="totalTestsCount">-</div>
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Card - Active Workers -->
+                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-md p-3">
+                                        <svg class="h-6 w-6 text-green-600 dark:text-green-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                                Active Workers
+                                            </dt>
+                                            <dd>
+                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="activeWorkersCount">-</div>
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Card - Completed Tests -->
+                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-md p-3">
+                                        <svg class="h-6 w-6 text-blue-600 dark:text-blue-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                                Completed Tests
+                                            </dt>
+                                            <dd>
+                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="completedTestsCount">-</div>
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Card - Overall Progress -->
+                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                            <div class="px-4 py-5 sm:p-6">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900 rounded-md p-3">
+                                        <svg class="h-6 w-6 text-indigo-600 dark:text-indigo-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                                                Overall Progress
+                                            </dt>
+                                            <dd>
+                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="overallProgressPercent">-</div>
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <button class="report-button" id="viewReportButton" style="display: none;">
-                    <i class="fas fa-file-alt"></i> 查看测试报告
+
+                <!-- Main Content Sections -->
+                <div class="mt-6 px-4 sm:px-0">
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <!-- Test Progress Section -->
+                        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-tasks text-primary-600 dark:text-primary-400 mr-2"></i>
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Test Progress</h3>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-200 dark:border-gray-700">
+                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto" id="progressContainer">
+                                    <div id="progressEmptyState" class="flex flex-col items-center justify-center py-8">
+                                        <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                            <svg class="h-12 w-12 animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Waiting for tests to start...</p>
+                                    </div>
+                                </div>
+                                <div class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Last updated: <span id="lastUpdatedTime">-</span></span>
+                                    <button id="viewReportButton" class="hidden inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 transform hover:scale-105">
+                                        <i class="fas fa-file-alt mr-2"></i> View Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuration Section -->
+                        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-cog text-primary-600 dark:text-primary-400 mr-2"></i>
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Configuration</h3>
+                                </div>
+                                <button id="expandConfigButton" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-primary-700 dark:text-primary-200 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none">
+                                    <i class="fas fa-expand-alt"></i>
+                                </button>
+                            </div>
+                            <div class="border-t border-gray-200 dark:border-gray-700">
+                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto">
+                                    <div id="configEmptyState" class="flex flex-col items-center justify-center py-8">
+                                        <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                            <svg class="h-12 w-12 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Loading configuration...</p>
+                                    </div>
+                                    <div class="hidden" id="configContent">
+                                        <div class="rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="configTable">
+                                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                                    <tr>
+                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parameter</th>
+                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="configTableBody">
+                                                    <!-- Configuration data will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Section -->
+                <div class="mt-6 px-4 sm:px-0">
+                    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                            <div class="flex items-center">
+                                <i class="fas fa-terminal text-primary-600 dark:text-primary-400 mr-2"></i>
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Live Logs</h3>
+                            </div>
+                            <div class="flex space-x-2">
+                                <div class="relative w-full">
+                                    <input id="logSearchInput" type="text" class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Search logs...">
+                                    <div class="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
+                                        <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <button id="clearLogsButton" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                    <i class="fas fa-eraser mr-1"></i> Clear
+                                </button>
+                                <div class="relative inline-block text-left">
+                                    <button id="logFilterButton" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-3 py-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
+                                        <i class="fas fa-filter mr-1"></i>
+                                        Filter
+                                        <svg class="-mr-1 ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    <div id="logFilterDropdown" class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                        <div class="py-1" role="menu" aria-orientation="vertical">
+                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="all">All Logs</a>
+                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="error">Errors Only</a>
+                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="warning">Warnings Only</a>
+                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="info">Info Only</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button id="downloadLogsButton" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-700 dark:text-primary-200 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none">
+                                    <i class="fas fa-download mr-1"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                        <div class="border-t border-gray-200 dark:border-gray-700">
+                            <div id="logContainer" class="p-4 h-[400px] overflow-y-auto bg-gray-50 dark:bg-gray-900 font-mono text-sm text-gray-800 dark:text-gray-200">
+                                <div id="logEmptyState" class="flex flex-col items-center justify-center h-full">
+                                    <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                        <svg class="h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <p class="text-gray-500 dark:text-gray-400">Waiting for logs...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-10">
+            <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">© 2023 Aomaker. All rights reserved.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Server Time: <span id="serverTime"></span></p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Config Modal -->
+    <div id="configModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 transition-opacity"></div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-xl transform transition-all max-w-5xl mx-auto my-16 max-h-[80vh] flex flex-col">
+            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Configuration Details</h3>
+                <button id="closeConfigModal" class="text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </div>
-        </div>
-    </div>
-
-    <div class="container log-container">
-        <div class="card-header">
-            <i class="fas fa-terminal"></i>
-            <h2>实时日志</h2>
-        </div>
-        <div id="logContainer">
-            <!-- 日志将通过 WebSocket 动态加载 -->
-            <div id="logEmptyState" class="empty-state">
-                <i class="fas fa-terminal"></i>
-                <p>等待日志输出...</p>
+            <div class="border-t border-gray-200 dark:border-gray-700 flex-grow overflow-auto">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="configTableModal">
+                            <thead class="bg-gray-50 dark:bg-gray-900">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parameter</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="configTableBodyModal">
+                                <!-- Configuration data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    let log_ws;
-    let isLogWebSocketInitialized = false;
-    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    <!-- Notification -->
+    <div id="notification" class="fixed right-5 bottom-5 max-w-sm w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg pointer-events-auto border border-gray-200 dark:border-gray-700 hidden transform transition-all duration-300 scale-95 opacity-0">
+        <div class="p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0" id="notificationIcon">
+                    <!-- Icon will be dynamically inserted -->
+                </div>
+                <div class="ml-3 w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white" id="notificationTitle">Notification Title</p>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" id="notificationMessage">Notification message goes here.</p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button id="closeNotification" class="bg-white dark:bg-gray-800 rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <span class="sr-only">Close</span>
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    // 日志消息队列处理
-    let logQueue = [];
-    let isProcessingLogs = false;
+    <script>
+        let log_ws;
+        let isLogWebSocketInitialized = false;
+        const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
 
-    function processLogQueue() {
-        if (isProcessingLogs || logQueue.length === 0) return;
+        // Log message queue processing
+        let logQueue = [];
+        let isProcessingLogs = false;
+        let currentFilter = 'all';
+        let currentLogSearch = '';
 
-        isProcessingLogs = true;
-        const logContainer = document.getElementById('logContainer');
-        const atBottom = logContainer.scrollTop + logContainer.clientHeight >= logContainer.scrollHeight - 50;
+        // Store worker data
+        let workersData = {};
 
-        while (logQueue.length > 0) {
-            const message = logQueue.shift();
-            // 移除空状态
-            const logEmptyState = document.getElementById('logEmptyState');
-            if (logEmptyState) {
-                logEmptyState.remove();
+        // Update server time
+        function updateServerTime() {
+            const now = new Date();
+            document.getElementById('serverTime').textContent = now.toLocaleString();
+        }
+        setInterval(updateServerTime, 1000);
+        updateServerTime();
+
+        // Initialize dark mode
+        function initDarkMode() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
             }
 
-            const logEntry = document.createElement('div');
-            logEntry.textContent = message;
-            logEntry.className = 'log-entry log-new';
-
-            logContainer.appendChild(logEntry);
-
-            // 限制最大日志条数，防止内存占用过高
-            if (logContainer.children.length > 500) {
-                logContainer.removeChild(logContainer.firstChild);
-            }
-
-            // 1秒后移除高亮效果
-            setTimeout(() => {
-                logEntry.classList.remove('log-new');
-            }, 1000);
+            document.getElementById('darkModeToggle').addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                } else {
+                    document.documentElement.classList.add('dark');
+                }
+            });
         }
+        initDarkMode();
 
-        // 更可靠的滚动方法
-        if (atBottom) {
-            setTimeout(() => {
-                logContainer.scrollTop = logContainer.scrollHeight;
-            }, 10);
-        }
+        // Log message queue processing
+        function processLogQueue() {
+            if (isProcessingLogs || logQueue.length === 0) return;
 
-        isProcessingLogs = false;
-    }
+            isProcessingLogs = true;
+            const logContainer = document.getElementById('logContainer');
+            const atBottom = logContainer.scrollTop + logContainer.clientHeight >= logContainer.scrollHeight - 50;
 
-    function initializeLogWebSocket() {
-        if (!log_ws || log_ws.readyState !== WebSocket.OPEN) {
-            log_ws = new WebSocket(`ws://localhost:${port}/ws/logs`);
-            log_ws.onclose = () => {
-                console.log("Log WebSocket connection closed");
-                // 检查是否应该重新连接
-                setTimeout(() => {
-                    if (isLogWebSocketInitialized) {
-                        console.log("重新连接日志WebSocket");
-                        initializeLogWebSocket();
-                    }
-                }, 1000);
-            };
-
-            log_ws.onmessage = function(event) {
-                // 确保不会在日志活动时错误地显示空状态
+            while (logQueue.length > 0) {
+                const message = logQueue.shift();
+                // 移除空状态
                 const logEmptyState = document.getElementById('logEmptyState');
                 if (logEmptyState) {
                     logEmptyState.remove();
                 }
 
-                logQueue.push(event.data);
-                requestAnimationFrame(processLogQueue);
-            };
+                const logEntry = document.createElement('div');
+                logEntry.textContent = message;
+                logEntry.className = 'log-entry py-1 border-b border-gray-100 dark:border-gray-800 whitespace-pre-wrap break-all transition-colors duration-300 animate-fade-highlight';
 
-            log_ws.timeout = 2000;
-        }
-    }
-
-    // 定期处理日志队列，确保日志不会堆积
-    setInterval(processLogQueue, 100);
-
-    // 显示配置的空状态
-    document.getElementById('configEmptyState').style.display = 'flex';
-
-    // 处理配置数据
-    function getConfig() {
-        fetch(`http://localhost:${port}/config/current`)
-            .then(response => response.json())
-            .then(data => {
-                let tableRows = '';
-                for (const [key, value] of Object.entries(data)) {
-                    let formattedValue = value;
-                    if (typeof value === 'object' && value !== null) {
-                        formattedValue = Array.isArray(value) ? value.join(', ') : JSON.stringify(value);
-                    }
-                    tableRows += `<tr><td>${key}</td><td>${formattedValue}</td></tr>`;
+                // 根据日志类型添加颜色
+                if (message.toLowerCase().includes('error')) {
+                    logEntry.classList.add('text-error');
+                } else if (message.toLowerCase().includes('warning')) {
+                    logEntry.classList.add('text-warning');
+                } else if (message.toLowerCase().includes('info')) {
+                    logEntry.classList.add('text-info');
                 }
-                const configTableBody = document.getElementById('configTableBody');
-                configTableBody.innerHTML = tableRows;
-                document.getElementById('configEmptyState').style.display = 'none';
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('configEmptyState').querySelector('p').textContent = '加载配置信息失败';
+
+                logContainer.appendChild(logEntry);
+
+                // 限制最大日志条数，防止内存占用过高
+                if (logContainer.children.length > 500) {
+                    logContainer.removeChild(logContainer.firstChild);
+                }
+
+                // 没有需要移除的高亮效果了，因为我们使用了Tailwind的animate-fade-highlight
+            }
+
+            // 更可靠的滚动方法
+            if (atBottom) {
+                setTimeout(() => {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }, 10);
+            }
+
+            isProcessingLogs = false;
+        }
+
+        function initializeLogWebSocket() {
+            if (!log_ws || log_ws.readyState !== WebSocket.OPEN) {
+                log_ws = new WebSocket(`ws://localhost:${port}/ws/logs`);
+                log_ws.onclose = () => {
+                    console.log("Log WebSocket connection closed");
+                    // 检查是否应该重新连接
+                    setTimeout(() => {
+                        if (isLogWebSocketInitialized) {
+                            console.log("重新连接日志WebSocket");
+                            initializeLogWebSocket();
+                        }
+                    }, 1000);
+                };
+
+                log_ws.onmessage = function(event) {
+                    // 确保不会在日志活动时错误地显示空状态
+                    const logEmptyState = document.getElementById('logEmptyState');
+                    if (logEmptyState) {
+                        logEmptyState.remove();
+                    }
+
+                    logQueue.push(event.data);
+                    requestAnimationFrame(processLogQueue);
+                };
+
+                log_ws.timeout = 2000;
+            }
+        }
+
+        // 定期处理日志队列，确保日志不会堆积
+        setInterval(processLogQueue, 100);
+
+        // 显示配置的空状态
+        document.getElementById('configEmptyState').style.display = 'flex';
+
+        // 处理配置数据
+        function getConfig() {
+            fetch(`http://localhost:${port}/config/current`)
+                .then(response => response.json())
+                .then(data => {
+                    // Create a clean, modern table with proper styling
+                    const configTableBody = document.getElementById('configTableBody');
+                    const configTableModal = document.getElementById('configTableBodyModal');
+
+                    // Clear existing content
+                    configTableBody.innerHTML = '';
+                    configTableModal.innerHTML = '';
+
+                    // Style the tables first
+                    ['configTable', 'configTableModal'].forEach(tableId => {
+                        const table = document.getElementById(tableId);
+                        table.className = 'min-w-full divide-y divide-gray-200 dark:divide-gray-700';
+
+                        // Remove existing headers
+                        const headerRow = table.querySelector('thead tr');
+                        headerRow.innerHTML = '';
+
+                        // Create new header cells
+                        const paramHeader = document.createElement('th');
+                        paramHeader.className = 'text-left py-3 px-4 font-medium text-sm';
+                        paramHeader.textContent = 'PARAMETER';
+                        paramHeader.style.width = '30%'; // Fixed width for parameter column
+
+                        const valueHeader = document.createElement('th');
+                        valueHeader.className = 'text-left py-3 px-4 font-medium text-sm';
+                        valueHeader.textContent = 'VALUE';
+
+                        headerRow.appendChild(paramHeader);
+                        headerRow.appendChild(valueHeader);
+                    });
+
+                    // Add data rows with the new styling
+                    for (const [key, value] of Object.entries(data)) {
+                        let formattedValue = value;
+                        let isJson = false;
+
+                        // Format objects and JSON for better display
+                        if (typeof value === 'object' && value !== null) {
+                            try {
+                                // Format JSON with proper indentation for readability
+                                formattedValue = JSON.stringify(value, null, 2);
+                                isJson = true;
+                            } catch (e) {
+                                formattedValue = String(value);
+                            }
+                        }
+
+                        // Create rows for both tables
+                        [configTableBody, configTableModal].forEach(tableBody => {
+                            const row = document.createElement('tr');
+                            row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
+
+                            const keyCell = document.createElement('td');
+                            keyCell.className = 'py-3 px-4 text-primary-500 font-medium border-b border-gray-200 dark:border-gray-700';
+                            keyCell.textContent = key;
+
+                            const valueCell = document.createElement('td');
+                            valueCell.className = 'py-3 px-4 text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700';
+
+                            // Handle different value types
+                            if (isJson) {
+                                // Create a pre element for formatted JSON
+                                const pre = document.createElement('pre');
+                                pre.className = 'text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all';
+                                pre.style.maxHeight = '200px'; // Limit height for very long values
+                                pre.textContent = formattedValue;
+                                valueCell.appendChild(pre);
+                            } else if (String(formattedValue).length > 100) {
+                                // For long text values, add truncation with expand option
+                                const truncatedDiv = document.createElement('div');
+                                truncatedDiv.className = 'truncate max-w-md';
+                                truncatedDiv.textContent = formattedValue;
+
+                                const expandBtn = document.createElement('button');
+                                expandBtn.className = 'text-xs text-primary-500 hover:text-primary-600 ml-1 mt-1';
+                                expandBtn.textContent = 'Show all';
+
+                                expandBtn.addEventListener('click', () => {
+                                    const fullTextDiv = document.createElement('div');
+                                    fullTextDiv.className = 'whitespace-pre-wrap break-all text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded mt-1';
+                                    fullTextDiv.textContent = formattedValue;
+
+                                    if (truncatedDiv.parentNode) {
+                                        truncatedDiv.parentNode.replaceChild(fullTextDiv, truncatedDiv);
+                                        expandBtn.textContent = 'Collapse';
+
+                                        expandBtn.addEventListener('click', () => {
+                                            if (fullTextDiv.parentNode) {
+                                                fullTextDiv.parentNode.replaceChild(truncatedDiv, fullTextDiv);
+                                                expandBtn.textContent = 'Show all';
+                                            }
+                                        }, { once: true });
+                                    }
+                                });
+
+                                valueCell.appendChild(truncatedDiv);
+                                valueCell.appendChild(expandBtn);
+                            } else {
+                                // For normal-sized values
+                                valueCell.textContent = formattedValue;
+                            }
+
+                            row.appendChild(keyCell);
+                            row.appendChild(valueCell);
+                            tableBody.appendChild(row);
+                        });
+                    }
+
+                    // Hide the empty state
+                    document.getElementById('configEmptyState').style.display = 'none';
+
+                    // Show the config content
+                    document.getElementById('configContent').classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('configEmptyState').querySelector('p').textContent = '加载配置信息失败';
+                });
+        }
+
+        function checkAllProgressCompleted(progressData) {
+            const allCompleted = Object.values(progressData).every(progress => {
+                return progress.completed === progress.total;
             });
-    }
-
-    function checkAllProgressCompleted(progressData) {
-        const allCompleted = Object.values(progressData).every(progress => {
-            return progress.completed === progress.total;
-        });
-        if (allCompleted) {
-            document.getElementById('viewReportButton').style.display = 'inline-flex';
-            // 添加一个淡入效果
-            const reportButton = document.getElementById('viewReportButton');
-            reportButton.style.animation = 'fadeIn 0.5s ease-out';
+            if (allCompleted) {
+                document.getElementById('viewReportButton').style.display = 'inline-flex';
+                // 添加一个淡入效果
+                const reportButton = document.getElementById('viewReportButton');
+                reportButton.style.animation = 'fadeIn 0.5s ease-out';
+            }
         }
-    }
 
-    // 添加一个全局对象来存储每个worker的target值
-    const workerTargets = {};
+        // 添加一个全局对象来存储每个worker的target值
+        const workerTargets = {};
 
-    function updateProgressBars(progressData) {
-        Object.entries(progressData).forEach(([workerName, progressInfo], index) => {
-            const progressBarFill = document.querySelector(`.progress-fill[data-worker='${workerName}']`);
-            const progressText = document.querySelector(`.progress-text[data-worker='${workerName}']`);
-            const progressContainer = document.querySelector(`.progress-container[data-worker='${workerName}']`);
-            const workerIcon = document.querySelector(`.worker-icon[data-worker='${workerName}']`);
-            const badgeElement = document.querySelector(`.badge[data-worker='${workerName}']`);
+        function updateProgressBars(progressData) {
+            Object.entries(progressData).forEach(([workerName, progressInfo], index) => {
+                const progressBarFill = document.querySelector(`.h-full[data-worker='${workerName}']`);
+                const progressText = document.querySelector(`.flex.justify-between.text-xs[data-worker='${workerName}']`);
+                const progressContainer = document.querySelector(`.mb-4.p-3.rounded-lg[data-worker='${workerName}']`);
+                const workerIcon = document.querySelector(`i[data-worker='${workerName}']`);
+                const badgeElement = document.querySelector(`span[data-worker='${workerName}']`);
 
-            // 如果有target信息且不为空，保存到全局对象中
-            if (progressInfo.target && progressInfo.target.trim() !== '') {
-                workerTargets[workerName] = progressInfo.target;
-            }
-
-            if (progressBarFill && progressText) {
-                const width = (progressInfo.completed / progressInfo.total) * 100 || 0; // 防止NaN
-                progressBarFill.style.width = width + '%';
-                progressText.innerHTML = `<span>${Math.round(width)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
-
-                // 更新badge内容，无论任务是否完成，都使用保存的target值
-                if (badgeElement) {
-                    // 优先使用已存储的target值
-                    const targetToShow = workerTargets[workerName] || progressInfo.target || badgeElement.textContent;
-                    if (targetToShow && targetToShow !== '未知') {
-                        badgeElement.textContent = targetToShow;
-                    }
+                // 只有当target有值时才存储，避免空值覆盖已有值
+                if (progressInfo.target && progressInfo.target.trim() !== '') {
+                    workerTargets[workerName] = progressInfo.target;
                 }
 
-                if (progressInfo.completed === progressInfo.total) {
-                    progressBarFill.classList.add('completed');
-                    progressContainer.classList.add('completed');
+                if (progressBarFill && progressText) {
+                    const width = (progressInfo.completed / progressInfo.total) * 100 || 0; // 防止NaN
+                    progressBarFill.style.width = width + '%';
+                    progressText.innerHTML = `<span>${Math.round(width)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
 
-                    // 修改图标为完成图标
-                    if (workerIcon) {
-                        workerIcon.classList.remove('fa-cog', 'fa-spin');
-                        workerIcon.classList.add('fa-check-circle');
-                        workerIcon.style.color = 'var(--success-color)';
+                    // 更新badge内容，始终优先使用已存储的target值
+                    if (badgeElement) {
+                        const targetToShow = workerTargets[workerName] || progressInfo.target || badgeElement.textContent;
+                        if (targetToShow && targetToShow !== '未知') {
+                            badgeElement.textContent = targetToShow;
+                        }
                     }
+
+                    if (progressInfo.completed === progressInfo.total) {
+                        // 更新进度条填充样式
+                        progressBarFill.classList.remove('bg-primary-500');
+                        progressBarFill.classList.add('bg-success');
+
+                        // 更新容器背景色
+                        progressContainer.classList.remove('bg-white', 'dark:bg-gray-800');
+                        progressContainer.classList.add('bg-green-50', 'dark:bg-green-900/20');
+
+                        // 修改图标为完成图标
+                        if (workerIcon) {
+                            workerIcon.classList.remove('fa-cog', 'fa-spin');
+                            workerIcon.classList.add('fa-check-circle');
+                            workerIcon.classList.remove('text-primary-500');
+                            workerIcon.classList.add('text-success');
+                        }
+                    } else {
+                        // 确保进行中的任务保持齿轮旋转效果
+                        if (workerIcon) {
+                            workerIcon.classList.remove('fa-check-circle');
+                            workerIcon.classList.add('fa-cog', 'fa-spin');
+                            workerIcon.classList.remove('text-success');
+                            workerIcon.classList.add('text-primary-500');
+                        }
+                    }
+                }
+            });
+        }
+
+        let previousData = {};
+        const progress_ws = new WebSocket(`ws://localhost:${port}/ws/progress`);
+
+        // 添加打开和错误处理程序
+        progress_ws.onopen = function() {
+            console.log("Progress WebSocket连接已打开");
+            showNotification("连接成功", "已连接到数据服务器", "success");
+        };
+
+        progress_ws.onerror = function(error) {
+            console.error("Progress WebSocket错误:", error);
+            showNotification("连接错误", "无法连接到数据服务器，请检查服务是否运行", "error");
+        };
+
+        progress_ws.onclose = function() {
+            console.log("Progress WebSocket连接已关闭");
+
+            // 尝试重新连接
+            setTimeout(function() {
+                console.log("尝试重新连接...");
+                // 重新创建WebSocket连接
+                const new_ws = new WebSocket(`ws://localhost:${port}/ws/progress`);
+                // 复制原来的处理程序
+                new_ws.onmessage = progress_ws.onmessage;
+                new_ws.onopen = progress_ws.onopen;
+                new_ws.onerror = progress_ws.onerror;
+                new_ws.onclose = progress_ws.onclose;
+
+                // 更新全局引用
+                progress_ws = new_ws;
+            }, 3000);
+        };
+
+        // 创建一个记录最后一次测试数据的变量
+        let lastTotalData = null;
+
+        // 添加一个变量来跟踪数据是否真正变化
+        let lastProgressSnapshot = JSON.stringify({});
+
+        // 修改进度数据处理函数，添加数据记录
+        progress_ws.onmessage = function (event) {
+            let data = JSON.parse(event.data);
+            console.log("接收到进度数据:", data);
+
+            // 修复累加问题 - 检测并重置Total值
+            if (data['Total']) {
+                // 如果是第一次收到数据，或者Total比上次小，则使用当前值
+                if (!lastTotalData ||
+                    data['Total'].total < lastTotalData.total ||
+                    data['Total'].completed < lastTotalData.completed) {
+                    lastTotalData = {...data['Total']};
                 } else {
-                    // 确保进行中的任务保持齿轮旋转效果
-                    if (workerIcon) {
-                        workerIcon.classList.remove('fa-check-circle');
-                        workerIcon.classList.add('fa-cog', 'fa-spin');
-                        workerIcon.style.color = 'var(--primary-color)';
-                    }
+                    // 如果Total比上次大，则手动计算当前总数
+                    let currentTotalTests = 0;
+                    let currentCompletedTests = 0;
+
+                    // 手动累加所有worker的测试用例数
+                    Object.entries(data).forEach(([name, info]) => {
+                        if (name !== 'Total') {
+                            currentTotalTests += info.total;
+                            currentCompletedTests += info.completed;
+                        }
+                    });
+
+                    // 用计算得出的值覆盖服务器给出的值
+                    data['Total'] = {
+                        target: "",
+                        completed: currentCompletedTests,
+                        total: currentTotalTests
+                    };
+
+                    // 更新最后的数据
+                    lastTotalData = {...data['Total']};
                 }
             }
+
+            // 检查数据是否真正发生变化
+            const currentSnapshot = JSON.stringify(data);
+            const dataChanged = currentSnapshot !== lastProgressSnapshot;
+
+            if (dataChanged) {
+                // 只有在数据真正变化时才更新时间戳
+                document.getElementById('lastUpdatedTime').textContent = new Date().toLocaleTimeString();
+                lastProgressSnapshot = currentSnapshot;
+            }
+
+            // 更新数据监控卡片
+            updateDashboardCards(data);
+
+            const progressContainer = document.getElementById('progressContainer');
+
+            // 检测是否所有任务都已完成或者这是一个全新的任务
+            const isNewTask = Object.keys(previousData).length > 0 &&
+                             Object.keys(data).length > 0 &&
+                             Object.values(data).some(info => info.completed === 0 &&
+                                                    info.total > 0);
+
+            // 检查是否至少有一个活动任务
+            const hasActiveTask = Object.values(data).some(info =>
+                info.completed < info.total && info.total > 0
+            );
+
+            if (isNewTask) {
+                // 清空进度容器并重新开始
+                progressContainer.innerHTML = '';
+                previousData = {};
+
+                // 只有当没有活动任务时才清空日志容器
+                if (!hasActiveTask) {
+                    const logContainer = document.getElementById('logContainer');
+                    logContainer.innerHTML = '';
+                    logContainer.appendChild(createEmptyState('等待日志输出...', 'fas fa-terminal'));
+                }
+            }
+
+            if (Object.keys(data).length !== 0) {
+                // 清除空状态
+                if (document.getElementById('progressEmptyState')) {
+                    progressContainer.innerHTML = '';
+                }
+
+                if (!isLogWebSocketInitialized) {
+                    initializeLogWebSocket();
+                    getConfig();
+                    isLogWebSocketInitialized = true;
+                }
+            } else {
+                isLogWebSocketInitialized = false;
+            }
+
+            // 移除Total字段，因为我们不需要为它创建进度条，但仍保留它用于统计
+            const totalData = data['Total'];
+            delete data['Total'];
+
+            // 处理其他工作进程的进度条
+            for (const [workerName, progressInfo] of Object.entries(data)) {
+                // 检查是否已经存在此worker的进度条
+                const existingWorkerProgress = document.querySelector(`.mb-4.p-3.rounded-lg[data-worker='${workerName}']`);
+
+                // 如果有target信息，保存到全局对象中
+                if (progressInfo.target) {
+                    workerTargets[workerName] = progressInfo.target;
+                }
+
+                if (!existingWorkerProgress) {
+                    const progress = (progressInfo.completed / progressInfo.total) * 100 || 0; // 防止NaN
+                    const workerProgress = document.createElement('div');
+                    // 使用已保存的target或当前的target
+                    const target = workerTargets[workerName] || progressInfo.target || '未知';
+
+                    // 根据完成状态设置不同的背景色
+                    workerProgress.className = progressInfo.completed === progressInfo.total ?
+                        'mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 transition-all duration-300' :
+                        'mb-4 p-3 rounded-lg bg-white dark:bg-gray-800 transition-all duration-300';
+
+                    workerProgress.setAttribute('data-worker', workerName);
+
+                    const workerNameElement = document.createElement('div');
+                    workerNameElement.className = 'flex items-center mb-2 font-medium';
+
+                    // 确保任务开始后且进度<100%时显示旋转齿轮
+                    const iconClass = progressInfo.completed === progressInfo.total ?
+                                     'fas fa-check-circle mr-2' :
+                                     'fas fa-cog fa-spin mr-2';
+                    const iconColor = progressInfo.completed === progressInfo.total ?
+                                     'text-success' :
+                                     'text-primary-500';
+
+                    workerNameElement.innerHTML = `<i class="${iconClass} ${iconColor}" data-worker="${workerName}"></i> Worker: ${workerName} <span class="ml-2 px-2 py-1 text-xs rounded-md bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300" data-worker="${workerName}">${target}</span>`;
+
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'h-2 w-full bg-gray-200 dark:bg-gray-700 rounded overflow-hidden mb-1';
+
+                    const progressFill = document.createElement('div');
+                    progressFill.className = progressInfo.completed === progressInfo.total ?
+                        'h-full bg-success rounded transition-all duration-300' :
+                        'h-full bg-primary-500 rounded transition-all duration-300';
+                    progressFill.setAttribute('data-worker', workerName);
+                    progressFill.style.width = `${progress}%`;
+
+                    const progressText = document.createElement('div');
+                    progressText.className = 'flex justify-between text-xs text-gray-600 dark:text-gray-400';
+                    progressText.setAttribute('data-worker', workerName);
+                    progressText.innerHTML = `<span>${Math.round(progress)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
+
+                    progressBar.appendChild(progressFill);
+                    workerProgress.appendChild(workerNameElement);
+                    workerProgress.appendChild(progressBar);
+                    workerProgress.appendChild(progressText);
+
+                    progressContainer.appendChild(workerProgress);
+                }
+            }
+
+            updateProgressBars(data);
+            checkAllProgressCompleted(data);
+
+            // 只有当所有任务都已完成时才重置WebSocket连接
+            const allTasksCompleted = Object.values(data).every(info =>
+                info.completed === info.total || info.total === 0
+            );
+
+            if (allTasksCompleted && isLogWebSocketInitialized) {
+                // 不要立即关闭连接，而是标记它可以关闭
+                // 这允许最终的日志消息被处理
+                setTimeout(() => {
+                    if (allTasksCompleted) {
+                        isLogWebSocketInitialized = false;
+                    }
+                }, 2000); // 给日志一些时间完成
+            }
+
+            // 保存当前数据用于下次比较
+            previousData = {...data};
+        };
+
+        document.getElementById('viewReportButton').addEventListener('click', function () {
+            window.location.href = '/reports/html/index.html';
         });
-    }
 
-    let previousData = {};
-    const progress_ws = new WebSocket(`ws://localhost:${port}/ws/progress`);
-    progress_ws.onmessage = function (event) {
-        let data = JSON.parse(event.data);
-        const progressContainer = document.getElementById('progressContainer');
+        // Initialize event listeners
+        function initEventListeners() {
+            // Log filters dropdown
+            document.getElementById('logFilterButton').addEventListener('click', function() {
+                document.getElementById('logFilterDropdown').classList.toggle('hidden');
+            });
 
-        // 检测是否所有任务都已完成或者这是一个全新的任务
-        const isNewTask = Object.keys(previousData).length > 0 &&
-                         Object.keys(data).length > 0 &&
-                         Object.values(data).some(info => info.completed === 0 &&
-                                                        info.total > 0);
+            // Log filter options
+            document.querySelectorAll('.log-filter-option').forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    currentFilter = this.getAttribute('data-filter');
+                    applyLogFilters();
+                    document.getElementById('logFilterDropdown').classList.add('hidden');
 
-        // 检查是否至少有一个活动任务
-        const hasActiveTask = Object.values(data).some(info =>
-            info.completed < info.total && info.total > 0
-        );
+                    // Update button text
+                    const filterText = this.textContent;
+                    document.getElementById('logFilterButton').innerHTML = `<i class="fas fa-filter mr-1"></i> ${filterText} <svg class="-mr-1 ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
 
-        if (isNewTask) {
-            // 清空进度容器并重新开始
-            progressContainer.innerHTML = '';
-            previousData = {};
+                    showNotification('Filter Applied', `Showing ${filterText.toLowerCase()} in the log view.`, 'info');
+                });
+            });
 
-            // 只有当没有活动任务时才清空日志容器
-            if (!hasActiveTask) {
+            // Clear logs button
+            document.getElementById('clearLogsButton').addEventListener('click', function() {
                 const logContainer = document.getElementById('logContainer');
                 logContainer.innerHTML = '';
-                logContainer.appendChild(createEmptyState('等待日志输出...', 'fas fa-terminal'));
-            }
-        }
-
-        if (Object.keys(data).length !== 0) {
-            // 清除空状态
-            if (document.getElementById('progressEmptyState')) {
-                progressContainer.innerHTML = '';
-            }
-
-            if (!isLogWebSocketInitialized) {
-                initializeLogWebSocket();
-                getConfig();
-                isLogWebSocketInitialized = true;
-            }
-        } else {
-            isLogWebSocketInitialized = false;
-        }
-
-        delete data['Total'];
-        for (const [workerName, progressInfo] of Object.entries(data)) {
-            // 检查是否已经存在此worker的进度条
-            const existingWorkerProgress = document.querySelector(`.progress-container[data-worker='${workerName}']`);
-
-            // 如果有target信息且不为空，保存到全局对象中
-            if (progressInfo.target && progressInfo.target.trim() !== '') {
-                workerTargets[workerName] = progressInfo.target;
-            }
-
-            if (!existingWorkerProgress) {
-                const progress = (progressInfo.completed / progressInfo.total) * 100 || 0; // 防止NaN
-                const workerProgress = document.createElement('div');
-                // 使用已保存的target或当前的target
-                const target = workerTargets[workerName] || progressInfo.target || '未知';
-                workerProgress.className = 'progress-container';
-                workerProgress.setAttribute('data-worker', workerName);
-
-                const workerNameElement = document.createElement('div');
-                workerNameElement.className = 'worker-name';
-
-                // 确保任务开始后且进度<100%时显示旋转齿轮
-                const iconClass = progressInfo.completed === progressInfo.total ?
-                                 'fas fa-check-circle worker-icon' :
-                                 'fas fa-cog fa-spin worker-icon';
-                const iconColor = progressInfo.completed === progressInfo.total ?
-                                 'var(--success-color)' :
-                                 'var(--primary-color)';
-
-                workerNameElement.innerHTML = `<i class="${iconClass}" data-worker="${workerName}" style="color: ${iconColor}"></i> Worker: ${workerName} <span class="badge" data-worker="${workerName}">${target}</span>`;
-
-                const progressBar = document.createElement('div');
-                progressBar.className = 'progress-bar';
-
-                const progressFill = document.createElement('div');
-                progressFill.className = 'progress-fill';
-                if (progressInfo.completed === progressInfo.total) {
-                    progressFill.classList.add('completed');
-                    workerProgress.classList.add('completed');
-                }
-                progressFill.setAttribute('data-worker', workerName);
-                progressFill.style.width = `${progress}%`;
-
-                const progressText = document.createElement('div');
-                progressText.className = 'progress-text';
-                progressText.setAttribute('data-worker', workerName);
-                progressText.innerHTML = `<span>${Math.round(progress)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
-
-                progressBar.appendChild(progressFill);
-                workerProgress.appendChild(workerNameElement);
-                workerProgress.appendChild(progressBar);
-                workerProgress.appendChild(progressText);
-
-                progressContainer.appendChild(workerProgress);
-            }
-        }
-
-        updateProgressBars(data);
-        checkAllProgressCompleted(data);
-
-        // 只有当所有任务都已完成时才重置WebSocket连接
-        const allTasksCompleted = Object.values(data).every(info =>
-            info.completed === info.total || info.total === 0
-        );
-
-        if (allTasksCompleted && isLogWebSocketInitialized) {
-            // 不要立即关闭连接，而是标记它可以关闭
-            // 这允许最终的日志消息被处理
-            setTimeout(() => {
-                if (allTasksCompleted) {
-                    isLogWebSocketInitialized = false;
-                }
-            }, 2000); // 给日志一些时间完成
-        }
-
-        // Save current data for next comparison
-        previousData = {...data};
-    };
-
-    document.getElementById('viewReportButton').addEventListener('click', function () {
-        window.location.href = '/reports/html/index.html';
-    });
-
-    // 添加页面加载时的动画效果
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(() => {
-            document.querySelectorAll('.container').forEach(container => {
-                container.style.opacity = '1';
-                container.style.transform = 'translateY(0)';
+                logContainer.appendChild(createEmptyState('Logs cleared. Waiting for new logs...', 'fas fa-terminal'));
+                showNotification('Logs Cleared', 'All log entries have been cleared.', 'info');
             });
-        }, 100);
-    });
 
-    // Helper function to create empty state elements
-    function createEmptyState(message, iconClass) {
-        const emptyState = document.createElement('div');
-        emptyState.id = 'logEmptyState';
-        emptyState.className = 'empty-state';
+            // Download logs button
+            document.getElementById('downloadLogsButton').addEventListener('click', function() {
+                const logContainer = document.getElementById('logContainer');
+                let logText = '';
 
-        const icon = document.createElement('i');
-        icon.className = iconClass;
+                document.querySelectorAll('.log-entry').forEach(entry => {
+                    logText += entry.textContent + '\n';
+                });
 
-        const text = document.createElement('p');
-        text.textContent = message;
+                if (logText.trim() === '') {
+                    showNotification('No Logs', 'There are no logs to export.', 'warning');
+                    return;
+                }
 
-        emptyState.appendChild(icon);
-        emptyState.appendChild(text);
+                const blob = new Blob([logText], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
-        return emptyState;
-    }
-</script>
+                a.href = url;
+                a.download = `aomaker-logs-${timestamp}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
 
+                showNotification('Logs Exported', 'Log file has been downloaded successfully.', 'success');
+            });
+
+            // Log search functionality
+            document.getElementById('logSearchInput').addEventListener('input', function() {
+                currentLogSearch = this.value.toLowerCase();
+                applyLogFilters();
+            });
+
+            // Config modal
+            document.getElementById('expandConfigButton').addEventListener('click', function() {
+                // Copy config table data to modal
+                const configTableBodyModal = document.getElementById('configTableBodyModal');
+                configTableBodyModal.innerHTML = document.getElementById('configTableBody').innerHTML;
+                document.getElementById('configModal').classList.remove('hidden');
+            });
+
+            document.getElementById('closeConfigModal').addEventListener('click', function() {
+                document.getElementById('configModal').classList.add('hidden');
+            });
+
+            // Close notification
+            document.getElementById('closeNotification').addEventListener('click', function() {
+                hideNotification();
+            });
+        }
+
+        // Apply log filters based on current filter and search
+        function applyLogFilters() {
+            const logEntries = document.querySelectorAll('.log-entry');
+            const logEmptyState = document.getElementById('logEmptyState');
+            let visibleCount = 0;
+
+            logEntries.forEach(entry => {
+                const text = entry.textContent.toLowerCase();
+                const matchesSearch = currentLogSearch === '' || text.includes(currentLogSearch);
+                let matchesFilter = true;
+
+                if (currentFilter === 'error') {
+                    matchesFilter = text.includes('error') || text.includes('exception');
+                } else if (currentFilter === 'warning') {
+                    matchesFilter = text.includes('warning') || text.includes('warn');
+                } else if (currentFilter === 'info') {
+                    matchesFilter = text.includes('info');
+                }
+
+                if (matchesSearch && matchesFilter) {
+                    entry.style.display = '';
+                    visibleCount++;
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+
+            // Show empty state if no logs are visible
+            if (visibleCount === 0 && !logEmptyState) {
+                const logContainer = document.getElementById('logContainer');
+                const noResultsMsg = currentLogSearch
+                    ? `No logs matching "${currentLogSearch}" found.`
+                    : 'No logs matching the selected filter.';
+                logContainer.appendChild(createEmptyState(noResultsMsg, 'fas fa-search'));
+            } else if (logEmptyState && visibleCount > 0) {
+                logEmptyState.remove();
+            }
+        }
+
+        // Show notification
+        function showNotification(title, message, type = 'info') {
+            const notification = document.getElementById('notification');
+            const notificationTitle = document.getElementById('notificationTitle');
+            const notificationMessage = document.getElementById('notificationMessage');
+            const notificationIcon = document.getElementById('notificationIcon');
+
+            // Set icon based on type
+            let iconHtml = '';
+            if (type === 'success') {
+                iconHtml = '<svg class="h-6 w-6 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+            } else if (type === 'error') {
+                iconHtml = '<svg class="h-6 w-6 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>';
+            } else if (type === 'warning') {
+                iconHtml = '<svg class="h-6 w-6 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>';
+            } else {
+                iconHtml = '<svg class="h-6 w-6 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+            }
+
+            notificationIcon.innerHTML = iconHtml;
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+
+            // Show notification with animation
+            notification.classList.remove('hidden', 'scale-95', 'opacity-0');
+            notification.classList.add('scale-100', 'opacity-100');
+
+            // Auto-hide after 5 seconds
+            clearTimeout(window.notificationTimeout);
+            window.notificationTimeout = setTimeout(hideNotification, 5000);
+        }
+
+        // Hide notification
+        function hideNotification() {
+            const notification = document.getElementById('notification');
+            notification.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 300);
+        }
+
+        // 添加页面加载时的动画效果
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                document.querySelectorAll('.container').forEach(container => {
+                    container.style.opacity = '1';
+                    container.style.transform = 'translateY(0)';
+                });
+            }, 100);
+
+            // 初始化所有事件监听器
+            initEventListeners();
+
+            // 测试与服务器的连接
+            testConnection();
+            // 初始化时设置一个默认的"--"显示
+            document.getElementById('lastUpdatedTime').textContent = "--";
+        });
+
+        // Helper function to create empty state elements
+        function createEmptyState(message, iconClass) {
+            const emptyState = document.createElement('div');
+            emptyState.id = 'logEmptyState';
+            emptyState.className = 'flex flex-col items-center justify-center h-full p-8';
+
+            const icon = document.createElement('i');
+            icon.className = iconClass + ' text-5xl text-primary-500 dark:text-primary-400 mb-4';
+
+            const text = document.createElement('p');
+            text.textContent = message;
+            text.className = 'text-gray-600 dark:text-gray-400';
+
+            emptyState.appendChild(icon);
+            emptyState.appendChild(text);
+
+            return emptyState;
+        }
+
+        // 添加更新仪表板卡片的函数
+        function updateDashboardCards(data) {
+            // 如果存在Total数据，使用它来更新统计指标
+            if (data['Total']) {
+                const totalInfo = data['Total'];
+
+                // 总测试用例数量
+                document.getElementById('totalTestsCount').textContent = totalInfo.total || "-";
+
+                // 已完成的测试用例数量
+                document.getElementById('completedTestsCount').textContent = totalInfo.completed || "-";
+
+                // 活动工作者 = 那些进度未完成的工作者
+                const activeWorkers = Object.entries(data).filter(([name, info]) =>
+                    name !== 'Total' && info.completed < info.total && info.total > 0
+                ).length;
+                document.getElementById('activeWorkersCount').textContent = activeWorkers || "-";
+
+                // 计算整体进度百分比
+                if (totalInfo.total > 0) {
+                    const overallPercent = Math.round((totalInfo.completed / totalInfo.total) * 100);
+                    document.getElementById('overallProgressPercent').textContent = `${overallPercent}%`;
+                } else {
+                    document.getElementById('overallProgressPercent').textContent = "0%";
+                }
+            } else {
+                // 如果没有Total数据，则显示默认值
+                document.getElementById('totalTestsCount').textContent = "-";
+                document.getElementById('activeWorkersCount').textContent = "-";
+                document.getElementById('completedTestsCount').textContent = "-";
+                document.getElementById('overallProgressPercent').textContent = "-";
+            }
+        }
+
+        // 添加手动测试连接的函数
+        function testConnection() {
+            fetch(`http://localhost:${port}/status`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("服务器状态:", data);
+                    showNotification("服务器连接正常", "成功连接到服务器", "success");
+                })
+                .catch(error => {
+                    console.error("连接错误:", error);
+                    showNotification("服务器连接失败", "无法连接到服务器，请确保服务已启动", "error");
+                });
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('#logFilterButton') && !event.target.closest('#logFilterDropdown')) {
+                document.getElementById('logFilterDropdown').classList.add('hidden');
+            }
+        });
+    </script>
 </body>
 </html>
