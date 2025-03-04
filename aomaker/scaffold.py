@@ -51,18 +51,10 @@ def create_scaffold(project_name):
         msg = f"创建文件: {path}"
         logger.info(msg)
 
-    def init_db(db_dir_path):
-        from aomaker import storage
-        db_path = db_dir_path / DataBase.DB_NAME
-        storage.Config(db_path=str(db_path))
-        storage.Cache(db_path=str(db_path))
-        storage.Stats(db_path=str(db_path))
-        storage.Schema(db_path=str(db_path))
-
     logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
-    create_file(Path(project_name) / PROJECT_ROOT_FILE, "")
-    create_folder(Path(project_name) / "yamlcase")
+    create_file(Path(project_name) / PROJECT_ROOT_FILE)
+    create_file(Path(project_name) / "__init__.py")
     apis_path = Path(project_name) / "apis"
     create_folder(apis_path)
     create_file(apis_path / "__init__.py")
@@ -554,7 +546,7 @@ class SystemStatusResponse(GenericResponse):
 
 import pytest
 
-from apis.mock.apis import (
+from ..apis.mock.apis import (
     GetUserAPI, 
     GetUsersAPI,
     CreateUserAPI,
@@ -791,7 +783,7 @@ def test_upload_avatar():
     create_folder(Path(project_name) / "conf")
     config_content = """env: mock
 mock:
-  base_url: 'http://127.0.0.1:6666'
+  base_url: 'http://127.0.0.1:9999'
   account:
     user: 'aomaker'
     pwd: '123456'
@@ -854,10 +846,8 @@ run(["-s","-m demo","-e testing"])
 \"""
 from aomaker.cli import main_run
 
-from login import Login
-
 if __name__ == '__main__':
-    main_run(env="mock", pytest_args=['-m mock_pai'])"""
+    main_run(env="mock", pytest_args=['-m mock_api'])"""
     create_file(Path(project_name) / "run.py", run_content)
     pytest_ini_content = """[pytest]
 markers =
@@ -895,7 +885,6 @@ class Login(BaseLogin):
     create_folder(Path(project_name) / "logs")
     db_dir_path = Path(project_name) / "database"
     create_folder(db_dir_path)
-    init_db(db_dir_path)
     logger.info("---------------------脚手架创建完成---------------------")
 
     return 0

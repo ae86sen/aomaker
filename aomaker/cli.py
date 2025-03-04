@@ -93,19 +93,21 @@ def mock():
               help="Set running log level.")
 @click.option("--mp", "--multi-process", help="Enable multi-process running mode.", is_flag=True)
 @click.option("--mt", "--multi-thread", help="Enable multi-thread running mode.", is_flag=True)
-@click.option("-p", "--processes", default=None, type=int,
-              help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.option("--dist-suite", "d_suite",
               help="Distribute each test package under the test suite to a different worker.")
 @click.option("--dist-file", "d_file", help="Distribute each test file under the test package to a different worker.")
 @click.option("--dist-mark", "d_mark", help="Distribute each test mark to a different worker.", type=QUOTED_STR)
 @click.option("--no_login", help="Don't login and make headers.", is_flag=True, flag_value=False, default=True)
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
+@click.option("-p", "--processes", default=None, type=int,
+              help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.pass_context
 def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, processes, **custom_kwargs):
     pytest_args = ctx.args
+    extra_custom_kwargs = ctx.obj or {}
+    all_custom_kwargs = {**custom_kwargs, **extra_custom_kwargs}
     _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
-         **custom_kwargs)
+         **all_custom_kwargs)
 
 
 @main.command()
@@ -274,7 +276,7 @@ def start(web, port):
 
 @mock.command(help="Start the mock server.")
 @click.option('--web', is_flag=True, help="Open the API documentation in a browser.")
-@click.option('--port', default=6666, help="Specify the port number to run the mock server on. Default is 6666.")
+@click.option('--port', default=9999, help="Specify the port number to run the mock server on. Default is 9999.")
 def start(web, port):
     """Start the mock server."""
     from aomaker.mock.mock_server import app
@@ -467,16 +469,12 @@ def main_run(env: str = None,
         args.append("--no_login")
     if not no_gen:
         args.append("--no_gen")
-    args.extend(pytest_args or [])
 
-    for key, value in custom_kwargs.items():
-        if isinstance(value, bool):
-            if value:
-                args.append(f"--{key}")
-        else:
-            args.extend([f"--{key}", str(value)])
+    if pytest_args:
+        args.append("--")
+        args.extend(pytest_args)
 
-    result = runner.invoke(run, args=args, standalone_mode=False)
+    result = runner.invoke(run, args=args, standalone_mode=False, obj=custom_kwargs)
     if result.exit_code != 0:
         from aomaker.storage import cache, config
         cache.clear()
