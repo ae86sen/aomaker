@@ -10,6 +10,7 @@ from aomaker.maker.models import DataModelField, Operation, Reference, Response,
 from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser
 from aomaker.maker.config import OpenAPIConfig
+from aomaker.maker.compat import SwaggerAdapter
 
 SUPPORTED_CONTENT_TYPES = [
     MediaTypeEnum.JSON.value,
@@ -24,6 +25,8 @@ SUPPORTED_CONTENT_TYPES = [
 
 class OpenAPIParser(JsonSchemaParser):
     def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None, console: Console = None):
+        if SwaggerAdapter.is_swagger(openapi_data):
+            openapi_data =  SwaggerAdapter.adapt(openapi_data)
         super().__init__(openapi_data.get("components", {}).get("schemas", {}))
         self.openapi_data = openapi_data
         self.api_groups: Dict[str, APIGroup] = {}
