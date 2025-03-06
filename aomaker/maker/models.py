@@ -102,6 +102,7 @@ class MediaTypeEnum(Enum):
     HTML = "text/html"
     BINARY = "application/octet-stream"
     PDF = "application/pdf"
+    ANY = "*/*"
 
 
 class Example(BaseModel):

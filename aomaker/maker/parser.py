@@ -14,6 +14,7 @@ from aomaker.maker.compat import SwaggerAdapter
 
 SUPPORTED_CONTENT_TYPES = [
     MediaTypeEnum.JSON.value,
+    MediaTypeEnum.ANY.value,
     MediaTypeEnum.FORM.value,
     MediaTypeEnum.MULTIPART.value,
     MediaTypeEnum.BINARY.value,
