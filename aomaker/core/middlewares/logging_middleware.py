@@ -9,10 +9,8 @@ from jinja2 import Template
 import allure
 from emoji import emojize
 
-from aomaker.log import logger,aomaker_logger
+from aomaker.log import logger, aomaker_logger
 from .middlewares import RequestType, CallNext, ResponseType, register_middleware
-
-
 
 TEMPLATE = """
 {{tag}}
@@ -45,6 +43,7 @@ TEMPLATE = """
 {{tag}}
 """
 
+
 @dataclass
 class LogData:
     request: Dict[str, Any] = field(default_factory=dict)
@@ -58,7 +57,7 @@ class LogData:
 @register_middleware
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
-    api_meta = request.get("_api_meta",{})
+    api_meta = request.get("_api_meta", {})
     log_data = LogData(request=request, class_name=api_meta.get("class_name"), class_doc=api_meta.get("class_doc"))
     response = None
 
@@ -76,6 +75,7 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
 
     return response
 
+
 def _parse_response(response: ResponseType) -> Dict[str, Any]:
     """解析响应数据"""
     return {
@@ -84,18 +84,19 @@ def _parse_response(response: ResponseType) -> Dict[str, Any]:
         "response_body": _parse_response_body(response)
     }
 
+
 def _parse_response_body(response: ResponseType) -> Any:
     """自动解析响应体"""
-    content_type = response.headers.get("Content-Type", "")
+    if not response.content:
+        logger.warning("该接口response内容为空")
+        return None
 
-    if "application/json" in content_type:
-        try:
-            return response.json()
-        except JSONDecodeError:
-            return response.text
-    elif content_type.startswith("text/"):
+    try:
+        return response.json()
+    except JSONDecodeError:
+        logger.warning("该接口response内容无法解析为JSON格式，已返回text")
         return response.text
-    return "(binary data)"
+
 
 def _parse_exception(e: Exception) -> Dict[str, Any]:
     """解析异常信息"""
@@ -104,6 +105,7 @@ def _parse_exception(e: Exception) -> Dict[str, Any]:
         "message": str(e),
         "traceback": traceback.format_exc()
     }
+
 
 def _process_log_outputs(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
     """处理三路输出"""
@@ -130,6 +132,7 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
         logger.info(formatted_log)
 
     _attach_allure_report(log_data, request, response)
+
 
 def _attach_allure_report(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
     """生成Allure附件"""
