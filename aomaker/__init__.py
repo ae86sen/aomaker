@@ -1,6 +1,6 @@
 from emoji import emojize
 
-__version__ = "3.0.0.beta.0.7"
+__version__ = "3.0.0beta07"
 __description__ = "Quickly Arrange,Quickly Test!"
 __image__ = emojize(fr"""
               :----.                                                             ::::

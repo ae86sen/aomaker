@@ -9,7 +9,7 @@ from aomaker.maker.models import DataModelField, Operation, Reference, Response,
     MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject, DataModel
 from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser
-from .config import OpenAPIConfig
+from aomaker.maker.config import OpenAPIConfig
 
 SUPPORTED_CONTENT_TYPES = [
     MediaTypeEnum.JSON.value,

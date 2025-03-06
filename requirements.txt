@@ -24,3 +24,4 @@ translate==3.6.1
 inflection==0.5.1
 fastapi==0.110.0
 uvicorn==0.28.0
+wsproto==1.2.0

@@ -177,6 +177,9 @@ class TemplateRenderUtils:
         if metadata := cls.render_field_metadata(field):
             params.append(metadata)
 
+        if field.alias:
+            params.append(f"alias='{field.alias}'")
+
         return ", ".join(params)
 
     @classmethod
@@ -250,7 +253,7 @@ class Generator:
                 self.console.log(
                     f"[primary]✅ [bold]已生成:[/] "
                     f"[highlight]{api_group.tag}[/] "
-                    f"[muted]module[/] "
+                    f"[muted]package[/] "
                     f"([muted]{idx}/{total_groups}[/])"
                 )
             self._generate_package(api_group.tag, api_group)
@@ -333,11 +336,21 @@ class Generator:
         return referenced_models
 
     def _format_content(self, content: str):
+        origin_content = content
         try:
             return black.format_str(content, mode=black.FileMode())
         except black.InvalidInput as e:
+            print("Generated content before formatting:")
+            print("=" * 80)
+            print(origin_content)
+            print("=" * 80)
             print(f"❌ 语法错误 @ : {e}")
+            # 打印出错位置的上下文
+            lines = content.split('\n')
+            line_num = int(str(e).split(':')[1])
+            start = max(0, line_num - 5)
+            end = min(len(lines), line_num + 5)
+            print(f"问题上下文 (行 {start}-{end}):")
+            for i in range(start, end):
+                print(f"{i}: {lines[i]}")
             raise e
-        except Exception as e:
-            print(f"⚠️ 未知格式化错误: {type(e).__name__}")
-            raise

@@ -62,38 +62,52 @@ class JsonSchemaParser:
     def __init__(self, schemas: Dict):
         self.resolver = ReferenceResolver(schemas)
         self.model_registry = ModelRegistry()
-        self.schema_registry: Dict[str, DataModel] = {}  # 全局模型注册表
-        self.imports: Set[Import] = set()  # 统一管理导入
+        self.schema_registry: Dict[str, DataModel] = {}
+        self.imports: Set[Import] = set() 
         self.current_tags: List[str] = list()
+        self.max_recursion_depth = 10 
+        self.current_recursion_path: List[str] = []
 
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
 
-        if schema_obj.ref:
-            return self._parse_reference(schema_obj.ref)
-
-        if schema_obj.anyOf or schema_obj.oneOf:
-            if self._should_be_literal(schema_obj.oneOf):
-                union_type = "Literal"
-            else:
-                union_type = "Union"
-            return self._parse_union_type(
-                schema_obj.anyOf or schema_obj.oneOf,
-                context,
-                union_type=union_type
+        if len(self.current_recursion_path) >= self.max_recursion_depth:
+            return DataType(
+                type="Any",
+                imports={Import(from_='typing', import_='Any')}
             )
-        if schema_obj.allOf:
-            return self._parse_all_of(schema_obj.allOf, context)
 
-        if schema_obj.enum:
-            return self._parse_enum(schema_obj, context)
+        self.current_recursion_path.append(context)
 
-        if schema_obj.is_array:
-            return self._parse_array_type(schema_obj, context)
+        try:
+            if schema_obj.ref:
+                return self._parse_reference(schema_obj.ref)
 
-        if schema_obj.properties:
-            return self._parse_object_type(schema_obj, context)
+            if schema_obj.anyOf or schema_obj.oneOf:
+                if self._should_be_literal(schema_obj.oneOf):
+                    union_type = "Literal"
+                else:
+                    union_type = "Union"
+                return self._parse_union_type(
+                    schema_obj.anyOf or schema_obj.oneOf,
+                    context,
+                    union_type=union_type
+                )
+            if schema_obj.allOf:
+                return self._parse_all_of(schema_obj.allOf, context)
 
-        return self._parse_basic_datatype(schema_obj)
+            if schema_obj.enum:
+                return self._parse_enum(schema_obj, context)
+
+            if schema_obj.is_array:
+                return self._parse_array_type(schema_obj, context)
+
+            if schema_obj.properties:
+                return self._parse_object_type(schema_obj, context)
+
+            return self._parse_basic_datatype(schema_obj)
+        finally:
+            self.current_recursion_path.pop()
+
 
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
@@ -104,7 +118,11 @@ class JsonSchemaParser:
         is_add_optional_import = False
         for prop_name, prop_schema in schema_obj.properties.items():
             prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
-            alias = f"{prop_name}_" if is_python_keyword(prop_name) else None
+            if is_python_keyword(prop_name):
+                alias = prop_name
+                prop_name = f"{prop_name}_"
+            else:
+                alias = None
             field = DataModelField(
                 name=prop_name,
                 data_type=prop_type,
@@ -199,6 +217,17 @@ class JsonSchemaParser:
 
         if "%" in ref_name:
             ref_name = urllib.parse.unquote(ref_name)
+
+        # 检查是否已经在当前递归路径中
+        if ref_name in self.current_recursion_path:
+            # 检测到循环引用，返回前向引用
+            return DataType(
+                type=ref_name,
+                is_custom_type=True,
+                is_forward_ref=True,
+                imports={Import(from_='.models', import_=ref_name)}
+            )
+
         if ref_name not in self.model_registry.models:
             ref_schema = self.resolver.get_ref_schema(ref)
             self.parse_schema(ref_schema, ref_name)
@@ -206,6 +235,7 @@ class JsonSchemaParser:
             model = self.model_registry.get(ref_name)
             if model:
                 self._update_model_tags_recursive(model)
+
         datatype = DataType(
             type=ref_name,
             is_custom_type=True,
@@ -417,34 +447,5 @@ def normalize_name(value: Any) -> str:
 
 
 def is_python_keyword(field_name: str) -> bool:
-    if field_name in keyword.kwlist:
-        return True
-    return False
+    return field_name in keyword.kwlist
 
-
-if __name__ == '__main__':
-    x = {
-        'properties': {
-            'aipods_scope': {'description': '产品范围', 'title': 'Aipods Scope', 'type': 'string'},
-            'aipods_type': {'description': '规格类型', 'title': 'Aipods Type', 'type': 'string'},
-            'aipods_usage': {'description': '资源类型', 'title': 'Aipods Usage', 'type': 'string'},
-            'cpu_count': {'description': 'CPU核数', 'title': 'Cpu Count', 'type': 'string'},
-            'cpu_model': {'description': 'CPU型号', 'title': 'Cpu Model', 'type': 'string'},
-            'disk': {'description': '数据盘', 'title': 'Disk', 'type': 'string'},
-            'gpu_count': {'description': 'GPU数量', 'title': 'Gpu Count', 'type': 'string'},
-            'gpu_memory': {'description': 'GPU显存', 'title': 'Gpu Memory', 'type': 'string'},
-            'gpu_model': {'description': 'GPU型号', 'title': 'Gpu Model', 'type': 'string'},
-            'memory': {'description': '内存', 'title': 'Memory', 'type': 'string'},
-            'network': {'default': '0', 'description': 'IB网络', 'title': 'Network', 'type': 'string'},
-            'nvlink': {'default': '0', 'description': 'nvlink', 'title': 'Nvlink', 'type': 'string'},
-            'os_disk': {'description': '系统盘', 'title': 'Os Disk', 'type': 'string'}
-        },
-        'required': ['aipods_type', 'aipods_scope', 'aipods_usage', 'cpu_count', 'memory', 'cpu_model', 'gpu_model',
-                     'gpu_count', 'gpu_memory', 'os_disk', 'disk'],
-        'title': 'AddProductRequest',
-        'type': 'object'
-    }
-
-    # 直接解析
-    schema = JsonSchemaObject.model_validate(x)
-    print(schema)
