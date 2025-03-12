@@ -72,13 +72,18 @@ class BaseAPIObject(Generic[ResponseT]):
         response_data = raw_response.json()
 
         if self.enable_schema_validation:
-
             existing_schema = schema.get_schema(self.response.__name__)
-
-            if not existing_schema and self.response:
-                new_schema = extract_jsonschema(self.response)
-                schema.save_schema(self.response.__name__, new_schema)
-                existing_schema = new_schema
+            
+            if self.response:
+                current_schema = extract_jsonschema(self.response)
+                
+                if existing_schema:
+                    if current_schema != existing_schema:
+                        schema.save_schema(self.response.__name__, current_schema)
+                        existing_schema = current_schema
+                else:
+                    schema.save_schema(self.response.__name__, current_schema)
+                    existing_schema = current_schema
 
             if existing_schema:
                 self.schema_validate(instance=response_data, schema=existing_schema)
