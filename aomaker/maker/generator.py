@@ -45,9 +45,24 @@ def collect_apis_imports(endpoints: List[Endpoint], config: OpenAPIConfig) -> Im
 def collect_models_imports(models: List[DataModel]) -> ImportManager:
     manager = ImportManager()
     manager.add_import(Import(from_="attrs", import_="define, field"))
+    
+    # 检查是否需要导入Optional
+    needs_optional = False
+    for model in models:
+        for field in model.fields:
+            if not field.required or field.data_type.is_optional:
+                needs_optional = True
+                break
+        if needs_optional:
+            break
+    
+    if needs_optional:
+        manager.add_import(Import(from_="typing", import_="Optional"))
+    
     combined_imports = set().union(*(model.imports for model in models))
     for imp in combined_imports:
         manager.add_import(imp)
+    
     return manager
 
 

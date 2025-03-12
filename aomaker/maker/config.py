@@ -20,7 +20,28 @@ class ClassNameStrategy:
         """
         operation_id = operation.operationId
         if not operation_id:
-            raise ValueError("OperationId is required for this naming strategy")
+            path_parts = []
+
+            path = getattr(operation, '_path', '')
+            method = getattr(operation, '_method', '')
+
+            if operation.tags and len(operation.tags) > 0:
+                tag = operation.tags[0]
+                path_parts.append(tag)
+
+            if path:
+                clean_path_parts = [p for p in path.split('/') if p and not (p.startswith('{') and p.endswith('}'))]
+                path_parts.extend(clean_path_parts)
+
+            if method:
+                path_parts.append(method.lower())
+
+            if not path_parts and operation.summary:
+                return ClassNameStrategy.from_summary(operation, suffix)
+            elif not path_parts:
+                return f"Default{suffix}"
+
+            operation_id = '_'.join(path_parts)
 
         # 清理特殊字符并合并连续下划线
         cleaned = re.sub(r"[^a-zA-Z0-9_]", "_", operation_id)

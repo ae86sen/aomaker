@@ -134,6 +134,105 @@ class SwaggerAdapter:
                 SwaggerAdapter._adapt_operation(operation)
 
     @staticmethod
+    def _adapt_body_parameter(operation: Dict[str, Any]) -> None:
+        """将body参数转换为requestBody，考虑consumes字段"""
+        parameters = operation.get('parameters', [])
+        body_params = [p for p in parameters if p.get('in') == 'body']
+
+        if body_params:
+            body_param = body_params[0]
+
+            media_types = operation.get('consumes', ['application/json'])
+
+            content = {}
+            for media_type in media_types:
+                content[media_type] = {
+                    'schema': body_param.get('schema', {})
+                }
+
+            operation['requestBody'] = {
+                'content': content,
+                'required': body_param.get('required', False),
+                'description': body_param.get('description', '')
+            }
+
+            operation['parameters'] = [p for p in parameters if p.get('in') != 'body']
+
+            if 'consumes' in operation:
+                operation.pop('consumes')
+
+    @staticmethod
+    def _adapt_form_parameters(operation: Dict[str, Any]) -> None:
+        """将formData参数转换为requestBody"""
+        parameters = operation.get('parameters', [])
+        form_params = [p for p in parameters if p.get('in') == 'formData']
+
+        if form_params:
+            # 确定合适的content-type
+            content_types = []
+            if 'consumes' in operation and operation['consumes']:
+                form_content_types = [ct for ct in operation['consumes']
+                                      if ct in ['application/x-www-form-urlencoded', 'multipart/form-data']]
+                if form_content_types:
+                    content_types = form_content_types
+
+            if not content_types:
+                content_type = 'application/x-www-form-urlencoded'
+                for param in form_params:
+                    if param.get('type') == 'file':
+                        content_type = 'multipart/form-data'
+                        break
+                content_types = [content_type]
+
+            properties = {}
+            required_props = []
+
+            for param in form_params:
+                param_name = param.get('name', '')
+                if not param_name:
+                    continue
+
+                schema = param.get('schema', {})
+                if not schema and 'type' in param:
+                    schema = {'type': param.get('type')}
+
+                    for prop in ['format', 'enum', 'minimum', 'maximum', 'minLength',
+                                 'maxLength', 'pattern', 'default', 'multipleOf',
+                                 'exclusiveMinimum', 'exclusiveMaximum']:
+                        if prop in param:
+                            schema[prop] = param[prop]
+
+                    if schema['type'] == 'array' and 'items' in param:
+                        schema['items'] = param['items']
+
+                properties[param_name] = schema
+
+                if param.get('required', False):
+                    required_props.append(param_name)
+
+            form_schema = {
+                'type': 'object',
+                'properties': properties
+            }
+
+            if required_props:
+                form_schema['required'] = required_props
+
+            content_obj = {}
+            for ct in content_types:
+                content_obj[ct] = {'schema': form_schema}
+
+            if 'requestBody' in operation:
+                operation['requestBody']['content'].update(content_obj)
+            else:
+                operation['requestBody'] = {
+                    'content': content_obj,
+                    'required': any(p.get('required', False) for p in form_params)
+                }
+
+            operation['parameters'] = [p for p in parameters if p.get('in') != 'formData']
+
+    @staticmethod
     def _adapt_operation(operation: Dict[str, Any]) -> None:
         """适配单个操作"""
         if not isinstance(operation, dict):
@@ -143,9 +242,10 @@ class SwaggerAdapter:
             operation['parameters'] = SwaggerAdapter._adapt_parameters(operation['parameters'])
 
             SwaggerAdapter._adapt_body_parameter(operation)
+            SwaggerAdapter._adapt_form_parameters(operation)
 
         if 'responses' in operation:
-            SwaggerAdapter._adapt_responses(operation['responses'])
+            SwaggerAdapter._adapt_responses(operation['responses'], operation)
 
         if 'operationId' not in operation:
             if 'summary' in operation:
@@ -154,47 +254,6 @@ class SwaggerAdapter:
                 operation['operationId'] = operation['description'].lower().replace(' ', '_')[:30]
             else:
                 operation['operationId'] = f"operation_{uuid.uuid4().hex[:8]}"
-
-    @staticmethod
-    def _adapt_body_parameter(operation: Dict[str, Any]) -> None:
-        """将body参数转换为requestBody"""
-        parameters = operation.get('parameters', [])
-        body_params = [p for p in parameters if p.get('in') == 'body']
-
-        if body_params:
-            body_param = body_params[0]
-            operation['requestBody'] = {
-                'content': {
-                    'application/json': {
-                        'schema': body_param.get('schema', {})
-                    }
-                },
-                'required': body_param.get('required', False),
-                'description': body_param.get('description', '')
-            }
-
-            operation['parameters'] = [p for p in parameters if p.get('in') != 'body']
-
-    @staticmethod
-    def _adapt_responses(responses: Dict[str, Any]) -> None:
-        """适配响应对象"""
-        for status_code, response in responses.items():
-            if not isinstance(response, dict):
-                continue
-
-            if 'schema' in response:
-                schema = response.pop('schema')
-                response['content'] = {
-                    'application/json': {
-                        'schema': schema
-                    }
-                }
-            else:
-                response['content'] = {
-                    'application/json': {
-                        'schema': {'type': 'object'}
-                    }
-                }
 
     @staticmethod
     def fix_ref(ref: str) -> str:
@@ -211,6 +270,37 @@ class SwaggerAdapter:
         elif ref.startswith('#/securityDefinitions/'):
             return ref.replace('#/securityDefinitions/', '#/components/securitySchemes/')
         return ref
+
+    @staticmethod
+    def _adapt_responses(responses: Dict[str, Any], operation: Dict[str, Any]) -> None:
+        """适配响应对象，考虑produces字段"""
+        media_types = operation.get('produces', ['application/json'])
+
+        for status_code, response in responses.items():
+            if not isinstance(response, dict):
+                continue
+
+            if 'schema' in response:
+                schema = response.pop('schema')
+                content = {}
+
+                for media_type in media_types:
+                    content[media_type] = {
+                        'schema': schema
+                    }
+
+                response['content'] = content
+            else:
+                content = {}
+                for media_type in media_types:
+                    content[media_type] = {
+                        'schema': {'type': 'object'}
+                    }
+
+                response['content'] = content
+
+        if 'produces' in operation:
+            operation.pop('produces')
 
 
 class RefFixer:

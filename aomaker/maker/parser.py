@@ -71,7 +71,7 @@ class OpenAPIParser(JsonSchemaParser):
         class_name = self.config.class_name_strategy(operation)
         endpoint = Endpoint(
             class_name=class_name,
-            endpoint_id=operation.operationId,
+            endpoint_id=operation.operationId or f"{path}_{method}",
             path=path,
             method=method,
             tags=operation.tags,
@@ -88,21 +88,23 @@ class OpenAPIParser(JsonSchemaParser):
                 endpoint.imports.add(imp)
         # 解析请求体
         if operation.requestBody:
-            request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
-            if request_body_datatype.reference:
-                endpoint.request_body = self.model_registry.get(request_body_datatype.type)
-            elif request_body_datatype.is_inline is True:
-                endpoint.request_body = DataModel(
-                    name="RequestBody",
-                    fields=request_body_datatype.fields,
-                    imports=request_body_datatype.imports
-                )
-            else:
-                endpoint.request_body = request_body_datatype
 
-            if endpoint.request_body is not None:
-                for imp in endpoint.request_body.imports:
-                    endpoint.imports.add(imp)
+            request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
+            if request_body_datatype is not None:
+                if request_body_datatype.reference:
+                    endpoint.request_body = self.model_registry.get(request_body_datatype.type)
+                elif request_body_datatype.is_inline is True:
+                    endpoint.request_body = DataModel(
+                        name="RequestBody",
+                        fields=request_body_datatype.fields,
+                        imports=request_body_datatype.imports
+                    )
+                else:
+                    endpoint.request_body = request_body_datatype
+
+                if endpoint.request_body is not None:
+                    for imp in endpoint.request_body.imports:
+                        endpoint.imports.add(imp)
 
         # 解析响应
         if operation.responses:
@@ -155,7 +157,7 @@ class OpenAPIParser(JsonSchemaParser):
             # 1. 获取JSON Schema
             content = request_body.content.get(content_type)
             if not content or not content.schema_:
-                return None
+                continue
 
             # 2. 生成上下文名称
             context_name = f"{endpoint_name}RequestBody"
@@ -164,8 +166,7 @@ class OpenAPIParser(JsonSchemaParser):
 
             # 4. 如果是对象类型，确保模型已生成
             if body_type.is_custom_type and body_type.type not in self.model_registry.models:
-                raise
-                # raise ModelNotGeneratedError(f"模型 {body_type.type} 尚未生成")
+                raise ValueError(f"未注册的自定义类型: {body_type.type}")
 
             return body_type
 
@@ -196,7 +197,8 @@ class OpenAPIParser(JsonSchemaParser):
 
             response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
             if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-                raise
+                raise ValueError(f"未注册的自定义类型: {response_type.type}")
+
             return response_type
 
     def _parse_content_schema(

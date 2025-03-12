@@ -1,9 +1,45 @@
 # --coding:utf-8--
+import re
 from dataclasses import field
 from enum import Enum
 from functools import cached_property
 from typing import Any, Dict, List, Optional, Union, Set
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+
+def normalize_python_name(name: str, to_pascal_case: bool = True) -> str:
+    """将名称规范化为合法的Python标识符
+    
+    Args:
+        name: 要规范化的名称
+        to_pascal_case: 是否转换为大驼峰形式（PascalCase），适用于类名
+        
+    Returns:
+        规范化后的名称
+    """
+    # 替换非法字符
+    normalized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+    # 确保不以数字开头
+    if normalized and normalized[0].isdigit():
+        normalized = '_' + normalized
+        
+    # 转换为大驼峰形式
+    if to_pascal_case:
+        # 处理下划线分隔的情况
+        if '_' in normalized:
+            # 将连续的下划线替换为单个下划线
+            normalized = re.sub(r'_+', '_', normalized)
+            # 分割字符串，保留每个部分原有的大小写形式，但确保首字母大写
+            parts = normalized.split('_')
+            normalized = ''.join(
+                (part[0].upper() + part[1:]) if part else ''
+                for part in parts
+            )
+        else:
+            # 处理已有驼峰形式的情况，确保首字母大写
+            normalized = normalized[0].upper() + normalized[1:] if normalized else ''
+        
+    return normalized
 
 
 class Reference(BaseModel):
@@ -35,8 +71,34 @@ class DataType(BaseModel):
     is_custom_type: bool = False
     is_forward_ref: bool = False
     is_inline: bool = False
-    imports: Set[Import] = field(default_factory=set)
-    fields: List["DataModelField"] = field(default_factory=list)
+    imports: Set[Import] = Field(default_factory=set)
+    fields: List["DataModelField"] = Field(default_factory=list)
+
+    @field_validator('type')
+    @classmethod
+    def normalize_type_name(cls, type_name: str, info) -> str:
+        if getattr(info.data, 'is_custom_type', False):
+            return normalize_python_name(type_name)
+        return type_name
+
+    @field_validator('imports')
+    @classmethod
+    def normalize_import_names(cls, imports: Set[Import], info) -> Set[Import]:
+        # 只有自定义类型需要规范化导入名称
+        if getattr(info.data, 'is_custom_type', False):
+            new_imports = set()
+            for imp in imports:
+                if imp.from_ == '.models':
+                    # 规范化导入的模型名称
+                    new_imports.add(Import(
+                        from_=imp.from_,
+                        import_=normalize_python_name(imp.import_),
+                        alias=imp.alias
+                    ))
+                else:
+                    new_imports.add(imp)
+            return new_imports
+        return imports
 
     @property
     def type_hint(self) -> str:
@@ -74,15 +136,20 @@ class DataModel(BaseModel):
     """数据模型"""
     name: str
     fields: List[DataModelField]
-    tags: List[str] = field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
     is_enum: bool = False
     is_inline: bool = False  # 是否内联在接口类中
     reference: Optional[Reference] = None
     description: Optional[str] = None
     base_class: str = "attrs.define"
-    imports: Set[Import] = field(default_factory=set)
-    required: List[DataModelField] = field(default_factory=set)
+    imports: Set[Import] = Field(default_factory=set)
+    required: List[DataModelField] = Field(default_factory=set)
     is_forward_ref: bool = False
+
+    @field_validator('name')
+    @classmethod
+    def normalize_model_name(cls, name: str) -> str:
+        return normalize_python_name(name)
 
 
 class ParameterLocation(str, Enum):
@@ -129,7 +196,7 @@ class Parameter(BaseModel):
     schema_: Optional["JsonSchemaObject"] = Field(None, alias='schema')
     example: Any = None
     examples: Union[str, Reference, Example, None] = None
-    content: Dict[str, MediaType] = field(default_factory=dict)
+    content: Dict[str, MediaType] = Field(default_factory=dict)
 
 
 class RequestBody(BaseModel):

@@ -4,7 +4,7 @@ import keyword
 
 from typing import Optional, List, Dict, Set, Tuple, Literal, Any
 
-from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference
+from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference, normalize_python_name
 
 TypeMap = {
     'string': ('str', set()),
@@ -43,19 +43,24 @@ class ModelRegistry:
         self.models: Dict[str, DataModel] = {}  # 已生成的模型
         self.placeholders: Set[str] = set()
 
+    def _normalize_name(self, name: str) -> str:
+        """规范化模型名称"""
+        return normalize_python_name(name)
+
     def add_placeholder(self, name: str):
         self.placeholders.add(name)
 
     def register(self, model: DataModel):
-        if model.name in self.placeholders:
-            self.placeholders.remove(model.name)
-        self.models[model.name] = model
+        normalized_name = self._normalize_name(model.name)
+        if normalized_name in self.placeholders:
+            self.placeholders.remove(normalized_name)
+        self.models[normalized_name] = model
 
     def get(self, name: str) -> DataModel:
-        if name in self.placeholders:
-            raise
-            # raise ModelNotGeneratedError(f"Model {name} is still a placeholder")
-        return self.models.get(name)
+        normalized = self._normalize_name(name)
+        if normalized in self.placeholders:
+            raise ValueError(f"Model {normalized} is still a placeholder")
+        return self.models.get(normalized)
 
 
 class JsonSchemaParser:
@@ -63,9 +68,9 @@ class JsonSchemaParser:
         self.resolver = ReferenceResolver(schemas)
         self.model_registry = ModelRegistry()
         self.schema_registry: Dict[str, DataModel] = {}
-        self.imports: Set[Import] = set() 
+        self.imports: Set[Import] = set()
         self.current_tags: List[str] = list()
-        self.max_recursion_depth = 10 
+        self.max_recursion_depth = 10
         self.current_recursion_path: List[str] = []
 
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
@@ -218,6 +223,8 @@ class JsonSchemaParser:
         if "%" in ref_name:
             ref_name = urllib.parse.unquote(ref_name)
 
+        normalized_name = self.model_registry._normalize_name(ref_name)
+
         # 检查是否已经在当前递归路径中
         if ref_name in self.current_recursion_path:
             # 检测到循环引用，返回前向引用
@@ -228,7 +235,7 @@ class JsonSchemaParser:
                 imports={Import(from_='.models', import_=ref_name)}
             )
 
-        if ref_name not in self.model_registry.models:
+        if normalized_name not in self.model_registry.models:
             ref_schema = self.resolver.get_ref_schema(ref)
             self.parse_schema(ref_schema, ref_name)
         else:
@@ -237,9 +244,9 @@ class JsonSchemaParser:
                 self._update_model_tags_recursive(model)
 
         datatype = DataType(
-            type=ref_name,
+            type=normalized_name,
             is_custom_type=True,
-            imports={Import(from_='.models', import_=ref_name)},
+            imports={Import(from_='.models', import_=normalized_name)},
             reference=Reference(ref=ref)
         )
 

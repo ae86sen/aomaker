@@ -34,7 +34,7 @@ custom_theme = Theme({
 def main():
     console = Console(theme=custom_theme)
     config = OpenAPIConfig(backend_prefix="aicp", frontend_prefix="portal_api")
-    file_path = Path(__file__).parent.parent.parent / "aicp-dev.json"
+    file_path = Path(__file__).parent.parent.parent / "api.swagger_part1.json"
     with open(file_path, 'r', encoding='utf-8') as f:
         doc = json.load(f)
 
