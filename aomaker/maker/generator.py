@@ -25,7 +25,7 @@ class ImportManager:
 def collect_apis_imports(endpoints: List[Endpoint], config: OpenAPIConfig) -> ImportManager:
     manager = ImportManager()
     manager.add_import(Import(from_="attrs", import_="define, field"))
-    manager.add_import(Import(from_="aomaker.core.router", import_="APIRouter"))
+    manager.add_import(Import(from_="aomaker.core.router", import_="router"))
 
     module_path, _, class_name = config.base_api_class.rpartition('.')
     manager.add_import(
@@ -207,11 +207,6 @@ class TemplateRenderUtils:
             return f"Optional[{base_type}]"
         return base_type
 
-    def get_api_router_params(self) -> str:
-        if self.config.backend_prefix and self.config.frontend_prefix:
-            return f'backend_prefix="{self.config.backend_prefix}", frontend_prefix="{self.config.frontend_prefix}"'
-        return ""
-
     def get_base_class(self) -> str:
         _, _, class_name = self.config.base_api_class.rpartition(".")
         if self.config.base_api_class_alias:
@@ -252,7 +247,6 @@ class Generator:
             'get_attrs_field': self.render_utils.get_attrs_field_parameters,
             'get_field_metadata': self.render_utils.render_field_metadata,
             'render_optional_hint': self.render_utils.render_optional_hint,
-            'get_api_router_params': self.render_utils.get_api_router_params,
             'get_base_class': self.render_utils.get_base_class,
             'get_all_api_class_name': self.render_utils.get_all_api_class_name,
             'get_all_model_class_name': self.render_utils.get_all_model_class_name,

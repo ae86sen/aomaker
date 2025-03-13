@@ -132,17 +132,12 @@ def create(project_name):
               default="operation_id",
               show_default=True,
               help="API Object Class name生成策略（operation_id/summary/tags）")
-@click.option("--backend-prefix", "-b",
-              help="后端服务路由前缀（如：api_service）")
-@click.option("--frontend-prefix", "-f",
-              help="前端接口路由前缀（如：global_api）")
 @click.option("--base-api-class", "-B", default="aomaker.core.api_object.BaseAPIObject",
               show_default=True,
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
-def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefix, base_api_class,
-               base_api_class_alias):
+def gen_models(spec, output, class_name_strategy, base_api_class, base_api_class_alias):
     """
     Generate Attrs models from an OpenAPI specification.
     """
@@ -197,8 +192,6 @@ def gen_models(spec, output, class_name_strategy, backend_prefix, frontend_prefi
 
     config = OpenAPIConfig(
         class_name_strategy=naming_strategy,
-        backend_prefix=backend_prefix,
-        frontend_prefix=frontend_prefix,
         base_api_class=base_api_class,
         base_api_class_alias=base_api_class_alias
     )

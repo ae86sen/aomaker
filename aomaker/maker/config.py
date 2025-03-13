@@ -101,8 +101,6 @@ NAMING_STRATEGIES = {
 class OpenAPIConfig:
     class_name_strategy: Callable = field(default=NAMING_STRATEGIES["operation_id"])
     enable_translation: bool = field(default=False)
-    backend_prefix: Optional[str] = field(default=None)  # 显式指定的后端前缀
-    frontend_prefix: Optional[str] = field(default=None)  # 显式指定的前端前缀
     base_api_class: str = field(default="aomaker.core.api_object.BaseAPIObject")  # 默认基类路径
     base_api_class_alias: Optional[str] = field(default=None)  # 自定义别名
 

@@ -48,7 +48,7 @@ class BaseLogin(metaclass=ABCMeta):
     env_vars = EnvVars()
 
     def __init__(self):
-        self.host = self.env_vars.current_env_conf.get('host')
+        self.base_url = self.env_vars.current_env_conf.get('base_url')
         self.account = self.env_vars.current_env_conf.get('account')
         self.current_env = self.env_vars.current_env
 

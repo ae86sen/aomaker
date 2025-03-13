@@ -3,8 +3,6 @@
 {% endfor %}
 __ALL__ = {{ get_all_api_class_name(endpoints) }}
 
-router = APIRouter({{ get_api_router_params() }})
-
 {% for endpoint in endpoints %}
 @define(kw_only=True)
 @router.{{ endpoint.method }}("{{ endpoint.path }}")
