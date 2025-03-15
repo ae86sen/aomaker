@@ -20,13 +20,13 @@ from tabulate import tabulate
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
 from aomaker.log import logger, AoMakerLogger
-from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
+from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH, DIST_STRATEGY_PATH
 from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
 
 from aomaker.utils.utils import load_yaml
-from aomaker.models import AomakerYaml
+from aomaker.models import DistStrategyYaml
 from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
@@ -123,31 +123,57 @@ def create(project_name):
 
 
 @gen.command(name="models")
-@click.option("--spec", "-s", required=True,
-              help="OpenAPI规范文件路径（JSON/YAML/URL），暂时只支持openapi3.0")
-@click.option("--output", "-o", default="demo", show_default=True,
-              help="代码输出目录")
+@click.option("--spec", "-s",
+              help="OpenAPI规范文件路径（JSON/YAML/URL）")
+@click.option("--output", "-o", help="代码输出目录")
 @click.option("--class-name-strategy", "-c",
               type=click.Choice(list(NAMING_STRATEGIES.keys()), case_sensitive=False),
               default="operation_id",
               show_default=True,
               help="API Object Class name生成策略（operation_id/summary/tags）")
+@click.option("--custom-strategy", "-cs", required=False,
+              help="自定义命名策略的Python模块路径 (例如: 'mypackage.naming.custom_function')")
 @click.option("--base-api-class", "-B", default="aomaker.core.api_object.BaseAPIObject",
               show_default=True,
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
-def gen_models(spec, output, class_name_strategy, base_api_class, base_api_class_alias):
+def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class, base_api_class_alias):
     """
     Generate Attrs models from an OpenAPI specification.
     """
-    naming_strategy = NAMING_STRATEGIES[class_name_strategy]
+    openapi_config = {}
+    try:
+        if Path(AOMAKER_YAML_PATH).exists():
+            yaml_data = load_yaml(AOMAKER_YAML_PATH)
+            openapi_config = yaml_data.get('openapi', {})
+    except Exception as e:
+        click.echo(f"❌ 读取配置文件失败: {e}")
+        sys.exit(1)
+    
+    # 命令行参数优先级高于配置文件
+    final_spec = spec or openapi_config.get('spec')
+    if not final_spec:
+        click.echo("❌  错误：必须在命令行参数或配置文件中提供spec参数")
+        sys.exit(1)
+    final_output = output or openapi_config.get('output')
+    final_class_name_strategy = class_name_strategy or openapi_config.get('class_name_strategy')
+    final_custom_strategy = custom_strategy or openapi_config.get('custom_strategy')
+    final_base_api_class = base_api_class or openapi_config.get('base_api_class')
+    final_base_api_class_alias = base_api_class_alias or openapi_config.get('base_api_class_alias')
+    
+    # 使用预定义策略或自定义策略
+    if final_class_name_strategy in NAMING_STRATEGIES and not final_custom_strategy:
+        naming_strategy = NAMING_STRATEGIES[final_class_name_strategy]
+    else:
+        naming_strategy = None
+    
     import yaml
-
-    if spec.startswith(('http://', 'https://')):
+    
+    if final_spec.startswith(('http://', 'https://')):
         import requests
         try:
-            response = requests.get(spec)
+            response = requests.get(final_spec)
             response.raise_for_status()
             content_type = response.headers.get('Content-Type', '')
 
@@ -164,10 +190,10 @@ def gen_models(spec, output, class_name_strategy, base_api_class, base_api_class
             click.echo(f"获取或解析URL失败: {e}", err=True)
             return
     else:
-        spec_path = Path(spec)
+        spec_path = Path(final_spec)
 
         if not spec_path.exists():
-            click.echo(f"文件不存在: {spec}", err=True)
+            click.echo(f"文件不存在: {final_spec}", err=True)
             return
 
         file_suffix = spec_path.suffix.lower()
@@ -187,13 +213,14 @@ def gen_models(spec, output, class_name_strategy, base_api_class, base_api_class
             click.echo(f"读取或解析文件失败: {e}", err=True)
             return
 
-    output_path = Path(output)
+    output_path = Path(final_output)
     output_path.mkdir(parents=True, exist_ok=True)
 
     config = OpenAPIConfig(
         class_name_strategy=naming_strategy,
-        base_api_class=base_api_class,
-        base_api_class_alias=base_api_class_alias
+        base_api_class=final_base_api_class,
+        base_api_class_alias=final_base_api_class_alias,
+        custom_strategy=final_custom_strategy
     )
 
     custom_theme = Theme({
@@ -221,7 +248,7 @@ def gen_models(spec, output, class_name_strategy, base_api_class, base_api_class
         api_groups = parser.parse()
 
         status.update("[gradient(75)]⚡ Generating code[/]")
-        generator = Generator(output_dir=output, config=config, console=console)
+        generator = Generator(output_dir=final_output, config=config, console=console)
         generator.generate(api_groups)
 
     console.print(
@@ -244,9 +271,9 @@ def query_stats(package, showindex):
     showindex_value = "always" if showindex else "default"
 
     results = stats.get(conditions=conditions)
-    print(f"Total APIs: {len(results)}")
+    click.echo(f"Total APIs: {len(results)}")
     headers = ["Package", "ApiName", ]
-    print(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
+    click.echo(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
 
 
 @gen.command(name="stats")
@@ -390,18 +417,18 @@ def _handle_dist_mode(d_mark, d_file, d_suite):
         click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
         return params
 
-    params = _handle_aomaker_yaml()
-    mode_msg = "dist-mark(aomaker.yaml策略)"
+    params = _handle_dist_strategy_yaml()
+    mode_msg = "dist-mark(dist_strategy.yaml策略)"
     click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
     return params
 
 
-def _handle_aomaker_yaml() -> List[Text]:
-    if not os.path.exists(AOMAKER_YAML_PATH):
-        click.echo(emojize(f':confounded_face: aomaker策略文件{AOMAKER_YAML_PATH}不存在！'))
+def _handle_dist_strategy_yaml() -> List[Text]:
+    if not os.path.exists(DIST_STRATEGY_PATH):
+        click.echo(emojize(f':confounded_face: aomaker并行执行策略文件{DIST_STRATEGY_PATH}不存在！'))
         sys.exit(1)
-    yaml_data = load_yaml(AOMAKER_YAML_PATH)
-    content = AomakerYaml(**yaml_data)
+    yaml_data = load_yaml(DIST_STRATEGY_PATH)
+    content = DistStrategyYaml(**yaml_data)
     targets = content.target
     marks = content.marks
     d_mark = []

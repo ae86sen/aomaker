@@ -796,7 +796,23 @@ release:
 
 """
     create_file(Path(project_name) / "conf" / "config.yaml", config_content)
-    create_file(Path(project_name) / "conf" / "aomaker.yaml", "")
+    aomaker_content="""openapi:
+    # OpenAPI规范文件路径
+    spec: "path/to/openapi.json"
+    # 代码输出目录
+    output: "apis/demo"
+    # 使用预定义命名策略 (operation_id, summary, tags)
+    class_name_strategy: "operation_id"
+    # 或者使用自定义命名策略
+    custom_strategy: "myproject.naming.custom_strategy"
+    # API基类完整路径
+    base_api_class: "aomaker.core.api_object.BaseAPIObject"
+    # 基类在生成代码中的别名
+    base_api_class_alias: "BaseAPI"
+    """
+    create_file(Path(project_name) / "conf" / "aomaker.yaml", aomaker_content)
+    create_file(Path(project_name) / "conf" / "dist_strategy.yaml")
+
     utils_config_content = """wechat: 
     webhook:
     """

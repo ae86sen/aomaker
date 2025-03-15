@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from pydantic.types import constr
 
 
-class AomakerYaml(BaseModel):
+class DistStrategyYaml(BaseModel):
     target: List
     marks: Dict[constr(min_length=1), Union[Dict[Text, List[Text]], List[Text]]]
 

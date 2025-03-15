@@ -68,7 +68,7 @@ class OpenAPIParser(JsonSchemaParser):
         return list(self.api_groups.values())
 
     def parse_endpoint(self, path: str, method: str, operation: Operation) -> Endpoint:
-        class_name = self.config.class_name_strategy(operation)
+        class_name = self.config.class_name_strategy(path, method, operation)
         endpoint = Endpoint(
             class_name=class_name,
             endpoint_id=operation.operationId or f"{path}_{method}",
