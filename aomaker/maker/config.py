@@ -24,9 +24,6 @@ class ClassNameStrategy:
         if not operation_id:
             path_parts = []
 
-            path = getattr(operation, '_path', '')
-            method = getattr(operation, '_method', '')
-
             if operation.tags and len(operation.tags) > 0:
                 tag = operation.tags[0]
                 path_parts.append(tag)
@@ -39,7 +36,7 @@ class ClassNameStrategy:
                 path_parts.append(method.lower())
 
             if not path_parts and operation.summary:
-                return ClassNameStrategy.from_summary(operation, suffix)
+                return ClassNameStrategy.from_summary(path, method, operation, suffix)
             elif not path_parts:
                 return f"Default{suffix}"
 

@@ -158,15 +158,13 @@ def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class,
         sys.exit(1)
     final_output = output or openapi_config.get('output')
     final_class_name_strategy = class_name_strategy or openapi_config.get('class_name_strategy')
-    final_custom_strategy = custom_strategy or openapi_config.get('custom_strategy')
+    final_custom_strategy = custom_strategy or openapi_config.get('custom_strategy','')
     final_base_api_class = base_api_class or openapi_config.get('base_api_class')
     final_base_api_class_alias = base_api_class_alias or openapi_config.get('base_api_class_alias')
-    
-    # 使用预定义策略或自定义策略
-    if final_class_name_strategy in NAMING_STRATEGIES and not final_custom_strategy:
+
+    naming_strategy = NAMING_STRATEGIES["operation_id"]
+    if final_class_name_strategy in NAMING_STRATEGIES:
         naming_strategy = NAMING_STRATEGIES[final_class_name_strategy]
-    else:
-        naming_strategy = None
     
     import yaml
     

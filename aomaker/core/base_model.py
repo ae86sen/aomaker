@@ -3,7 +3,7 @@ from __future__ import annotations
 import requests
 from attrs import define, field
 from enum import Enum
-from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable
+from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable, Union
 
 
 class HTTPMethod(str, Enum):
@@ -29,7 +29,6 @@ class BaseHTTPRequest:
     params: Optional[Dict[str, Any]] = field(default=None)
 
 
-
 @define
 class JSONRequest(BaseHTTPRequest):
     json: Optional[Dict[str, Any]] = field(factory=dict)
@@ -47,6 +46,11 @@ class MultipartFormDataRequest(BaseHTTPRequest):
 
 
 @define
+class TextPlainRequest(BaseHTTPRequest):
+    data: str = field(default="")
+
+
+@define
 class EndpointConfig:
     route: str = field(default="")
     method: HTTPMethod = field(default="")
@@ -59,7 +63,7 @@ class PreparedRequest:
     url: str
     headers: dict
     params: Optional[dict] = field(default=None)
-    request_body: Optional[dict] = field(default=None)
+    request_body: Optional[Union[dict, str]] = field(default=None)
     files: Optional[dict] = field(default=None)
 
 

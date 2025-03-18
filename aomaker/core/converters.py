@@ -13,12 +13,13 @@ if TYPE_CHECKING:
     from .api_object import BaseAPIObject
 from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT
 from .request_builder import JSONRequestBuilder, FormURLEncodedRequestBuilder, MultipartFormDataRequestBuilder, \
-    RequestBuilder
+    RequestBuilder,TextPlainRequestBuilder
 
 REQUEST_BUILDERS = {
     ContentType.JSON: JSONRequestBuilder,
     ContentType.FORM: FormURLEncodedRequestBuilder,
     ContentType.MULTIPART: MultipartFormDataRequestBuilder,
+    ContentType.TEXT: TextPlainRequestBuilder
 }
 
 T = TypeVar('T')

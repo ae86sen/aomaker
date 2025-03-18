@@ -803,8 +803,8 @@ release:
     output: "apis/demo"
     # 使用预定义命名策略 (operation_id, summary, tags)
     class_name_strategy: "operation_id"
-    # 或者使用自定义命名策略
-    custom_strategy: "myproject.naming.custom_strategy"
+    # 或者使用自定义命名策略, 如：myproject.naming.custom_strategy
+    custom_strategy: ""
     # API基类完整路径
     base_api_class: "aomaker.core.api_object.BaseAPIObject"
     # 基类在生成代码中的别名
