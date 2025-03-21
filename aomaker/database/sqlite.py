@@ -1,5 +1,6 @@
 import sqlite3
 import threading
+from typing import List, Dict
 from pathlib import Path
 
 from aomaker._constants import PROJECT_ROOT_FILE, DataBase
@@ -83,7 +84,7 @@ class SQLiteDB:
         results = self.query(sql, params)
         return results[0] if results else None
 
-    def query(self, sql: str, params=()) -> list[dict]:
+    def query(self, sql: str, params=()) -> List[Dict]:
         with lock:
             self.cursor.execute(sql, params)
             columns = [col[0] for col in self.cursor.description] if self.cursor.description else []
