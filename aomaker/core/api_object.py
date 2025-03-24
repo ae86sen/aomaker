@@ -1,5 +1,5 @@
 # --coding:utf-8--
-from typing import Union, Type, Generic, Optional
+from typing import Union, Type, Generic, Optional, Dict, Any
 
 from jsonschema_extractor import extract_jsonschema
 from jsonschema import validate, ValidationError
@@ -60,53 +60,83 @@ class BaseAPIObject(Generic[ResponseT]):
     def class_doc(self):
         return self.__class__.__doc__ or ""
 
-    def send(self, override_headers: bool = False) -> AoResponse[ResponseT]:
+    def send(self, 
+            override_headers: bool = False,
+            stream: bool = False, 
+            **request_kwargs) -> AoResponse[ResponseT]:
+        """
+        发送请求并返回响应
+        
+        Args:
+            override_headers: 是否覆盖默认请求头
+            stream: 是否使用流式响应
+            **request_kwargs: 其他请求参数
+            
+        Returns:
+            AoResponse[ResponseT]: 包含原始响应对象和解析后的响应模型
+        """
+        req = self._prepare_request(stream)
+        
+        cached_response = self.http_client.send_request(
+            request=req, 
+            override_headers=override_headers, 
+            **request_kwargs
+        )
+        
+        return self._handle_response(cached_response, stream)
+    
+    def _handle_response(self, cached_response, stream: bool = False) -> AoResponse[ResponseT]:
+        """处理HTTP响应"""
+        return AoResponse(
+            cached_response=cached_response,
+            response_model=self._parse_response(cached_response) if not stream else None,
+            is_stream=stream
+        )
+    
+    def _prepare_request(self, is_stream: bool) -> Dict[str, Any]:
+        """准备请求数据"""
         req = self.converter.convert()
-
         req["_api_meta"] = {
             "class_name": self.class_name,
-            "class_doc": self.class_doc.strip()
+            "class_doc": self.class_doc.strip(),
+            "is_streaming": is_stream
         }
-
-        raw_response = self.http_client.send_request(request=req, override_headers=override_headers)
-        response_data = raw_response.json()
-
-        if self.enable_schema_validation:
-            existing_schema = schema.get_schema(self.response.__name__)
+        
+        if is_stream:
+            req["stream"] = True
             
-            if self.response:
-                current_schema = extract_jsonschema(self.response)
-                
-                if existing_schema:
-                    if current_schema != existing_schema:
-                        schema.save_schema(self.response.__name__, current_schema)
-                        existing_schema = current_schema
-                else:
-                    schema.save_schema(self.response.__name__, current_schema)
-                    existing_schema = current_schema
-
-            if existing_schema:
-                self.schema_validate(instance=response_data, schema=existing_schema)
-
-        response_model: ResponseT = self.converter.structure(response_data, self.response)
-        return AoResponse(raw_response, response_model)
-
+        return req
+    
+    def _parse_response(self, cached_response) -> ResponseT:
+        """解析响应数据"""
+        response_data = cached_response.json()
+        
+        if self.enable_schema_validation and self.response:
+            self._validate_response_schema(response_data)
+            
+        return self.converter.structure(response_data, self.response)
+    
+    def _validate_response_schema(self, response_data):
+        """验证响应数据符合schema"""
+        # 获取或更新schema
+        schema_name = self.response.__name__
+        existing_schema = schema.get_schema(schema_name)
+        current_schema = extract_jsonschema(self.response)
+        
+        # 更新schema缓存
+        if not existing_schema or current_schema != existing_schema:
+            schema.save_schema(schema_name, current_schema)
+            existing_schema = current_schema
+            
+        # 验证
+        self.schema_validate(response_data, existing_schema)
+            
     def schema_validate(self, instance, schema):
+        """简化的schema验证方法"""
         try:
             validate(instance=instance, schema=schema)
         except ValidationError as e:
-            if e.context:
-                best_error = best_match(e.context)
-                if best_error is not None:
-                    message = best_error.message
-                    error_path = best_error.absolute_path
-                else:
-                    message = e.message
-                    error_path = e.absolute_path
-            else:
-                message = e.message
-                error_path = e.absolute_path
-
-            error_path_str = ".".join(map(str, error_path)) if error_path else "root"
-
-            raise AssertionError(f"{message} (path: {error_path_str})") from None
+            error = best_match(e.context) if e.context else e
+            path = ".".join(map(str, error.absolute_path)) if error.absolute_path else "root"
+            message = f"{error.message} (path: {path})"
+            raise AssertionError(message) from None

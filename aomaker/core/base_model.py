@@ -1,10 +1,11 @@
 # --coding:utf-8--
 from __future__ import annotations
-import requests
-from attrs import define, field
 from enum import Enum
-from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable, Union
+from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable, Union, Iterator
 
+from attrs import define, field
+
+from aomaker.core.http_client import CachedResponse
 
 class HTTPMethod(str, Enum):
     GET = "GET"
@@ -74,8 +75,59 @@ ResponseT = TypeVar("ResponseT")
 
 @define
 class AoResponse(Generic[ResponseT]):
-    raw_response: requests.Response = field()
-    response_model: ResponseT = field()
+    cached_response: CachedResponse = field()
+    response_model: Optional[ResponseT] = field(default=None)
+    is_stream: bool = field(default=False)
+
+    def process_stream(self, 
+                      stream_mode: Optional[str]=None, 
+                      chunk_size: int = 512,
+                      decode_unicode: bool = True,
+                      callback: Optional[Callable] = None) -> "AoResponse[ResponseT]":
+        """
+        处理流式响应
+        
+        Args:
+            stream_mode: 流处理模式，可选值：None(原始流)、'lines'、'json'
+            chunk_size: 流式处理时每个数据块的大小
+            decode_unicode: 是否解码流式响应
+            callback: 回调函数，用于处理每个数据块
+            
+        Returns:
+            AoResponse[ResponseT]: 返回自身，支持链式调用
+        """
+        if not self.is_stream:
+            raise ValueError("这不是一个流式响应")
+            
+        if not callback:
+            return self  # 没有回调函数，不处理流
+        
+        try:
+            if stream_mode == 'lines':
+                self._process_stream_lines(chunk_size, decode_unicode, callback)
+            elif stream_mode == 'json':
+                self._process_stream_json(chunk_size, decode_unicode, callback)
+            else:
+                self._process_stream_content(chunk_size, decode_unicode, callback)
+        finally:
+            self.cached_response.raw_response.close()
+            
+        return self  # 返回自身以支持链式调用
+    
+    def _process_stream_lines(self, chunk_size, decode_unicode, callback):
+        for line in self.cached_response.raw_response.iter_lines(chunk_size=chunk_size, decode_unicode=decode_unicode):
+            if line:
+                callback(line)
+    
+    def _process_stream_json(self, chunk_size, decode_unicode, callback):
+        for json_obj in self.cached_response.raw_response.iter_json(chunk_size=chunk_size, decode_unicode=decode_unicode):
+            if json_obj:
+                callback(json_obj)
+    
+    def _process_stream_content(self, chunk_size, decode_unicode, callback):
+        for chunk in self.cached_response.raw_response.iter_content(chunk_size=chunk_size, decode_unicode=decode_unicode):
+            if chunk:
+                callback(chunk)
 
     def first(self) -> Optional[ResponseT]:
         ...

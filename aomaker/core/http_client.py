@@ -14,17 +14,25 @@ from .middlewares.middlewares import middlewares_registry, MiddlewareCallable, R
 
 class CachedResponse:
     def __init__(self, raw_response: requests.Response):
-        self._raw = raw_response
+        self.raw_response = raw_response
         self._cached_json = None
+        self._is_streaming = raw_response.headers.get('Transfer-Encoding') == 'chunked' or raw_response.raw.chunked
+
 
     def __getattr__(self, name):
-        return getattr(self._raw, name)
+        return getattr(self.raw_response, name)
 
     def json(self, **kwargs) -> Any:
+        if self._is_streaming:
+            raise ValueError("无法在流式响应上直接调用json()方法，请使用iter_json()代替")
         if self._cached_json is None:
-            self._cached_json = self._raw.json(**kwargs)
-        return self._cached_json
-
+            self._cached_json = self.raw_response.json(**kwargs)
+        return self._cached_json  
+    
+    @property
+    def is_streaming(self):
+        """判断当前响应是否为流式响应"""
+        return self._is_streaming
 
 class HTTPClient:
     def __init__(self, middlewares: List[MiddlewareCallable] = None):

@@ -58,20 +58,31 @@ class LogData:
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
     api_meta = request.get("_api_meta", {})
+    is_streaming = api_meta.get("is_streaming", False)
+    
     log_data = LogData(request=request, class_name=api_meta.get("class_name"), class_doc=api_meta.get("class_doc"))
     response = None
 
     try:
         response = call_next(request)
-
-        log_data.response = _parse_response(response)
+        
+        # 处理流式响应和普通响应的日志记录差异
+        if is_streaming:
+            log_data.response = {
+                "status_code": response.status_code,
+                "elapsed": response.elapsed.total_seconds() if response.elapsed else None,
+                "response_body": "[流式响应] 内容将分块传输，无法预先记录" 
+            }
+        else:
+            log_data.response = _parse_response(response)
+            
         log_data.success = True
 
     except Exception as e:
         log_data.error = _parse_exception(e)
         raise
     finally:
-        _process_log_outputs(log_data, request, response)
+        _process_log_outputs(log_data, request, response, is_streaming)
 
     return response
 
@@ -107,7 +118,7 @@ def _parse_exception(e: Exception) -> Dict[str, Any]:
     }
 
 
-def _process_log_outputs(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
+def _process_log_outputs(log_data: LogData, request: RequestType, response: Optional[ResponseType], is_streaming: bool = False):
     """处理三路输出"""
     log_current_level = aomaker_logger.get_level()
 
@@ -115,7 +126,7 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
         "tag": "=" * 100,
         "emoji_api": emojize(":A_button_(blood_type):"),
         "emoji_req": emojize(":rocket:"),
-        "emoji_rep": emojize(":check_mark_button:"),
+        "emoji_rep": emojize(":check_mark_button:" if not is_streaming else ":down_arrow:"),
         **log_data.request,
         **log_data.response,
         "class_name": log_data.class_name,
@@ -131,10 +142,10 @@ def _process_log_outputs(log_data: LogData, request: RequestType, response: Opti
     else:
         logger.info(formatted_log)
 
-    _attach_allure_report(log_data, request, response)
+    _attach_allure_report(log_data, request, response, is_streaming)
 
 
-def _attach_allure_report(log_data: LogData, request: RequestType, response: Optional[ResponseType]):
+def _attach_allure_report(log_data: LogData, request: RequestType, response: Optional[ResponseType], is_streaming: bool = False):
     """生成Allure附件"""
     allure_info = {
         "request": {
@@ -149,7 +160,7 @@ def _attach_allure_report(log_data: LogData, request: RequestType, response: Opt
     if response is not None:
         allure_info["response"] = {
             "status_code": response.status_code,
-            "body": log_data.response["response_body"]
+            "body": "[流式响应]" if is_streaming else log_data.response.get("response_body")
         }
 
     try:
