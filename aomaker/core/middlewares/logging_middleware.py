@@ -10,7 +10,7 @@ import allure
 from emoji import emojize
 
 from aomaker.log import logger, aomaker_logger
-from .middlewares import RequestType, CallNext, ResponseType, register_middleware
+from .middlewares import RequestType, CallNext, ResponseType, middleware
 
 TEMPLATE = """
 {{tag}}
@@ -54,7 +54,7 @@ class LogData:
     error: Optional[Dict[str, Any]] = None
 
 
-@register_middleware
+@middleware(priority=900)
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
     api_meta = request.get("_api_meta", {})

@@ -30,3 +30,6 @@ AOMAKER_HTML = os.path.join(REPORT_DIR, "aomaker.html")
 AOMAKER_YAML_PATH = os.path.join(CONF_DIR, "aomaker.yaml")
 
 DIST_STRATEGY_PATH = os.path.join(CONF_DIR, "dist_strategy.yaml")
+
+MIDDLEWARES_DIR = os.path.join(BASEDIR, "middlewares")
+MIDDLEWARE_CONFIG_PATH = os.path.join(MIDDLEWARES_DIR, "middlewares.yaml")

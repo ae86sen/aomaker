@@ -7,9 +7,8 @@ from copy import deepcopy
 import requests
 
 from aomaker.storage import cache
-# todo: 自动注册
-from .middlewares.logging_middleware import structured_logging_middleware
-from .middlewares.middlewares import middlewares_registry, MiddlewareCallable, RequestType, ResponseType
+
+from .middlewares.middlewares import MiddlewareCallable, RequestType, ResponseType, registry, init_middlewares
 
 
 class CachedResponse:
@@ -37,7 +36,8 @@ class CachedResponse:
 class HTTPClient:
     def __init__(self, middlewares: List[MiddlewareCallable] = None):
         self.session = requests.Session()
-        self.middlewares = middlewares_registry.copy()
+        init_middlewares()
+        self.middlewares = registry.active_middlewares
         if middlewares:
             self.middlewares.extend(middlewares)
 

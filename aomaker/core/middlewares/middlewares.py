@@ -1,6 +1,15 @@
 # --coding:utf-8--
-from typing import Callable, Dict, Any, TypeVar, Optional
+from typing import Callable, Dict, List, Any, TypeVar, Optional, Union
+from importlib import import_module
+import inspect
+import pkgutil
+import os
+from functools import wraps
+from pathlib import Path
+import yaml
+from pydantic import BaseModel, Field
 
+from aomaker.path import MIDDLEWARE_CONFIG_PATH
 
 RequestType = Dict[str, Any]
 ResponseType = TypeVar('ResponseType')
@@ -8,21 +17,170 @@ ResponseType = TypeVar('ResponseType')
 CallNext = Callable[[RequestType], ResponseType]
 MiddlewareCallable = Callable[[RequestType, CallNext], ResponseType]
 
-middlewares_registry = []
+
+class MiddlewareConfig(BaseModel):
+    """中间件配置信息"""
+    name: str
+    middleware: MiddlewareCallable
+    enabled: bool = True
+    priority: int = 0
+    options: Dict[str, Any] = Field(default_factory=dict)
+    
+    # pydantic 模型配置
+    class Config:
+        arbitrary_types_allowed = True  # 允许任意类型，因为middleware是可调用对象
 
 
+class MiddlewareRegistry:
+    """中间件注册中心"""
+    
+    def __init__(self):
+        self.middleware_configs = {}
+        self.active_middlewares = []
+        
+    def register(self, middleware: MiddlewareCallable, *, 
+                name: Optional[str] = None, 
+                enabled: bool = True,
+                priority: int = 0, 
+                options: Dict[str, Any] = None) -> MiddlewareCallable:
+        """注册一个中间件"""
+        middleware_name = name or middleware.__name__
+        self.middleware_configs[middleware_name] = {
+            "middleware": middleware,
+            "enabled": enabled,
+            "priority": priority,
+            "options": options or {}
+        }
+        self._rebuild_active_middlewares()
+        return middleware
+        
+    def scan_middlewares(self, package_path: str):
+        """扫描并注册指定包中的所有中间件"""
+        try:
+            package = import_module(package_path)
+        except ImportError:
+            try:
+                if '.' not in package_path:
+                    package = import_module(f"aomaker.middlewares.{package_path}")
+                else:
+                    raise
+            except ImportError:
+                print(f"未找到中间件包: {package_path}")
+                return
+        
+        for _, name, is_pkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
+            if is_pkg:
+                self.scan_middlewares(name)
+            else:
+                try:
+                    module = import_module(name)
+                    self._register_module_middlewares(module)
+                except Exception as e:
+                    print(f"加载模块 {name} 失败: {str(e)}")
+        
+        self._rebuild_active_middlewares()
+    
+    def _register_module_middlewares(self, module):
+        """注册模块中所有标记为中间件的函数"""
+        for name, obj in inspect.getmembers(module):
+            if inspect.isfunction(obj) and hasattr(obj, "middleware_config"):
+                config = getattr(obj, "middleware_config", {})
+                self.register(
+                    middleware=obj,
+                    name=config.get("name", name),
+                    enabled=config.get("enabled", True),
+                    priority=config.get("priority", 0),
+                    options=config.get("options", {})
+                )
+    
+    def _rebuild_active_middlewares(self):
+        """重建活动中间件列表"""
+        # 获取所有启用的中间件，并按优先级排序
+        active_configs = sorted(
+            [config for config in self.middleware_configs.values() if config["enabled"]],
+            key=lambda c: c["priority"],
+            reverse=True  # 高优先级先执行
+        )
+        self.active_middlewares = [config["middleware"] for config in active_configs]
+    
+    def get_middlewares(self) -> List[MiddlewareCallable]:
+        """获取所有活动中间件"""
+        return self.active_middlewares
+    
+    def apply_config(self, config_dict: Dict[str, Dict[str, Any]]):
+        """应用配置文件中的设置"""
+        for name, settings in config_dict.items():
+            if name in self.middleware_configs:
+                # 更新现有中间件配置
+                if "enabled" in settings:
+                    self.middleware_configs[name]["enabled"] = settings["enabled"]
+                if "priority" in settings:
+                    self.middleware_configs[name]["priority"] = settings["priority"]
+                if "options" in settings:
+                    self.middleware_configs[name]["options"].update(settings["options"])
+        
+        # 更新活动中间件列表
+        self._rebuild_active_middlewares()
+    
+    def disable(self, middleware_name: str):
+        """禁用指定中间件"""
+        if middleware_name in self.middleware_configs:
+            self.middleware_configs[middleware_name]["enabled"] = False
+            self._rebuild_active_middlewares()
+            
+    def enable(self, middleware_name: str):
+        """启用指定中间件"""
+        if middleware_name in self.middleware_configs:
+            self.middleware_configs[middleware_name]["enabled"] = True
+            self._rebuild_active_middlewares()
+            
+    def set_priority(self, middleware_name: str, priority: int):
+        """设置中间件优先级"""
+        if middleware_name in self.middleware_configs:
+            self.middleware_configs[middleware_name]["priority"] = priority
+            self._rebuild_active_middlewares()
 
-def register_middleware(middleware: Optional[MiddlewareCallable] = None, *, global_registry: bool = True):
 
+# 创建全局注册表实例
+registry = MiddlewareRegistry()
+
+
+def middleware(name: Optional[str] = None, enabled: bool = True, 
+              priority: int = 0, **options):
+    """用于标记和配置中间件的装饰器"""
     def decorator(func: MiddlewareCallable) -> MiddlewareCallable:
-        if global_registry:
-            middlewares_registry.append(func)
+        # 将配置保存到函数属性中
+        func.middleware_config = {
+            "name": name or func.__name__,
+            "enabled": enabled,
+            "priority": priority,
+            "options": options
+        }
         return func
+    return decorator
 
-    if middleware is None:
-        return decorator
-    else:
-        return decorator(middleware)
+
+def load_middleware_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+    if config_path is None:
+        config_path = MIDDLEWARE_CONFIG_PATH
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
+    
+def apply_middleware_config(config: Dict[str, Any]):
+    if config:
+        registry.apply_config(config)
+
+
+# 初始化函数
+def init_middlewares():
+    """初始化中间件系统"""
+    # 1.扫描默认中间件包
+    registry.scan_middlewares("aomaker.core.middlewares")
+
+    # 2.加载项目中的中间件包
+    custom_middleware_config = load_middleware_config()
+    apply_middleware_config(custom_middleware_config)
+
 
 
 
