@@ -10,7 +10,7 @@ import allure
 from emoji import emojize
 
 from aomaker.log import logger, aomaker_logger
-from .middlewares import RequestType, CallNext, ResponseType, middleware
+from .registry import RequestType, CallNext, ResponseType, middleware
 
 TEMPLATE = """
 {{tag}}

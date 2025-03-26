@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
-from aomaker.path import MIDDLEWARE_CONFIG_PATH
+from aomaker.path import MIDDLEWARE_CONFIG_PATH, MIDDLEWARES_DIR
 
 RequestType = Dict[str, Any]
 ResponseType = TypeVar('ResponseType')
@@ -22,7 +22,7 @@ class MiddlewareConfig(BaseModel):
     """中间件配置信息"""
     name: str
     middleware: MiddlewareCallable
-    enabled: bool = True
+    enabled: bool = False
     priority: int = 0
     options: Dict[str, Any] = Field(default_factory=dict)
     
@@ -35,8 +35,8 @@ class MiddlewareRegistry:
     """中间件注册中心"""
     
     def __init__(self):
-        self.middleware_configs = {}
-        self.active_middlewares = []
+        self.middleware_configs: Dict[str, MiddlewareConfig] = {}
+        self.active_middlewares: List[MiddlewareCallable] = []
         
     def register(self, middleware: MiddlewareCallable, *, 
                 name: Optional[str] = None, 
@@ -45,12 +45,14 @@ class MiddlewareRegistry:
                 options: Dict[str, Any] = None) -> MiddlewareCallable:
         """注册一个中间件"""
         middleware_name = name or middleware.__name__
-        self.middleware_configs[middleware_name] = {
-            "middleware": middleware,
-            "enabled": enabled,
-            "priority": priority,
-            "options": options or {}
-        }
+        # 创建 MiddlewareConfig 实例
+        self.middleware_configs[middleware_name] = MiddlewareConfig(
+            name=middleware_name,
+            middleware=middleware,
+            enabled=enabled,
+            priority=priority,
+            options=options or {}
+        )
         self._rebuild_active_middlewares()
         return middleware
         
@@ -97,11 +99,11 @@ class MiddlewareRegistry:
         """重建活动中间件列表"""
         # 获取所有启用的中间件，并按优先级排序
         active_configs = sorted(
-            [config for config in self.middleware_configs.values() if config["enabled"]],
-            key=lambda c: c["priority"],
+            [config for config in self.middleware_configs.values() if config.enabled],
+            key=lambda c: c.priority,
             reverse=True  # 高优先级先执行
         )
-        self.active_middlewares = [config["middleware"] for config in active_configs]
+        self.active_middlewares = [config.middleware for config in active_configs]
     
     def get_middlewares(self) -> List[MiddlewareCallable]:
         """获取所有活动中间件"""
@@ -111,33 +113,32 @@ class MiddlewareRegistry:
         """应用配置文件中的设置"""
         for name, settings in config_dict.items():
             if name in self.middleware_configs:
-                # 更新现有中间件配置
-                if "enabled" in settings:
-                    self.middleware_configs[name]["enabled"] = settings["enabled"]
-                if "priority" in settings:
-                    self.middleware_configs[name]["priority"] = settings["priority"]
-                if "options" in settings:
-                    self.middleware_configs[name]["options"].update(settings["options"])
+                config = self.middleware_configs[name]
+                # 使用 Pydantic 模型的 copy 和 update 方法更新配置
+                updated_config = config.model_copy(update=settings)
+                self.middleware_configs[name] = updated_config
         
-        # 更新活动中间件列表
         self._rebuild_active_middlewares()
     
     def disable(self, middleware_name: str):
         """禁用指定中间件"""
         if middleware_name in self.middleware_configs:
-            self.middleware_configs[middleware_name]["enabled"] = False
+            config = self.middleware_configs[middleware_name]
+            self.middleware_configs[middleware_name] = config.model_copy(update={"enabled": False})
             self._rebuild_active_middlewares()
             
     def enable(self, middleware_name: str):
         """启用指定中间件"""
         if middleware_name in self.middleware_configs:
-            self.middleware_configs[middleware_name]["enabled"] = True
+            config = self.middleware_configs[middleware_name]
+            self.middleware_configs[middleware_name] = config.model_copy(update={"enabled": True})
             self._rebuild_active_middlewares()
             
     def set_priority(self, middleware_name: str, priority: int):
         """设置中间件优先级"""
         if middleware_name in self.middleware_configs:
-            self.middleware_configs[middleware_name]["priority"] = priority
+            config = self.middleware_configs[middleware_name]
+            self.middleware_configs[middleware_name] = config.model_copy(update={"priority": priority})
             self._rebuild_active_middlewares()
 
 
@@ -170,14 +171,17 @@ def apply_middleware_config(config: Dict[str, Any]):
     if config:
         registry.apply_config(config)
 
+def register_internal_middlewares():
+    from aomaker.core.middlewares import logging_middleware
+    registry.register(logging_middleware.structured_logging_middleware)
 
-# 初始化函数
 def init_middlewares():
     """初始化中间件系统"""
-    # 1.扫描默认中间件包
-    registry.scan_middlewares("aomaker.core.middlewares")
+    register_internal_middlewares()
 
-    # 2.加载项目中的中间件包
+    if os.path.exists(MIDDLEWARES_DIR):
+        registry.scan_middlewares("middlewares")
+
     custom_middleware_config = load_middleware_config()
     apply_middleware_config(custom_middleware_config)
 

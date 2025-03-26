@@ -8,7 +8,7 @@ import requests
 
 from aomaker.storage import cache
 
-from .middlewares.middlewares import MiddlewareCallable, RequestType, ResponseType, registry, init_middlewares
+from .middlewares.registry import MiddlewareCallable, RequestType, ResponseType, registry, init_middlewares
 
 
 class CachedResponse:
