@@ -122,7 +122,8 @@ class JsonSchemaParser:
         required_fields = schema_obj.required or []
         is_add_optional_import = False
         for prop_name, prop_schema in schema_obj.properties.items():
-            prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
+            capitalized_prop_name = prop_name[0].upper() + prop_name[1:] if prop_name else ""
+            prop_type = self.parse_schema(prop_schema, f"{model_name}{capitalized_prop_name}")
             if is_python_keyword(prop_name):
                 alias = prop_name
                 prop_name = f"{prop_name}_"
