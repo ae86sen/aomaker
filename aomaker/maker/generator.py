@@ -293,7 +293,7 @@ class Generator:
     def _generate_init(self, package_dir: Path):
         template = self.env.get_template("init.j2")
         content = template.render()
-        (package_dir / "__init__.py").write_text(content)
+        (package_dir / "__init__.py").write_text(content,encoding="utf-8")
 
     def _generate_models(self, package_dir: Path, referenced_models: List[DataModel], imports: List[str]):
         """生成models.py文件"""
@@ -306,7 +306,7 @@ class Generator:
         format_content = self._format_content(content)
 
         # 写入文件
-        (package_dir / "models.py").write_text(format_content)
+        (package_dir / "models.py").write_text(format_content,encoding="utf-8")
 
     def _generate_apis(self, package_dir: Path, endpoints: List[Endpoint], imports: List[str]):
         """生成apis.py文件"""
@@ -319,7 +319,7 @@ class Generator:
         format_content = self._format_content(content)
 
         # 写入文件
-        (package_dir / "apis.py").write_text(format_content)
+        (package_dir / "apis.py").write_text(format_content,encoding="utf-8")
 
     def _generate_apis_imports(self, endpoints: List[Endpoint]) -> List[str]:
         import_manager = collect_apis_imports(endpoints, self.config)
