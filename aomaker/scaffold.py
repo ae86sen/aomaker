@@ -893,6 +893,14 @@ class Login(BaseLogin):
     """
     create_file(Path(project_name) / "login.py", login_content)
     create_file(Path(project_name) / "hooks.py", "")
+    create_folder(Path(project_name) / "middlewares")
+    create_file(Path(project_name) / "middlewares" / "__init__.py")
+    content = """logging_middleware:
+    priority: 1000
+    enabled: true
+"""
+    create_file(Path(project_name) / "middlewares" / "middlewares.yaml", content)
+    
     data_path = Path(project_name) / "data"
     create_folder(data_path)
     create_folder(data_path / "api_data")
