@@ -54,7 +54,7 @@ class LogData:
     error: Optional[Dict[str, Any]] = None
 
 
-@middleware(priority=900)
+@middleware(name="logging_middleware", priority=900)
 def structured_logging_middleware(request: RequestType, call_next: CallNext) -> ResponseType:
     """支持多输出的结构化日志中间件"""
     api_meta = request.get("_api_meta", {})

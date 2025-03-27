@@ -15,7 +15,10 @@ class CachedResponse:
     def __init__(self, raw_response: requests.Response):
         self.raw_response = raw_response
         self._cached_json = None
-        self._is_streaming = raw_response.headers.get('Transfer-Encoding') == 'chunked' or raw_response.raw.chunked
+        try:
+            self._is_streaming = raw_response.headers.get('Transfer-Encoding') == 'chunked' or raw_response.raw.chunked
+        except AttributeError:
+            self._is_streaming = False
 
 
     def __getattr__(self, name):
