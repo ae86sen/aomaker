@@ -124,6 +124,10 @@ class JsonSchemaParser:
         for prop_name, prop_schema in schema_obj.properties.items():
             capitalized_prop_name = prop_name[0].upper() + prop_name[1:] if prop_name else ""
             prop_type = self.parse_schema(prop_schema, f"{model_name}{capitalized_prop_name}")
+            
+            if prop_type.is_custom_type and prop_type.type:
+                prop_type.type = normalize_python_name(prop_type.type)
+            
             if is_python_keyword(prop_name):
                 alias = prop_name
                 prop_name = f"{prop_name}_"
@@ -252,6 +256,9 @@ class JsonSchemaParser:
             for i, schema in enumerate(item_schema):
                 if isinstance(schema, JsonSchemaObject):
                     child_type = self.parse_schema(schema, f"{context}Item{i}")
+                    # 规范化自定义类型名称
+                    if child_type.is_custom_type and child_type.type:
+                        child_type.type = normalize_python_name(child_type.type)
                     child_types.append(child_type)
                     child_imports.update(child_type.imports)
             
@@ -260,6 +267,7 @@ class JsonSchemaParser:
                 union_hint = child_types[0].type_hint
                 union_imports = child_types[0].imports
             else:
+                # 确保在type_hint中使用规范化的名称
                 union_hint = f"Union[{', '.join(t.type_hint for t in child_types)}]"
                 union_imports = child_imports | {Import(from_='typing', import_='Union')}
             
@@ -272,6 +280,10 @@ class JsonSchemaParser:
         
         # 处理普通单个item的情况
         item_type = self.parse_schema(item_schema, f"{context}Item")
+        
+        # 规范化数组元素类型名称
+        if item_type.is_custom_type and item_type.type:
+            item_type.type = normalize_python_name(item_type.type)
 
         if item_type.is_list:
             return item_type

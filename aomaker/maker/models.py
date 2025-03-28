@@ -108,8 +108,17 @@ class DataType(BaseModel):
     def type_hint(self) -> str:
         """生成类型提示"""
         type_str = self.type
+        
+        # 确保自定义类型使用规范化名称
+        if self.is_custom_type and type_str:
+            type_str = normalize_python_name(type_str)
+            
         if self.is_list:
-            inner_type = self.data_types[0].type_hint if self.data_types else 'Any'
+            # 确保列表元素类型也被规范化
+            if self.data_types and self.data_types[0].is_custom_type:
+                inner_type = self.data_types[0].type_hint  # 递归调用type_hint确保内部类型也被规范化
+            else:
+                inner_type = self.data_types[0].type_hint if self.data_types else 'Any'
             type_str = f'List[{inner_type}]'
         elif self.is_dict:
             key_type = self.data_types[0].type_hint if self.data_types else 'str'
@@ -117,8 +126,7 @@ class DataType(BaseModel):
             type_str = f'Dict[{key_type}, {value_type}]'
         elif self.is_optional:
             type_str = f'Optional[{type_str}]'
-        elif self.is_custom_type:
-            type_str = f"{self.type}"
+        
         return type_str
 
 

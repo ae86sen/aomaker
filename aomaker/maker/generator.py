@@ -200,8 +200,16 @@ class TemplateRenderUtils:
     @classmethod
     def render_optional_hint(cls, field: DataModelField) -> str:
         """渲染字段的类型注解，非必填字段添加 Optional 包装"""
-        base_type = field.data_type.type
-        if field.data_type.is_optional:
+        data_type = field.data_type
+        
+        # 规范化自定义类型名称
+        if data_type.is_custom_type and data_type.type:
+            from aomaker.maker.models import normalize_python_name
+            base_type = normalize_python_name(data_type.type)
+        else:
+            base_type = data_type.type
+            
+        if data_type.is_optional:
             return base_type
         if field.required is False:
             return f"Optional[{base_type}]"

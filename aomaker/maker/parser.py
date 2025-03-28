@@ -11,6 +11,7 @@ from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser
 from aomaker.maker.config import OpenAPIConfig
 from aomaker.maker.compat import SwaggerAdapter
+from aomaker.maker.models import normalize_python_name
 
 SUPPORTED_CONTENT_TYPES = [
     MediaTypeEnum.JSON.value,
@@ -86,9 +87,12 @@ class OpenAPIParser(JsonSchemaParser):
         for field_ in endpoint.path_parameters + endpoint.query_parameters:
             for imp in field_.data_type.imports:
                 endpoint.imports.add(imp)
+            # 确保参数类型的名称规范化
+            if field_.data_type.is_custom_type and field_.data_type.type:
+                field_.data_type.type = normalize_python_name(field_.data_type.type)
+                
         # 解析请求体
         if operation.requestBody:
-
             request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
             if request_body_datatype is not None:
                 if request_body_datatype.reference:
@@ -105,6 +109,11 @@ class OpenAPIParser(JsonSchemaParser):
                 if endpoint.request_body is not None:
                     for imp in endpoint.request_body.imports:
                         endpoint.imports.add(imp)
+                    # 规范化请求体中所有字段的类型名称
+                    if hasattr(endpoint.request_body, 'fields'):
+                        for field_ in endpoint.request_body.fields:
+                            if field_.data_type.is_custom_type and field_.data_type.type:
+                                field_.data_type.type = normalize_python_name(field_.data_type.type)
 
         # 解析响应
         if operation.responses:
@@ -112,8 +121,12 @@ class OpenAPIParser(JsonSchemaParser):
             endpoint.response = self.model_registry.get(response_type.type)
             response_import = Import(from_='.models', import_=response_type.type)
             endpoint.imports.add(response_import)
-            # for imp in endpoint.response.imports:
-            #     endpoint.imports.add(imp)
+            # 规范化响应中所有字段的类型名称
+            if endpoint.response and hasattr(endpoint.response, 'fields'):
+                for field_ in endpoint.response.fields:
+                    if field_.data_type.is_custom_type and field_.data_type.type:
+                        field_.data_type.type = normalize_python_name(field_.data_type.type)
+            
         endpoint.imports.add(Import(from_='typing', import_='Optional'))
         return endpoint
 
