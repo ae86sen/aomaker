@@ -181,6 +181,44 @@ class JsonSchemaParser:
         )
 
     def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
+        # 处理schema_type为列表的情况（某些OpenAPI定义可能使用多个类型）
+        if isinstance(schema_type, list):
+            if 'null' in schema_type:
+                # 移除null，设置可选类型
+                non_null_types = [t for t in schema_type if t != 'null']
+                if len(non_null_types) == 1:
+                    # 只有一个非null类型，使用Optional
+                    base_type, base_imports = self._get_type_mapping(non_null_types[0], schema_format)
+                    optional_imports = base_imports | {Import(from_='typing', import_='Optional')}
+                    return f"Optional[{base_type}]", optional_imports
+                else:
+                    # 多个类型，使用Union
+                    types_imports = []
+                    for t in non_null_types:
+                        base, imps = self._get_type_mapping(t, None)
+                        types_imports.append((base, imps))
+                    
+                    type_names = [t[0] for t in types_imports]
+                    union_imports = {Import(from_='typing', import_='Union'), Import(from_='typing', import_='Optional')}
+                    for _, imps in types_imports:
+                        union_imports.update(imps)
+                    
+                    return f"Optional[Union[{', '.join(type_names)}]]", union_imports
+            else:
+                # 没有null，直接使用Union
+                types_imports = []
+                for t in schema_type:
+                    base, imps = self._get_type_mapping(t, None)
+                    types_imports.append((base, imps))
+                
+                type_names = [t[0] for t in types_imports]
+                union_imports = {Import(from_='typing', import_='Union')}
+                for _, imps in types_imports:
+                    union_imports.update(imps)
+                
+                return f"Union[{', '.join(type_names)}]", union_imports
+        
+        # 处理单一类型的情况
         if schema_type == 'string':
             if schema_format == 'date-time':
                 return 'datetime', {Import(from_='datetime', import_='datetime')}
@@ -204,6 +242,35 @@ class JsonSchemaParser:
 
     def _parse_array_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         item_schema = schema_obj.items
+        
+        # 处理items为列表的情况
+        if isinstance(item_schema, list):
+            # 如果是列表，则创建Union类型
+            child_types = []
+            child_imports = set()
+            
+            for i, schema in enumerate(item_schema):
+                if isinstance(schema, JsonSchemaObject):
+                    child_type = self.parse_schema(schema, f"{context}Item{i}")
+                    child_types.append(child_type)
+                    child_imports.update(child_type.imports)
+            
+            # 创建Union类型
+            if len(child_types) == 1:
+                union_hint = child_types[0].type_hint
+                union_imports = child_types[0].imports
+            else:
+                union_hint = f"Union[{', '.join(t.type_hint for t in child_types)}]"
+                union_imports = child_imports | {Import(from_='typing', import_='Union')}
+            
+            return DataType(
+                type=f"List[{union_hint}]",
+                is_list=True,
+                data_types=child_types,
+                imports=union_imports | {Import(from_='typing', import_='List')}
+            )
+        
+        # 处理普通单个item的情况
         item_type = self.parse_schema(item_schema, f"{context}Item")
 
         if item_type.is_list:
@@ -224,6 +291,10 @@ class JsonSchemaParser:
         if "%" in ref_name:
             ref_name = urllib.parse.unquote(ref_name)
 
+        # 确保名称不以下划线开头，修正为驼峰命名风格
+        if ref_name.startswith('_'):
+            ref_name = ref_name[1:]
+            
         normalized_name = self.model_registry._normalize_name(ref_name)
 
         # 检查是否已经在当前递归路径中
@@ -238,6 +309,13 @@ class JsonSchemaParser:
 
         if normalized_name not in self.model_registry.models:
             ref_schema = self.resolver.get_ref_schema(ref)
+            if ref_schema is None:
+                # 如果找不到引用模式，记录日志并返回Any类型
+                print(f"警告: 找不到引用 {ref}")
+                return DataType(
+                    type="Any",
+                    imports={Import(from_='typing', import_='Any')}
+                )
             self.parse_schema(ref_schema, ref_name)
         else:
             model = self.model_registry.get(ref_name)

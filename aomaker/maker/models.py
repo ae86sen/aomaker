@@ -17,6 +17,10 @@ def normalize_python_name(name: str, to_pascal_case: bool = True) -> str:
     Returns:
         规范化后的名称
     """
+    # 如果名称以下划线开头，去掉开头的下划线
+    if name.startswith('_'):
+        name = name[1:]
+        
     # 替换非法字符
     normalized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
     # 确保不以数字开头

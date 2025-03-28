@@ -190,16 +190,39 @@ class OpenAPIParser(JsonSchemaParser):
             content = response.content.get(content_type)
             if not content or not content.schema_:
                 logger.debug(f"响应未定义JSON Schema: {class_name}")
-                return None
+                continue
 
             # 4. 统一解析Schema（自动处理嵌套引用）
             context_name = f"{class_name}Response"
 
-            response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
-            if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-                raise ValueError(f"未注册的自定义类型: {response_type.type}")
+            if context_name.startswith('_'):
+                context_name = context_name[1:]
+                logger.debug(f"响应名称已规范化: {context_name}")
 
-            return response_type
+            try:
+                response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
+                
+                if response_type.is_custom_type and response_type.type not in self.model_registry.models:
+                    normalized_name = self.model_registry._normalize_name(response_type.type)
+                    if normalized_name in self.model_registry.models:
+                        response_type.type = normalized_name
+                    else:
+                        logger.error(f"未注册的自定义类型: {response_type.type}, 规范化名称: {normalized_name}")
+                        raise ValueError(f"未注册的自定义类型: {response_type.type}")
+
+                return response_type
+            except Exception as e:
+                logger.error(f"解析响应失败: {str(e)}")
+                return DataType(
+                    type="Any",
+                    imports={Import(from_='typing', import_='Any')}
+                )
+                
+        logger.debug(f"未找到支持的内容类型: {class_name}")
+        return DataType(
+            type="Any",
+            imports={Import(from_='typing', import_='Any')}
+        )
 
     def _parse_content_schema(
             self,
