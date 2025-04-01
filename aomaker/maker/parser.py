@@ -198,6 +198,11 @@ class OpenAPIParser(JsonSchemaParser):
         if not success_code:
             logger.debug(f"未找到成功响应状态码: {class_name}")
             return None
+        
+        # 确保类名有效
+        if not class_name:
+            class_name = "DefaultEndpoint"
+        
         response = responses[success_code]
         for content_type in SUPPORTED_CONTENT_TYPES:
             content = response.content.get(content_type)
@@ -207,11 +212,10 @@ class OpenAPIParser(JsonSchemaParser):
 
             # 4. 统一解析Schema（自动处理嵌套引用）
             context_name = f"{class_name}Response"
-
-            if context_name.startswith('_'):
-                context_name = context_name[1:]
-                logger.debug(f"响应名称已规范化: {context_name}")
-
+            
+            # 确保响应类名有效
+            context_name = normalize_python_name(context_name)
+            
             try:
                 response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
                 

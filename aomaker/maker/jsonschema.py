@@ -21,6 +21,8 @@ class ReferenceResolver:
         self.schemas = schemas
         self.schema_objects: Dict[str, JsonSchemaObject] = self._preprocess_schemas()
         self.registry: Dict[str, DataModel] = {}
+        # 添加一个映射表，存储原始名称到规范化名称的映射
+        self.name_mapping: Dict[str, str] = {}
 
     def _preprocess_schemas(self) -> Dict[str, JsonSchemaObject]:
         return {
@@ -35,20 +37,36 @@ class ReferenceResolver:
             import urllib.parse
             decoded_name = urllib.parse.unquote(name)
             return self.schema_objects.get(decoded_name)
-        return self.schema_objects.get(name)
+            
+        # 尝试通过原始名称获取
+        schema = self.schema_objects.get(name)
+        if schema:
+            return schema
+            
+        # 尝试通过规范化后的名称查找
+        normalized_name = normalize_python_name(name)
+        if normalized_name in self.name_mapping:
+            return self.schema_objects.get(self.name_mapping[normalized_name])
+            
+        return None
 
 
 class ModelRegistry:
     def __init__(self):
         self.models: Dict[str, DataModel] = {}  # 已生成的模型
         self.placeholders: Set[str] = set()
+        # 添加原始名称到规范化名称的映射
+        self.original_to_normalized: Dict[str, str] = {}
 
     def _normalize_name(self, name: str) -> str:
         """规范化模型名称"""
-        return normalize_python_name(name)
+        normalized = normalize_python_name(name)
+        self.original_to_normalized[name] = normalized
+        return normalized
 
     def add_placeholder(self, name: str):
-        self.placeholders.add(name)
+        normalized = self._normalize_name(name)
+        self.placeholders.add(normalized)
 
     def register(self, model: DataModel):
         normalized_name = self._normalize_name(model.name)
@@ -113,11 +131,51 @@ class JsonSchemaParser:
         finally:
             self.current_recursion_path.pop()
 
+    def _parse_reference(self, ref: str) -> DataType:
+        """解析引用，包括泛型引用"""
+        schema_name = ref.split("/")[-1]
+        
+        # 获取规范化后的名称
+        normalized_name = normalize_python_name(schema_name)
+        
+        # 更新引用解析器中的名称映射
+        self.resolver.name_mapping[normalized_name] = schema_name
+        
+        # 获取schema
+        schema = self.resolver.get_ref_schema(schema_name)
+        if not schema:
+            # 处理引用缺失情况
+            return DataType(
+                type=normalized_name,
+                is_custom_type=True,
+                is_forward_ref=True,
+                imports={Import(from_='.models', import_=normalized_name)}
+            )
+        
+        # 确保引用类型已经注册
+        if normalized_name not in self.model_registry.models and normalized_name not in self.model_registry.placeholders:
+            # 添加占位符，避免循环引用
+            self.model_registry.add_placeholder(normalized_name)
+            # 递归解析schema
+            self.parse_schema(schema, normalized_name)
+        
+        return DataType(
+            type=normalized_name,
+            reference=Reference(ref=ref),
+            is_custom_type=True,
+            imports={Import(from_='.models', import_=normalized_name)}
+        )
 
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
-        model_name = context
-
+        # 确保模型名称有效
+        model_name = context if context else "DefaultModel"
+        model_name = normalize_python_name(model_name)
+        
+        # 再次确保模型名称非空
+        if not model_name:
+            model_name = "DefaultModel"
+        
         fields = []
         required_fields = schema_obj.required or []
         is_add_optional_import = False
@@ -294,54 +352,6 @@ class JsonSchemaParser:
             data_types=[item_type],
             imports=item_type.imports | {Import(from_='typing', import_='List')}
         )
-
-    def _parse_reference(self, ref: str) -> DataType:
-        """处理 $ref 引用，返回已注册模型的DataType"""
-        ref_name = ref.split("/")[-1]
-        import urllib.parse
-
-        if "%" in ref_name:
-            ref_name = urllib.parse.unquote(ref_name)
-
-        # 确保名称不以下划线开头，修正为驼峰命名风格
-        if ref_name.startswith('_'):
-            ref_name = ref_name[1:]
-            
-        normalized_name = self.model_registry._normalize_name(ref_name)
-
-        # 检查是否已经在当前递归路径中
-        if ref_name in self.current_recursion_path:
-            # 检测到循环引用，返回前向引用
-            return DataType(
-                type=ref_name,
-                is_custom_type=True,
-                is_forward_ref=True,
-                imports={Import(from_='.models', import_=ref_name)}
-            )
-
-        if normalized_name not in self.model_registry.models:
-            ref_schema = self.resolver.get_ref_schema(ref)
-            if ref_schema is None:
-                # 如果找不到引用模式，记录日志并返回Any类型
-                print(f"警告: 找不到引用 {ref}")
-                return DataType(
-                    type="Any",
-                    imports={Import(from_='typing', import_='Any')}
-                )
-            self.parse_schema(ref_schema, ref_name)
-        else:
-            model = self.model_registry.get(ref_name)
-            if model:
-                self._update_model_tags_recursive(model)
-
-        datatype = DataType(
-            type=normalized_name,
-            is_custom_type=True,
-            imports={Import(from_='.models', import_=normalized_name)},
-            reference=Reference(ref=ref)
-        )
-
-        return datatype
 
     def _parse_union_type(
             self,

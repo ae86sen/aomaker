@@ -17,32 +17,47 @@ def normalize_python_name(name: str, to_pascal_case: bool = True) -> str:
     Returns:
         规范化后的名称
     """
-    # 如果名称以下划线开头，去掉开头的下划线
-    if name.startswith('_'):
-        name = name[1:]
+    # 如果名称为空，返回默认值
+    if not name:
+        return "DefaultModel"
+    
+    # 处理泛型表示法，例如 "响应结果«boolean»"
+    generic_match = re.search(r'^(.*?)«(.+?)»$', name)
+    if generic_match:
+        outer_type = generic_match.group(1)
+        inner_type = generic_match.group(2)
         
-    # 替换非法字符
-    normalized = re.sub(r'[^a-zA-Z0-9_]', '_', name)
-    # 确保不以数字开头
-    if normalized and normalized[0].isdigit():
-        normalized = '_' + normalized
+        # 递归处理内部类型（处理嵌套泛型情况）
+        normalized_inner = normalize_python_name(inner_type)
         
+        # 组合成最终类名 (例如: 响应结果Of_Boolean)
+        name = f"{outer_type}Of{normalized_inner}"
+    
+    # 替换非法字符，但保留中文字符
+    normalized = re.sub(r'[^\w\u4e00-\u9fff]', '_', name)
+    
+    # 确保不以数字或下划线开头
+    if normalized and (normalized[0].isdigit() or normalized[0] == '_'):
+        normalized = 'X' + normalized
+    
     # 转换为大驼峰形式
-    if to_pascal_case:
-        # 处理下划线分隔的情况
-        if '_' in normalized:
-            # 将连续的下划线替换为单个下划线
-            normalized = re.sub(r'_+', '_', normalized)
-            # 分割字符串，保留每个部分原有的大小写形式，但确保首字母大写
-            parts = normalized.split('_')
-            normalized = ''.join(
-                (part[0].upper() + part[1:]) if part else ''
-                for part in parts
-            )
-        else:
-            # 处理已有驼峰形式的情况，确保首字母大写
-            normalized = normalized[0].upper() + normalized[1:] if normalized else ''
-        
+    if to_pascal_case and '_' in normalized:
+        # 将连续的下划线替换为单个下划线
+        normalized = re.sub(r'_+', '_', normalized)
+        # 分割字符串，保留每个部分原有的大小写形式，但确保首字母大写
+        parts = normalized.split('_')
+        normalized = ''.join(
+            (part[0].upper() + part[1:]) if part else ''
+            for part in parts
+        )
+    elif to_pascal_case and normalized:
+        # 处理已有驼峰形式的情况，确保首字母大写
+        normalized = normalized[0].upper() + normalized[1:] if normalized else ''
+    
+    # 确保结果不为空
+    if not normalized:
+        return "DefaultModel"
+    
     return normalized
 
 
