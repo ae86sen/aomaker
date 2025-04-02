@@ -391,11 +391,31 @@ class TestJsonSchemaParser:
         assert data_type.type == "date"
         assert any(imp.import_ == "date" and imp.from_ == "datetime" for imp in data_type.imports)
         
+        # 测试时间格式
+        schema_obj = JsonSchemaObject.model_validate({"type": "string", "format": "time"})
+        data_type = parser.parse_schema(schema_obj, "TestTime")
+        assert data_type.type == "time"
+        assert any(imp.import_ == "time" and imp.from_ == "datetime" for imp in data_type.imports)
+        
         # 测试UUID格式
         schema_obj = JsonSchemaObject.model_validate({"type": "string", "format": "uuid"})
         data_type = parser.parse_schema(schema_obj, "TestUUID")
         assert data_type.type == "UUID"
         assert any(imp.import_ == "UUID" and imp.from_ == "uuid" for imp in data_type.imports)
+        
+        # 测试网络相关格式 - 它们都应该映射为字符串，但我们可以验证它们不添加特殊导入
+        for network_format in ["email", "uri", "uri-reference", "ipv4", "ipv6"]:
+            schema_obj = JsonSchemaObject.model_validate({"type": "string", "format": network_format})
+            data_type = parser.parse_schema(schema_obj, f"Test{network_format.replace('-', '_').title()}")
+            assert data_type.type == "str", f"Format {network_format} should map to str"
+            assert not any(imp.import_ == "datetime" for imp in data_type.imports)
+            assert not any(imp.import_ == "uuid" for imp in data_type.imports)
+        
+        # 测试二进制数据格式
+        for binary_format in ["byte", "binary"]:
+            schema_obj = JsonSchemaObject.model_validate({"type": "string", "format": binary_format})
+            data_type = parser.parse_schema(schema_obj, f"Test{binary_format.title()}")
+            assert data_type.type == "bytes", f"Format {binary_format} should map to bytes"
         
         # 测试未知格式
         schema_obj = JsonSchemaObject.model_validate({"type": "string", "format": "unknown-format"})

@@ -286,12 +286,33 @@ class JsonSchemaParser:
         
         # 处理单一类型的情况
         if schema_type == 'string':
+            # 日期和时间类型
             if schema_format == 'date-time':
                 return 'datetime', {Import(from_='datetime', import_='datetime')}
             elif schema_format == 'date':
                 return 'date', {Import(from_='datetime', import_='date')}
+            elif schema_format == 'time':
+                return 'time', {Import(from_='datetime', import_='time')}
+            
+            # ID和标识符
             elif schema_format == 'uuid':
                 return 'UUID', {Import(from_='uuid', import_='UUID')}
+            
+            # 网络类型
+            elif schema_format == 'email':
+                return 'str', set()  # Python 中电子邮件仍然是字符串，但可以添加元数据
+            elif schema_format == 'uri' or schema_format == 'uri-reference':
+                return 'str', set()
+            elif schema_format == 'ipv4' or schema_format == 'ipv6':
+                return 'str', set()  # 或者可以考虑使用 ipaddress 模块
+            
+            # 二进制数据
+            elif schema_format == 'byte':  # base64 编码的字符串
+                return 'bytes', set()
+            elif schema_format == 'binary':  # 二进制数据
+                return 'bytes', set()
+            
+            # 其他格式如 hostname, password 等依然映射为 str
 
         return TypeMap.get(schema_type, ('Any', {Import(from_='typing', import_='Any')}))
 
