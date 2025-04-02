@@ -118,6 +118,10 @@ class JsonSchemaParser:
             if schema_obj.allOf:
                 return self._parse_all_of(schema_obj.allOf, context)
 
+            # 检查是否有 const 值 (OpenAPI 3.1)
+            if schema_obj.const is not None:
+                return self._parse_const(schema_obj, context)
+
             if schema_obj.enum:
                 return self._parse_enum(schema_obj, context)
 
@@ -477,6 +481,31 @@ class JsonSchemaParser:
             if field_.name not in seen:
                 seen[field_.name] = field_
         return list(reversed(seen.values()))
+
+    def _parse_const(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
+        """处理 OpenAPI 3.1 中的 const 关键字，将其视为单值 Literal 类型"""
+        base_type, imports = self._get_type_mapping(schema_obj.type, schema_obj.format)
+        const_value = schema_obj.const
+        
+        # 使用 Literal 类型，将 const 值作为唯一可能的值
+        imports.add(Import(from_='typing', import_='Literal'))
+        
+        # 如果值是字符串、整数或浮点数等简单类型，直接使用
+        if isinstance(const_value, (str, int, float, bool)):
+            type_hint = f"Literal[{repr(const_value)}]"
+            return DataType(
+                type=type_hint,
+                imports=imports,
+                is_optional=schema_obj.nullable
+            )
+        else:
+            # 对于复杂类型（如对象、数组等），回退到基本类型
+            # 注意：严格来说，这不符合 const 的语义，但这里是一个合理的妥协
+            return DataType(
+                type=base_type,
+                imports=imports,
+                is_optional=schema_obj.nullable
+            )
 
     def _parse_enum(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         base_type = self._parse_basic_datatype(schema_obj)

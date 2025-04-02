@@ -1225,6 +1225,66 @@ class TestJsonSchemaParser:
             # 检查是否存在NORMAL或其大写形式
             assert any("NORMAL" in name.upper() for name in enum_names)
     
+    def test_const_parsing(self):
+        """测试 OpenAPI 3.1 const 关键字解析"""
+        # 准备测试数据
+        schemas = {}
+        parser = JsonSchemaParser(schemas)
+        
+        # 测试字符串类型的 const
+        string_schema_obj = JsonSchemaObject.model_validate({
+            "type": "string",
+            "const": "admin",
+            "description": "固定值为admin的字段"
+        })
+        
+        string_data_type = parser.parse_schema(string_schema_obj, "AdminRole")
+        
+        # 验证生成的类型是 Literal
+        assert "Literal" in string_data_type.type
+        assert "'admin'" in string_data_type.type
+        
+        # 验证导入了 Literal
+        assert any(imp.import_ == "Literal" for imp in string_data_type.imports)
+        
+        # 测试数字类型的 const
+        number_schema_obj = JsonSchemaObject.model_validate({
+            "type": "integer",
+            "const": 42,
+            "description": "固定值为42的字段"
+        })
+        
+        number_data_type = parser.parse_schema(number_schema_obj, "AnswerToEverything")
+        
+        # 验证生成的类型是 Literal[42]
+        assert "Literal" in number_data_type.type
+        assert "42" in number_data_type.type
+        
+        # 测试布尔类型的 const
+        bool_schema_obj = JsonSchemaObject.model_validate({
+            "type": "boolean",
+            "const": True,
+            "description": "固定值为True的字段"
+        })
+        
+        bool_data_type = parser.parse_schema(bool_schema_obj, "AlwaysTrue")
+        
+        # 验证生成的类型是 Literal[True]
+        assert "Literal" in bool_data_type.type
+        assert "True" in bool_data_type.type
+        
+        # 测试复杂类型的 const (应该回退到基本类型)
+        complex_schema_obj = JsonSchemaObject.model_validate({
+            "type": "object",
+            "const": {"key": "value"},
+            "description": "固定对象值"
+        })
+        
+        complex_data_type = parser.parse_schema(complex_schema_obj, "FixedObject")
+        
+        # 复杂类型应该回退到基本类型，而不是 Literal
+        assert complex_data_type.type == "Dict"
+    
     def test_special_character_handling(self):
         """测试特殊字符处理"""
         # 准备测试数据

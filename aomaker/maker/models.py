@@ -297,6 +297,7 @@ class JsonSchemaObject(BaseModel):
     properties: Optional[Dict[str, 'JsonSchemaObject']] = None
     required: List[str] = field(default_factory=list)
     enum: List[Any] = field(default_factory=list)
+    const: Any = None  # 添加 OpenAPI 3.1 的 const 字段
     ref: Optional[str] = Field(None, alias='$ref')  # 解析 $ref 时使用
     nullable: bool = False
     title: str = None
