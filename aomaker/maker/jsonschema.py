@@ -195,13 +195,46 @@ class JsonSchemaParser:
                 prop_name = f"{prop_name}_"
             else:
                 alias = None
+                
+            # 从 schema 中提取约束条件
+            field_constraints = {}
+            
+            # 提取字符串类约束
+            if prop_schema.min_length is not None:
+                field_constraints['min_length'] = prop_schema.min_length
+            if prop_schema.max_length is not None:
+                field_constraints['max_length'] = prop_schema.max_length
+            if prop_schema.pattern is not None:
+                field_constraints['pattern'] = prop_schema.pattern
+            
+            # 提取数值类约束
+            if prop_schema.minimum is not None:
+                field_constraints['minimum'] = prop_schema.minimum
+            if prop_schema.maximum is not None:
+                field_constraints['maximum'] = prop_schema.maximum
+            if prop_schema.exclusive_minimum is not None:
+                field_constraints['exclusive_minimum'] = prop_schema.exclusive_minimum
+            if prop_schema.exclusive_maximum is not None:
+                field_constraints['exclusive_maximum'] = prop_schema.exclusive_maximum
+            if prop_schema.multiple_of is not None:
+                field_constraints['multiple_of'] = prop_schema.multiple_of
+            
+            # 提取数组类约束
+            if prop_schema.min_items is not None:
+                field_constraints['min_items'] = prop_schema.min_items
+            if prop_schema.max_items is not None:
+                field_constraints['max_items'] = prop_schema.max_items
+            if prop_schema.unique_items is not None:
+                field_constraints['unique_items'] = prop_schema.unique_items
+                
             field = DataModelField(
                 name=prop_name,
                 data_type=prop_type,
                 required=prop_name in required_fields,
                 default=prop_schema.default,
                 description=prop_schema.description,
-                alias=alias
+                alias=alias,
+                **field_constraints
             )
             fields.append(field)
             if field.required:

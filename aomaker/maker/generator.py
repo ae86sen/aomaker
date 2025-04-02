@@ -162,25 +162,76 @@ class TemplateRenderUtils:
     @classmethod
     def render_field_metadata(cls, field: DataModelField) -> str:
         """生成带有多行支持的元数据表达式"""
-        if not field.description:
-            return ""
-        # 清理两端的空白字符
-        desc = field.description.strip()
-        # 转义双引号（仅在需要时）
-        if '"' in desc:
-            desc = desc.replace('"', '\\"')
-        # 判断是否需要多行模式
-        if "\n" in desc:
-            # 使用三双引号包裹
-            formatted_desc = f'"""\\\n{desc}\n"""'
-        else:
-            formatted_desc = f'"{desc}"'
-
+        metadata_parts = []
+        jsonschema_parts = []
+        
+        # 处理描述
+        if field.description:
+            # 清理两端的空白字符
+            desc = field.description.strip()
+            # 转义双引号（仅在需要时）
+            if '"' in desc:
+                desc = desc.replace('"', '\\"')
+            # 判断是否需要多行模式
+            if "\n" in desc:
+                # 使用三双引号包裹
+                formatted_desc = f'"""\\\n{desc}\n"""'
+            else:
+                formatted_desc = f'"{desc}"'
+            
+            metadata_parts.append(f'"description": {formatted_desc}')
+        
+        # 处理jsonschema约束
+        
+        # 类型和格式（特殊处理UUID）
+        type_entry = None
         if field.data_type.type == "UUID":
             type_ = "string" if field.required else ["string", "null"]
-            return f'metadata={{"description": {formatted_desc}, "jsonschema": {{"type": {type_}, "format": "uuid"}}}}'
-
-        return f'metadata={{"description": {formatted_desc}}}'
+            jsonschema_parts.append(f'"type": {type_}')
+            jsonschema_parts.append('"format": "uuid"')
+        
+        # 字符串类约束
+        if field.min_length is not None:
+            jsonschema_parts.append(f'"minLength": {field.min_length}')
+        if field.max_length is not None:
+            jsonschema_parts.append(f'"maxLength": {field.max_length}')
+        if field.pattern is not None:
+            # 转义模式中的双引号
+            pattern = field.pattern.replace('"', '\\"')
+            jsonschema_parts.append(f'"pattern": "{pattern}"')
+        
+        # 数值类约束
+        if field.minimum is not None:
+            jsonschema_parts.append(f'"minimum": {field.minimum}')
+        if field.maximum is not None:
+            jsonschema_parts.append(f'"maximum": {field.maximum}')
+        if field.exclusive_minimum is not None and field.exclusive_minimum:
+            jsonschema_parts.append(f'"exclusiveMinimum": true')
+        if field.exclusive_maximum is not None and field.exclusive_maximum:
+            jsonschema_parts.append(f'"exclusiveMaximum": true')
+        if field.multiple_of is not None:
+            jsonschema_parts.append(f'"multipleOf": {field.multiple_of}')
+        
+        # 数组类约束
+        if field.min_items is not None:
+            jsonschema_parts.append(f'"minItems": {field.min_items}')
+        if field.max_items is not None:
+            jsonschema_parts.append(f'"maxItems": {field.max_items}')
+        if field.unique_items is not None and field.unique_items:
+            jsonschema_parts.append(f'"uniqueItems": true')
+        
+        # 只有在有约束时才添加jsonschema部分
+        if jsonschema_parts:
+            jsonschema_str = ", ".join(jsonschema_parts)
+            metadata_parts.append(f'"jsonschema": {{ {jsonschema_str} }}')
+        
+        # 如果没有任何元数据，返回空字符串
+        if not metadata_parts:
+            return ""
+        
+        # 否则，返回完整的元数据表达式
+        metadata_str = ", ".join(metadata_parts)
+        return f'metadata={{ {metadata_str} }}'
 
     @classmethod
     def get_attrs_field_parameters(cls, field: DataModelField) -> str:

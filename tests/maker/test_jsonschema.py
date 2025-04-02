@@ -1531,6 +1531,89 @@ class TestJsonSchemaParser:
             # 如果测试不适用于当前实现，跳过这个测试
             pytest.skip(f"Skipping schema reference test due to implementation: {str(e)}")
 
+    def test_constraints_handling(self):
+        """测试约束条件处理"""
+        # 准备测试数据
+        schemas = {}
+        parser = JsonSchemaParser(schemas)
+        
+        # 测试字符串字段约束
+        schema_obj = JsonSchemaObject.model_validate({
+            "type": "object",
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 50,
+                    "pattern": "^[a-zA-Z0-9_]+$",
+                    "description": "用户名"
+                },
+                "age": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 150,
+                    "description": "年龄"
+                },
+                "score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "exclusiveMinimum": True,
+                    "multipleOf": 0.5,
+                    "description": "分数"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "uniqueItems": True,
+                    "description": "标签"
+                }
+            }
+        })
+        
+        # 检查schema中的exclusiveMinimum是否正确解析
+        score_schema = schema_obj.properties["score"]
+        print(f"score_schema.exclusive_minimum = {score_schema.exclusive_minimum}")
+        print(f"score_schema.multiple_of = {score_schema.multiple_of}")
+        
+        # 解析Schema
+        data_type = parser.parse_schema(schema_obj, "UserWithConstraints")
+        
+        # 验证生成的模型
+        model = parser.model_registry.get("UserWithConstraints")
+        assert model is not None
+        
+        # 验证约束条件是否被正确提取和存储
+        # 字符串约束
+        username_field = next(f for f in model.fields if f.name == "username")
+        assert username_field is not None
+        assert username_field.min_length == 3
+        assert username_field.max_length == 50
+        assert username_field.pattern == "^[a-zA-Z0-9_]+$"
+        
+        # 数值约束
+        age_field = next(f for f in model.fields if f.name == "age")
+        assert age_field is not None
+        assert age_field.minimum == 0
+        assert age_field.maximum == 150
+        
+        # 高级数值约束
+        score_field = next(f for f in model.fields if f.name == "score")
+        assert score_field is not None
+        assert score_field.minimum == 0
+        assert score_field.maximum == 100
+        assert score_field.exclusive_minimum == True
+        assert score_field.multiple_of == 0.5
+        
+        # 数组约束
+        tags_field = next(f for f in model.fields if f.name == "tags")
+        assert tags_field is not None
+        assert tags_field.min_items == 1
+        assert tags_field.max_items == 10
+        assert tags_field.unique_items == True
+
 class TestUtilityFunctions:
     """测试工具函数"""
     

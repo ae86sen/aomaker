@@ -153,6 +153,18 @@ class DataModelField(BaseModel):
     default: Optional[Any] = None
     description: Optional[str] = None
     alias: Optional[str] = None
+    
+    min_length: Optional[int] = None
+    max_length: Optional[int] = None
+    minimum: Optional[Union[int, float]] = None
+    maximum: Optional[Union[int, float]] = None
+    pattern: Optional[str] = None
+    exclusive_minimum: Union[bool, int, float, None] = None
+    exclusive_maximum: Union[bool, int, float, None] = None
+    multiple_of: Optional[Union[int, float]] = None
+    min_items: Optional[int] = None
+    max_items: Optional[int] = None
+    unique_items: Optional[bool] = None
 
 
 DataType.model_rebuild()
@@ -302,10 +314,22 @@ class JsonSchemaObject(BaseModel):
     nullable: bool = False
     title: str = None
 
+    # 数值类约束
     minimum: Optional[Union[int, float]] = None
     maximum: Optional[Union[int, float]] = None
+    exclusive_minimum: Union[bool, int, float, None] = Field(None, alias='exclusiveMinimum')  # 添加别名
+    exclusive_maximum: Union[bool, int, float, None] = Field(None, alias='exclusiveMaximum')  # 添加别名
+    multiple_of: Optional[Union[int, float]] = Field(None, alias='multipleOf')  # 添加别名
+    
+    # 字符串类约束
     min_length: Optional[int] = Field(None, alias='minLength')
     max_length: Optional[int] = Field(None, alias='maxLength')
+    pattern: Optional[str] = None
+    
+    # 数组类约束
+    min_items: Optional[int] = Field(None, alias='minItems')
+    max_items: Optional[int] = Field(None, alias='maxItems')
+    unique_items: Optional[bool] = Field(None, alias='uniqueItems')
 
     oneOf: List["JsonSchemaObject"] = field(default_factory=list)
     anyOf: List["JsonSchemaObject"] = field(default_factory=list)
