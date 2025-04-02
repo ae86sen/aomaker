@@ -93,31 +93,31 @@ class DataType(BaseModel):
     imports: Set[Import] = Field(default_factory=set)
     fields: List["DataModelField"] = Field(default_factory=list)
 
-    @field_validator('type')
-    @classmethod
-    def normalize_type_name(cls, type_name: str, info) -> str:
-        if getattr(info.data, 'is_custom_type', False):
-            return normalize_python_name(type_name)
-        return type_name
+    # @field_validator('type')
+    # @classmethod
+    # def normalize_type_name(cls, type_name: str, info) -> str:
+    #     if getattr(info.data, 'is_custom_type', False):
+    #         return normalize_python_name(type_name)
+    #     return type_name
 
-    @field_validator('imports')
-    @classmethod
-    def normalize_import_names(cls, imports: Set[Import], info) -> Set[Import]:
-        # 只有自定义类型需要规范化导入名称
-        if getattr(info.data, 'is_custom_type', False):
-            new_imports = set()
-            for imp in imports:
-                if imp.from_ == '.models':
-                    # 规范化导入的模型名称
-                    new_imports.add(Import(
-                        from_=imp.from_,
-                        import_=normalize_python_name(imp.import_),
-                        alias=imp.alias
-                    ))
-                else:
-                    new_imports.add(imp)
-            return new_imports
-        return imports
+    # @field_validator('imports')
+    # @classmethod
+    # def normalize_import_names(cls, imports: Set[Import], info) -> Set[Import]:
+    #     # 只有自定义类型需要规范化导入名称
+    #     if getattr(info.data, 'is_custom_type', False):
+    #         new_imports = set()
+    #         for imp in imports:
+    #             if imp.from_ == '.models':
+    #                 # 规范化导入的模型名称
+    #                 new_imports.add(Import(
+    #                     from_=imp.from_,
+    #                     import_=normalize_python_name(imp.import_),
+    #                     alias=imp.alias
+    #                 ))
+    #             else:
+    #                 new_imports.add(imp)
+    #         return new_imports
+    #     return imports
 
     @property
     def type_hint(self) -> str:
@@ -182,13 +182,13 @@ class DataModel(BaseModel):
     description: Optional[str] = None
     base_class: str = "attrs.define"
     imports: Set[Import] = Field(default_factory=set)
-    required: List[DataModelField] = Field(default_factory=set)
+    required: List[DataModelField] = Field(default_factory=list)
     is_forward_ref: bool = False
 
-    @field_validator('name')
-    @classmethod
-    def normalize_model_name(cls, name: str) -> str:
-        return normalize_python_name(name)
+    # @field_validator('name')
+    # @classmethod
+    # def normalize_model_name(cls, name: str) -> str:
+    #     return normalize_python_name(name)
 
 
 class ParameterLocation(str, Enum):
