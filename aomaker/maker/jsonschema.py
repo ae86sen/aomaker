@@ -1,10 +1,12 @@
 from __future__ import annotations
 import re
+import urllib.parse
 import keyword
 
 from typing import Optional, List, Dict, Set, Tuple, Literal, Any
 
 from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference
+from aomaker.log import logger
 
 TypeMap = {
     'string': ('str', set()),
@@ -29,13 +31,33 @@ class ReferenceResolver:
         }
 
     def get_ref_schema(self, name: str) -> Optional[JsonSchemaObject]:
+        logger.debug(f"尝试获取引用schema: {name}")
+
         if name.startswith("#/components/schemas/"):
+            original_name = name
             name = name.split("/")[-1]
+            logger.debug(f"提取schema名称: {original_name} -> {name}")
+
         if "%" in name:
-            import urllib.parse
+            original_name = name
             decoded_name = urllib.parse.unquote(name)
-            return self.schema_objects.get(decoded_name)
-        return self.schema_objects.get(name)
+            logger.debug(f"URL解码schema名称: {original_name} -> {decoded_name}")
+            schema = self.schema_objects.get(decoded_name)
+        else:
+            schema = self.schema_objects.get(name)
+
+        if schema is None:
+            # 尝试使用规范化名称查找
+            normalized_name = normalize_class_name(name)
+            logger.debug(f"原始名称未找到schema，尝试使用规范化名称: {name} -> {normalized_name}")
+            schema = self.schema_objects.get(normalized_name)
+
+        if schema is None:
+            logger.warning(f"无法找到schema: {name}")
+        else:
+            logger.debug(f"成功找到schema: {name}")
+
+        return schema
 
 
 class ModelRegistry:
@@ -53,7 +75,7 @@ class ModelRegistry:
 
     def get(self, name: str) -> DataModel:
         if name in self.placeholders:
-            raise
+            raise ValueError(f"Model {name} is still a placeholder")
             # raise ModelNotGeneratedError(f"Model {name} is still a placeholder")
         return self.models.get(name)
 
@@ -95,6 +117,10 @@ class JsonSchemaParser:
             if schema_obj.allOf:
                 return self._parse_all_of(schema_obj.allOf, context)
 
+            # 检查是否有 const 值 (OpenAPI 3.1)
+            if schema_obj.const is not None:
+                return self._parse_const(schema_obj, context)
+
             if schema_obj.enum:
                 return self._parse_enum(schema_obj, context)
 
@@ -107,7 +133,6 @@ class JsonSchemaParser:
             return self._parse_basic_datatype(schema_obj)
         finally:
             self.current_recursion_path.pop()
-
 
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
@@ -123,13 +148,46 @@ class JsonSchemaParser:
                 prop_name = f"{prop_name}_"
             else:
                 alias = None
+
+            # 从 schema 中提取约束条件
+            field_constraints = {}
+
+            # 提取字符串类约束
+            if prop_schema.min_length is not None:
+                field_constraints['min_length'] = prop_schema.min_length
+            if prop_schema.max_length is not None:
+                field_constraints['max_length'] = prop_schema.max_length
+            if prop_schema.pattern is not None:
+                field_constraints['pattern'] = prop_schema.pattern
+
+            # 提取数值类约束
+            if prop_schema.minimum is not None:
+                field_constraints['minimum'] = prop_schema.minimum
+            if prop_schema.maximum is not None:
+                field_constraints['maximum'] = prop_schema.maximum
+            if prop_schema.exclusive_minimum is not None:
+                field_constraints['exclusive_minimum'] = prop_schema.exclusive_minimum
+            if prop_schema.exclusive_maximum is not None:
+                field_constraints['exclusive_maximum'] = prop_schema.exclusive_maximum
+            if prop_schema.multiple_of is not None:
+                field_constraints['multiple_of'] = prop_schema.multiple_of
+
+            # 提取数组类约束
+            if prop_schema.min_items is not None:
+                field_constraints['min_items'] = prop_schema.min_items
+            if prop_schema.max_items is not None:
+                field_constraints['max_items'] = prop_schema.max_items
+            if prop_schema.unique_items is not None:
+                field_constraints['unique_items'] = prop_schema.unique_items
+
             field = DataModelField(
                 name=prop_name,
                 data_type=prop_type,
                 required=prop_name in required_fields,
                 default=prop_schema.default,
                 description=prop_schema.description,
-                alias=alias
+                alias=alias,
+                **field_constraints
             )
             fields.append(field)
             if field.required:
@@ -174,16 +232,6 @@ class JsonSchemaParser:
             imports=imports
         )
 
-    def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
-        if schema_type == 'string':
-            if schema_format == 'date-time':
-                return 'datetime', {Import(from_='datetime', import_='datetime')}
-            elif schema_format == 'date':
-                return 'date', {Import(from_='datetime', import_='date')}
-            elif schema_format == 'uuid':
-                return 'UUID', {Import(from_='uuid', import_='UUID')}
-
-        return TypeMap.get(schema_type, ('Any', {Import(from_='typing', import_='Any')}))
 
     def _is_basic_type(self, schema_obj: JsonSchemaObject) -> bool:
         return (
@@ -212,34 +260,59 @@ class JsonSchemaParser:
 
     def _parse_reference(self, ref: str) -> DataType:
         """处理 $ref 引用，返回已注册模型的DataType"""
+        logger.debug(f"开始处理引用: {ref}")
+
         ref_name = ref.split("/")[-1]
         import urllib.parse
 
         if "%" in ref_name:
+            old_ref_name = ref_name
             ref_name = urllib.parse.unquote(ref_name)
+            logger.debug(f"URL解码引用名: {old_ref_name} -> {ref_name}")
+
+        # 规范化类名
+        normalized_name = normalize_class_name(ref_name)
+        logger.debug(f"引用名规范化: {ref_name} -> {normalized_name}")
+
+        # 创建原始名称到规范化名称的映射
+        if not hasattr(self, '_ref_name_mapping'):
+            self._ref_name_mapping = {}
+
+        self._ref_name_mapping[ref_name] = normalized_name
 
         # 检查是否已经在当前递归路径中
-        if ref_name in self.current_recursion_path:
+        if normalized_name in self.current_recursion_path:
+            logger.debug(f"检测到循环引用: {normalized_name}, 路径: {self.current_recursion_path}")
             # 检测到循环引用，返回前向引用
             return DataType(
-                type=ref_name,
+                type=normalized_name,
                 is_custom_type=True,
                 is_forward_ref=True,
-                imports={Import(from_='.models', import_=ref_name)}
+                imports={Import(from_='.models', import_=normalized_name)}
             )
 
-        if ref_name not in self.model_registry.models:
+        # 使用规范化名称检查模型注册表
+        if normalized_name not in self.model_registry.models:
+            logger.debug(f"模型 {normalized_name} 未注册，开始解析原始schema")
+            # 获取原始schema并使用规范化名称解析
             ref_schema = self.resolver.get_ref_schema(ref)
-            self.parse_schema(ref_schema, ref_name)
+            if ref_schema is None:
+                logger.warning(f"无法找到引用的schema: {ref}")
+            else:
+                logger.debug(f"找到引用schema，开始解析: {ref}")
+            self.parse_schema(ref_schema, normalized_name)
         else:
-            model = self.model_registry.get(ref_name)
+            logger.debug(f"模型 {normalized_name} 已注册，更新标签")
+            model = self.model_registry.get(normalized_name)
             if model:
                 self._update_model_tags_recursive(model)
 
+        # 返回使用规范化名称的DataType
+        logger.debug(f"引用处理完成，返回类型: {normalized_name}")
         datatype = DataType(
-            type=ref_name,
+            type=normalized_name,
             is_custom_type=True,
-            imports={Import(from_='.models', import_=ref_name)},
+            imports={Import(from_='.models', import_=normalized_name)},
             reference=Reference(ref=ref)
         )
 
@@ -370,11 +443,36 @@ class JsonSchemaParser:
                 seen[field_.name] = field_
         return list(reversed(seen.values()))
 
+    def _parse_const(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
+        """处理 OpenAPI 3.1 中的 const 关键字，将其视为单值 Literal 类型"""
+        base_type, imports = self._get_type_mapping(schema_obj.type, schema_obj.format)
+        const_value = schema_obj.const
+
+        # 使用 Literal 类型，将 const 值作为唯一可能的值
+        imports.add(Import(from_='typing', import_='Literal'))
+
+        # 如果值是字符串、整数或浮点数等简单类型，直接使用
+        if isinstance(const_value, (str, int, float, bool)):
+            type_hint = f"Literal[{repr(const_value)}]"
+            return DataType(
+                type=type_hint,
+                imports=imports,
+                is_optional=schema_obj.nullable
+            )
+        else:
+            # 对于复杂类型（如对象、数组等），回退到基本类型
+            # 注意：严格来说，这不符合 const 的语义，但这里是一个合理的妥协
+            return DataType(
+                type=base_type,
+                imports=imports,
+                is_optional=schema_obj.nullable
+            )
+
     def _parse_enum(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         base_type = self._parse_basic_datatype(schema_obj)
         fields = []
         for value in schema_obj.enum:
-            field_name = normalize_name(value)
+            field_name = normalize_enum_name(value)
             if is_python_keyword(field_name=field_name):
                 alias = f"{field_name}_"
                 field_name = alias
@@ -428,8 +526,57 @@ class JsonSchemaParser:
                 if nested_model:
                     self._update_model_tags_recursive(nested_model)
 
+    def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
+        # 处理类型是列表的情况
+        if isinstance(schema_type, list):
+            # 检查是否包含null类型
+            has_null = "null" in schema_type
+            # 移除null类型，获取第一个非null类型
+            non_null_types = [t for t in schema_type if t != "null"]
 
-def normalize_name(value: Any) -> str:
+            if not non_null_types:  # 如果只有null
+                return 'None', set()
+
+            # 使用第一个非null类型
+            schema_type = non_null_types[0]
+
+            # 获取基本类型映射
+            base_type, imports = self._get_base_type_mapping(schema_type, schema_format)
+
+            # 如果有null，标记为Optional
+            if has_null:
+                return f"Optional[{base_type}]", imports.union({Import(from_='typing', import_='Optional')})
+            return base_type, imports
+
+        # 原始逻辑用于字符串类型
+        return self._get_base_type_mapping(schema_type, schema_format)
+
+    def _get_base_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
+        # 原来的_get_type_mapping逻辑
+        if schema_type == 'string':
+            if schema_format == 'date-time':
+                return 'datetime', {Import(from_='datetime', import_='datetime')}
+            elif schema_format == 'date':
+                return 'date', {Import(from_='datetime', import_='date')}
+            elif schema_format == 'uuid':
+                return 'UUID', {Import(from_='uuid', import_='UUID')}
+            # 网络类型
+            elif schema_format == 'email':
+                return 'str', set()  # Python 中电子邮件仍然是字符串，但可以添加元数据
+            elif schema_format == 'uri' or schema_format == 'uri-reference':
+                return 'str', set()
+            elif schema_format == 'ipv4' or schema_format == 'ipv6':
+                return 'str', set()  # 或者可以考虑使用 ipaddress 模块
+
+            # 二进制数据
+            elif schema_format == 'byte':  # base64 编码的字符串
+                return 'bytes', set()
+            elif schema_format == 'binary':  # 二进制数据
+                return 'bytes', set()
+        return TypeMap.get(schema_type, ('Any', {Import(from_='typing', import_='Any')}))
+
+
+def normalize_enum_name(value: Any) -> str:
     """规范化枚举值名称"""
     # 转换为字符串
     str_value = str(value)
@@ -446,6 +593,48 @@ def normalize_name(value: Any) -> str:
     return name
 
 
+def normalize_class_name(name: str) -> str:
+    """将名称规范化为合法的Python类名（大驼峰命名）"""
+    logger.debug(f"开始规范化类名: {name}")
+
+    # 处理Java泛型符号
+    original_name = name
+    if '«' in name:
+        pattern = r'(\w+)«(.+?)»'
+        while re.search(pattern, name):
+            old_name = name
+            name = re.sub(pattern, r'\1Of\2', name)
+            logger.debug(f"泛型处理: {old_name} -> {name}")
+
+    # 只替换非法字符，保留中文和字母数字
+    old_name = name
+    # 使用更精确的正则，只替换非法字符
+    name = re.sub(r'[^\w\u4e00-\u9fa5]', '_', name)
+    if old_name != name:
+        logger.debug(f"特殊字符处理: {old_name} -> {name}")
+
+    # 确保不以数字开头
+    if name and name[0].isdigit():
+        old_name = name
+        name = '_' + name
+        logger.debug(f"数字开头处理: {old_name} -> {name}")
+
+    # 转换为大驼峰形式(只处理下划线分隔的部分)
+    old_name = name
+    if '_' in name:
+        # 只对下划线分隔的部分应用大驼峰转换
+        parts = name.split('_')
+        name = ''.join(part.capitalize() if part else '' for part in parts)
+    else:
+        # 非下划线分隔的情况，只确保首字母大写
+        name = name[0].upper() + name[1:] if name else ''
+
+    if old_name != name:
+        logger.debug(f"大驼峰转换: {old_name} -> {name}")
+
+    logger.debug(f"类名规范化完成: {original_name} -> {name}")
+    return name
+
+
 def is_python_keyword(field_name: str) -> bool:
     return field_name in keyword.kwlist
-

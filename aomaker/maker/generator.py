@@ -206,9 +206,9 @@ class TemplateRenderUtils:
         if field.maximum is not None:
             jsonschema_parts.append(f'"maximum": {field.maximum}')
         if field.exclusive_minimum is not None and field.exclusive_minimum:
-            jsonschema_parts.append(f'"exclusiveMinimum": true')
+            jsonschema_parts.append(f'"exclusiveMinimum": True')
         if field.exclusive_maximum is not None and field.exclusive_maximum:
-            jsonschema_parts.append(f'"exclusiveMaximum": true')
+            jsonschema_parts.append(f'"exclusiveMaximum": True')
         if field.multiple_of is not None:
             jsonschema_parts.append(f'"multipleOf": {field.multiple_of}')
         
@@ -218,7 +218,7 @@ class TemplateRenderUtils:
         if field.max_items is not None:
             jsonschema_parts.append(f'"maxItems": {field.max_items}')
         if field.unique_items is not None and field.unique_items:
-            jsonschema_parts.append(f'"uniqueItems": true')
+            jsonschema_parts.append(f'"uniqueItems": True')
         
         # 只有在有约束时才添加jsonschema部分
         if jsonschema_parts:

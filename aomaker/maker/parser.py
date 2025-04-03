@@ -109,11 +109,13 @@ class OpenAPIParser(JsonSchemaParser):
         # 解析响应
         if operation.responses:
             response_type = self.parse_response(operation.responses, endpoint.class_name)
-            endpoint.response = self.model_registry.get(response_type.type)
-            response_import = Import(from_='.models', import_=response_type.type)
-            endpoint.imports.add(response_import)
-            # for imp in endpoint.response.imports:
-            #     endpoint.imports.add(imp)
+
+            if response_type is not None:
+                endpoint.response = self.model_registry.get(response_type.type)
+                response_import = Import(from_='.models', import_=response_type.type)
+                endpoint.imports.add(response_import)
+                # for imp in endpoint.response.imports:
+                #     endpoint.imports.add(imp)
         endpoint.imports.add(Import(from_='typing', import_='Optional'))
         return endpoint
 
@@ -190,11 +192,10 @@ class OpenAPIParser(JsonSchemaParser):
             content = response.content.get(content_type)
             if not content or not content.schema_:
                 logger.debug(f"响应未定义JSON Schema: {class_name}")
-                return None
+                continue
 
             # 4. 统一解析Schema（自动处理嵌套引用）
             context_name = f"{class_name}Response"
-
             response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
             if response_type.is_custom_type and response_type.type not in self.model_registry.models:
                 raise ValueError(f"未注册的自定义类型: {response_type.type}")
