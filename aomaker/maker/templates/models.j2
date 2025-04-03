@@ -5,11 +5,7 @@ from __future__ import annotations
 {{ import }}
 {% endfor %}
 
-{% if model_names %}
-__ALL__ = {{ model_names | tojson }}
-{% else %}
 __ALL__ = {{ get_all_model_class_name(referenced_models) }}
-{% endif %}
 
 
 {% for model in referenced_models %}
