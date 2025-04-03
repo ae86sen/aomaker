@@ -82,6 +82,7 @@ class Import(BaseModel):
 
 class DataType(BaseModel):
     type: str
+    normalized_name: Optional[str] = None  # 添加规范化名称字段
     reference: Optional[Reference] = None
     data_types: Optional[List['DataType']] = None
     is_list: bool = False
@@ -126,7 +127,12 @@ class DataType(BaseModel):
         
         # 确保自定义类型使用规范化名称
         if self.is_custom_type and type_str:
-            type_str = normalize_python_name(type_str)
+            # 如果已有normalized_name，优先使用
+            if hasattr(self, 'normalized_name') and self.normalized_name:
+                type_str = self.normalized_name
+            else:
+                # 否则计算规范化名称
+                type_str = normalize_python_name(type_str)
             
         if self.is_list:
             # 确保列表元素类型也被规范化
@@ -173,7 +179,8 @@ DataModelField.model_rebuild()
 
 class DataModel(BaseModel):
     """数据模型"""
-    name: str
+    name: str  # 原始名称
+    normalized_name: Optional[str] = None  # 规范化后的名称，用于生成Python类
     fields: List[DataModelField]
     tags: List[str] = Field(default_factory=list)
     is_enum: bool = False
@@ -283,10 +290,51 @@ class APIGroup(BaseModel):
 
     def collect_models(self, model_registry):
         """从全局注册表中收集属于当前 Tag 的模型"""
-        # todo: 有的模型可能会同时出现在多个tag中，这种其实可以提取出来放到common中，看怎么处理
-        for model in model_registry.models.values():
-            if self.tag in model.tags:
-                self.models[model.name] = model
+        # 所有要收集的模型
+        models_to_collect = {}
+        
+        # 1. 按标签匹配收集模型
+        for name, model in model_registry.models.items():
+            if not model.is_inline and (self.tag in model.tags or not model.tags):
+                # 确保模型有normalized_name属性
+                if not hasattr(model, 'normalized_name') or not model.normalized_name:
+                    model.normalized_name = normalize_python_name(model.name)
+                
+                # 使用原始名称作为键
+                models_to_collect[name] = model
+                
+        # 2. 添加在endpoints中引用的模型
+        for endpoint in self.endpoints:
+            # 添加响应模型
+            if endpoint.response and endpoint.response.name:
+                if endpoint.response.name in model_registry.models:
+                    models_to_collect[endpoint.response.name] = model_registry.models[endpoint.response.name]
+            
+            # 添加请求体模型
+            if endpoint.request_body and endpoint.request_body.name:
+                if endpoint.request_body.name in model_registry.models:
+                    models_to_collect[endpoint.request_body.name] = model_registry.models[endpoint.request_body.name]
+        
+        # 3. 递归添加依赖模型
+        added = True
+        while added:
+            added = False
+            new_models = {}
+            
+            for model in models_to_collect.values():
+                for field in model.fields:
+                    # 如果字段类型是自定义类型，检查是否需要添加该类型的模型
+                    if field.data_type.is_custom_type and field.data_type.type:
+                        ref_name = field.data_type.type
+                        if ref_name in model_registry.models and ref_name not in models_to_collect:
+                            new_models[ref_name] = model_registry.models[ref_name]
+                            added = True
+            
+            # 添加新发现的模型
+            models_to_collect.update(new_models)
+        
+        # 更新API组的模型字典
+        self.models = models_to_collect
 
     def add_endpoint(self, endpoint: Endpoint):
         name = endpoint.class_name

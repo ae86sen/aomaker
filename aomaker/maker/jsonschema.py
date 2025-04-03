@@ -98,97 +98,87 @@ class ReferenceResolver:
 
 class ModelRegistry:
     def __init__(self):
-        self.models: Dict[str, DataModel] = {}  # 已生成的模型
-        self.placeholders: Set[str] = set()
-        # 添加原始名称到规范化名称的映射
-        self.original_to_normalized: Dict[str, str] = {}
-        # 添加反向映射
-        self.normalized_to_original: Dict[str, Set[str]] = {}
-
+        self.models: Dict[str, DataModel] = {}  # 使用原始名称作为键
+        self.placeholders: Set[str] = set()  # 仍然使用规范化名称作为占位符
+        self.original_to_normalized: Dict[str, str] = {}  # 原始名称到规范化名称的映射
+        self.normalized_to_original: Dict[str, Set[str]] = {}  # 规范化名称到原始名称的反向映射
+    
     def _normalize_name(self, name: str) -> str:
         """规范化模型名称，并维护双向映射"""
         if not name:
-             return "DefaultModel"
+            return "DefaultModel"
         normalized = normalize_python_name(name)
-        # logger.debug(f"[ModelRegistry._normalize_name] Original: '{name}', Normalized: '{normalized}'")
+        # 更新映射
         self.original_to_normalized[name] = normalized
         if normalized not in self.normalized_to_original:
             self.normalized_to_original[normalized] = set()
         self.normalized_to_original[normalized].add(name)
         return normalized
-
+    
     def add_placeholder(self, name: str):
-        """添加模型占位符 (使用规范化名称作为 key)"""
+        """添加模型占位符"""
         normalized = self._normalize_name(name)
-        if normalized not in self.placeholders and normalized not in self.models:
-            logger.debug(f"[ModelRegistry.add_placeholder] Adding placeholder: '{normalized}' (from '{name}')")
+        if name not in self.models and normalized not in self.placeholders:
+            logger.debug(f"[ModelRegistry.add_placeholder] Adding placeholder for: '{name}' (normalized: '{normalized}')")
             self.placeholders.add(normalized)
-        # else:
-        #     logger.debug(f"[ModelRegistry.add_placeholder] Placeholder or model already exists for: '{normalized}'")
-
+    
     def register(self, model: DataModel):
-        """注册模型。接收的模型 name 可能是原始名称，注册时使用规范化名称。"""
+        """注册模型，使用原始名称作为键"""
         if not model.name:
             logger.warning("[ModelRegistry.register] Model name is empty, using 'DefaultModel'.")
             model.name = "DefaultModel"
         
-        original_name = model.name # 获取传入时的名称 (可能是原始名称)
+        original_name = model.name
         logger.debug(f"[ModelRegistry.register] Received model with name: '{original_name}'")
         
-        # 规范化名称以用作注册表的 key 和最终的模型名称
+        # 生成规范化名称，但不修改模型的原始名称
         normalized_name = self._normalize_name(original_name)
         
-        # 检查此规范化名称是否已注册模型
-        if normalized_name in self.models:
-             # 如果已存在同名模型，可以选择覆盖或跳过
-             # 这里选择跳过，并记录日志。可能需要更复杂的合并逻辑。
-             logger.warning(f"[ModelRegistry.register] Model with normalized name '{normalized_name}' (from '{original_name}') already registered. Skipping.")
-             # 也许需要检查占位符并移除？
-             if normalized_name in self.placeholders:
-                 self.placeholders.remove(normalized_name)
-             return # 跳过注册
-
-        # 更新模型实例自身的名称为规范化名称
-        # 这是必要的，因为后续代码会直接使用 model.name
-        model.name = normalized_name 
-        logger.debug(f"[ModelRegistry.register] Normalized name to '{normalized_name}'. Updating model instance.")
+        # 设置模型的规范化名称属性
+        model.normalized_name = normalized_name
+        logger.debug(f"[ModelRegistry.register] Set normalized_name: '{normalized_name}' for model: '{original_name}'")
         
-        # 如果存在占位符，移除它
+        # 检查是否已经存在同名模型
+        if original_name in self.models:
+            logger.warning(f"[ModelRegistry.register] Model with name '{original_name}' already registered. Skipping.")
+            return  # 跳过注册
+        
+        # 如果存在相关的占位符，移除它
         if normalized_name in self.placeholders:
             logger.debug(f"[ModelRegistry.register] Removing placeholder: '{normalized_name}'")
             self.placeholders.remove(normalized_name)
-            
-        # 使用规范化名称作为 key 进行注册
-        logger.debug(f"[ModelRegistry.register] Registering model with key: '{normalized_name}'")
-        self.models[normalized_name] = model
-
+        
+        # 使用原始名称作为键注册模型
+        logger.debug(f"[ModelRegistry.register] Registering model with original name: '{original_name}'")
+        self.models[original_name] = model
+    
     def get(self, name: str) -> Optional[DataModel]:
-        """获取模型，优先使用规范化名称查找。"""
+        """获取模型，优先使用原始名称查找"""
         logger.debug(f"[ModelRegistry.get] Attempting to get model with name: '{name}'")
         if not name:
             logger.warning("[ModelRegistry.get] Received empty name for get request.")
             return None
         
-        # 1. 规范化请求的名称
+        # 1. 直接尝试使用原始名称查找
+        if name in self.models:
+            logger.debug(f"[ModelRegistry.get] Found model using original name: '{name}'")
+            return self.models[name]
+        
+        # 2. 规范化请求的名称
         normalized_requested_name = self._normalize_name(name)
         
-        # 2. 直接使用规范化名称查找
-        if normalized_requested_name in self.models:
-            logger.debug(f"[ModelRegistry.get] Found model using normalized key: '{normalized_requested_name}' (requested: '{name}')")
-            return self.models[normalized_requested_name]
-            
-        # 3. 检查是否是占位符
+        # 3. 通过规范化名称查找可能的原始名称
+        if normalized_requested_name in self.normalized_to_original:
+            for orig_name in self.normalized_to_original[normalized_requested_name]:
+                if orig_name in self.models:
+                    logger.debug(f"[ModelRegistry.get] Found model via normalized mapping: '{orig_name}' (from '{name}')")
+                    return self.models[orig_name]
+        
+        # 4. 检查是否是占位符
         if normalized_requested_name in self.placeholders:
-            logger.error(f"[ModelRegistry.get] Model '{normalized_requested_name}' (requested: '{name}') is still a placeholder.")
-            return None # 或者抛出异常
-            
-        # 4. (可选) 尝试大小写不敏感匹配作为最后手段 (如果需要)
-        # lower_name = name.lower()
-        # for model_key, model in self.models.items():
-        #     if model_key.lower() == lower_name:
-        #         logger.debug(f"[ModelRegistry.get] Found model via case-insensitive match: key '{model_key}' matches '{name}'")
-        #         return model
-                
+            logger.warning(f"[ModelRegistry.get] Model '{name}' (normalized: '{normalized_requested_name}') is still a placeholder.")
+            return None
+        
         # 尝试所有可能性后仍未找到
         logger.warning(f"[ModelRegistry.get] Model not found for name: '{name}' (normalized: '{normalized_requested_name}')")
         return None
@@ -207,10 +197,12 @@ class JsonSchemaParser:
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
 
         if len(self.current_recursion_path) >= self.max_recursion_depth:
-            return DataType(
+            data_type = DataType(
                 type="Any",
                 imports={Import(from_='typing', import_='Any')}
             )
+            data_type.normalized_name = "Any"
+            return data_type
 
         self.current_recursion_path.append(context)
 
@@ -278,35 +270,37 @@ class JsonSchemaParser:
             # 如果仍然找不到，处理引用缺失情况
             if not schema:
                 # 返回前向引用，允许后续可能的解析
-                return DataType(
-                    type=normalized_name,
+                data_type = DataType(
+                    type=schema_name,  # 使用原始名称作为类型
                     reference=Reference(ref=ref), # 保留原始引用
                     is_custom_type=True,
                     is_forward_ref=True, # 标记为前向引用
                     imports={Import(from_='.models', import_=normalized_name)}
                 )
+                # 设置规范化名称
+                data_type.normalized_name = normalized_name
+                return data_type
         
         # 确保引用类型已经注册或添加占位符
-        # 检查和添加占位符时，仍使用规范化名称，因为这是 ModelRegistry 内部使用的 key
-        if normalized_name not in self.model_registry.models and normalized_name not in self.model_registry.placeholders:
-            # 添加占位符，避免循环引用
-            self.model_registry.add_placeholder(normalized_name) # 使用规范化名称添加占位符
+        # 使用原始名称检查模型是否存在
+        if schema_name not in self.model_registry.models:
+            # 添加占位符，使用原始名称
+            self.model_registry.add_placeholder(schema_name)
             
-            # === 关键修改 ===
-            # 递归解析schema，使用 *原始* schema_name 作为上下文
-            # 让下游的 _parse_object_type 基于原始名称进行解析和字段命名
-            self.parse_schema(schema, schema_name) 
-            # 解析完成后，模型应该已经以 normalized_name 注册到 model_registry 中
-            # 因为 _parse_object_type 内部会进行规范化处理
+            # 递归解析schema，使用原始schema_name作为上下文
+            self.parse_schema(schema, schema_name)
         
-        # 返回 DataType，引用 .models 中的规范化名称
-        # 最终返回的类型和导入语句仍然使用规范化名称，因为这是 Python 类名
-        return DataType(
-            type=normalized_name,
-            reference=Reference(ref=ref), # 保留原始引用信息
+        # 返回DataType，引用.models中的类型
+        # 使用原始名称作为类型名，但设置规范化名称为normalized_name属性
+        data_type = DataType(
+            type=schema_name,  # 使用原始名称
+            reference=Reference(ref=ref),  # 保留原始引用
             is_custom_type=True,
-            imports={Import(from_='.models', import_=normalized_name)} 
+            imports={Import(from_='.models', import_=normalized_name)}  # 导入使用规范化名称
         )
+        # 设置规范化名称属性
+        data_type.normalized_name = normalized_name
+        return data_type
 
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
@@ -315,10 +309,8 @@ class JsonSchemaParser:
         # 注意：这里的 model_name 是基于传入的 context，可能是原始名称或规范化名称
         logger.debug(f"[_parse_object_type] Initial context: {context}, Trying model_name: {model_name}")
 
-        # 在 _parse_object_type 内部，我们主要使用 model_name 作为基础
-        # 规范化名称的操作主要在 ModelRegistry.register 中完成
-        # 但为了内部字段命名一致性，这里也获取一下规范化名称
-        normalized_model_name_for_fields = normalize_python_name(model_name)
+        # 计算规范化名称用于字段和返回值
+        normalized_model_name = normalize_python_name(model_name)
         
         fields = []
         required_fields = schema_obj.required or []
@@ -328,11 +320,15 @@ class JsonSchemaParser:
             for prop_name, prop_schema in schema_obj.properties.items():
                 # 使用规范化后的父模型名称来构造嵌套上下文
                 capitalized_prop_name = prop_name[0].upper() + prop_name[1:] if prop_name else ""
-                nested_context = f"{normalized_model_name_for_fields}{capitalized_prop_name}"
+                nested_context = f"{normalized_model_name}{capitalized_prop_name}"
                 prop_type = self.parse_schema(prop_schema, nested_context)
                 
                 if prop_type.is_custom_type and prop_type.type:
-                    prop_type.type = normalize_python_name(prop_type.type)
+                    # 如果有normalized_name属性，确保使用它
+                    if hasattr(prop_type, 'normalized_name') and prop_type.normalized_name:
+                        prop_type.type = prop_type.normalized_name
+                    else:
+                        prop_type.type = normalize_python_name(prop_type.type)
                 
                 if is_python_keyword(prop_name):
                     alias = prop_name
@@ -388,11 +384,14 @@ class JsonSchemaParser:
             logger.debug(f"[_parse_object_type] Schema for {model_name} has no properties, treating as Dict[str, Any]")
             # 返回一个字典类型
             dict_imports = {Import(from_='typing', import_='Dict'), Import(from_='typing', import_='Any')}
-            return DataType(
+            data_type = DataType(
                 type="Dict[str, Any]",
                 is_dict=True,
                 imports=dict_imports
             )
+            # 设置规范化名称
+            data_type.normalized_name = "Dict[str, Any]"
+            return data_type
 
         fields.sort(key=lambda field_: not field_.required)
         imports_from_fields = self._collect_imports_from_fields(fields)
@@ -407,46 +406,51 @@ class JsonSchemaParser:
         # 对于请求体，保持内联而不单独生成模型
         if is_request_body and not is_general_model:
              logger.debug(f"[_parse_object_type] Treating {model_name} as inline RequestBody.")
-             return DataType(
-                type=normalize_python_name(model_name), # 返回时使用规范化名称
+             data_type = DataType(
+                type=model_name,  # 使用原始名称
                 is_custom_type=False,
                 is_inline=True,
                 fields=fields,
                 imports=imports_from_fields
-            )
+             )
+             # 设置规范化名称
+             data_type.normalized_name = normalized_model_name
+             return data_type
 
-        # 创建数据模型，注意：此时 DataModel 的 name 可能是原始名称
+        # 创建数据模型，使用原始名称
         data_model = DataModel(
-            name=model_name, # 使用传入的 context (可能是原始名)
+            name=model_name,  # 使用原始名称
             fields=fields,
             description=schema_obj.description,
             tags=self.current_tags,
             imports=imports_from_fields
         )
         
-        # 注册模型前打印信息
-        logger.debug(f"[_parse_object_type] Preparing to register model. Initial name: '{data_model.name}'")
+        logger.debug(f"[_parse_object_type] Preparing to register model. Original name: '{data_model.name}'")
         self.model_registry.register(data_model)
-        # 注册模型后打印信息 (此时 data_model.name 可能已被 register 修改为规范化名称)
-        logger.debug(f"[_parse_object_type] Registered model. Final name in registry likely: '{data_model.name}' (check registry logs)")
+        logger.debug(f"[_parse_object_type] Registered model with original name: '{data_model.name}'")
 
-        # 返回 DataType，类型名称使用规范化后的名称
-        # 因为最终生成的 Python 类名应该是规范化的
-        final_normalized_name = normalize_python_name(model_name)
-        return DataType(
-            type=final_normalized_name,
+        # 返回 DataType，使用原始名称作为类型，但设置 normalized_name 属性
+        data_type = DataType(
+            type=model_name,  # 使用原始名称
             is_custom_type=True,
-            imports={Import(from_='.models', import_=final_normalized_name)}
+            imports={Import(from_='.models', import_=normalized_model_name)}  # 导入使用规范化名称
         )
+        # 设置规范化名称
+        data_type.normalized_name = normalized_model_name
+        return data_type
 
     def _parse_basic_datatype(self, schema_obj: JsonSchemaObject) -> DataType:
         base_type, imports = self._get_type_mapping(schema_obj.type, schema_obj.format)
 
-        return DataType(
+        data_type = DataType(
             type=base_type,
             is_optional=schema_obj.nullable,
             imports=imports
         )
+        # 设置规范化名称
+        data_type.normalized_name = base_type
+        return data_type
 
     def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
         # 处理schema_type为列表的情况（某些OpenAPI定义可能使用多个类型）
@@ -556,12 +560,15 @@ class JsonSchemaParser:
                 union_hint = f"Union[{', '.join(t.type_hint for t in child_types)}]"
                 union_imports = child_imports | {Import(from_='typing', import_='Union')}
             
-            return DataType(
+            data_type = DataType(
                 type=f"List[{union_hint}]",
                 is_list=True,
                 data_types=child_types,
                 imports=union_imports | {Import(from_='typing', import_='List')}
             )
+            # 设置规范化名称
+            data_type.normalized_name = f"List[{union_hint}]"
+            return data_type
         
         # 处理普通单个item的情况
         item_type = self.parse_schema(item_schema, f"{context}Item")
@@ -573,12 +580,15 @@ class JsonSchemaParser:
         if item_type.is_list:
             return item_type
 
-        return DataType(
+        data_type = DataType(
             type=f"List[{item_type.type_hint}]",
             is_list=True,
             data_types=[item_type],
             imports=item_type.imports | {Import(from_='typing', import_='List')}
         )
+        # 设置规范化名称
+        data_type.normalized_name = f"List[{item_type.type_hint}]"
+        return data_type
 
     def _parse_union_type(
             self,
@@ -603,56 +613,69 @@ class JsonSchemaParser:
 
         # 处理空列表情况（所有元素都是null）
         if not child_types:
-            return DataType(
+            data_type = DataType(
                 type="None",
                 imports=set(),
                 is_optional=True
             )
+            data_type.normalized_name = "None"
+            return data_type
 
         # 检查是否有Any类型
         any_types = [t for t in child_types if t.type_hint == "Any"]
         if any_types:
             # 如果有Any类型，简化为Any或Optional[Any]
             if has_null:
-                return DataType(
+                data_type = DataType(
                     type="Optional[Any]",
                     imports={Import(from_='typing', import_='Any'), Import(from_='typing', import_='Optional')},
                     is_optional=True
                 )
+                data_type.normalized_name = "Optional[Any]"
+                return data_type
             else:
-                return DataType(
+                data_type = DataType(
                     type="Any",
                     imports={Import(from_='typing', import_='Any')},
                     is_optional=False
                 )
+                data_type.normalized_name = "Any"
+                return data_type
 
         # 如果只有一个非null类型，且有null类型，则使用Optional
         if has_null and len(child_types) == 1:
-            return DataType(
-                type=f"Optional[{child_types[0].type_hint}]",
+            type_hint = f"Optional[{child_types[0].type_hint}]"
+            data_type = DataType(
+                type=type_hint,
                 data_types=child_types,
                 imports=imports | {Import(from_='typing', import_='Optional')},
                 is_optional=True
             )
+            data_type.normalized_name = type_hint
+            return data_type
 
         # 如果有多个非null类型，且有null类型，则使用Union加Optional
         if has_null and len(child_types) > 1:
             type_hint = f"Optional[Union[{', '.join(t.type_hint for t in child_types)}]]"
-            return DataType(
+            data_type = DataType(
                 type=type_hint,
                 data_types=child_types,
                 imports=imports | {Import(from_='typing', import_='Optional'), Import(from_='typing', import_='Union')},
                 is_optional=True
             )
+            data_type.normalized_name = type_hint
+            return data_type
 
         # 如果没有null类型
         type_hint = f"{union_type}[{', '.join(t.type_hint for t in child_types)}]"
-        return DataType(
+        data_type = DataType(
             type=type_hint,
             data_types=child_types,
             imports=imports | {Import(from_='typing', import_=union_type)},
             is_optional=False
         )
+        data_type.normalized_name = type_hint
+        return data_type
 
     def _parse_all_of(
             self,
@@ -679,8 +702,12 @@ class JsonSchemaParser:
             if data_model.description:
                 merged_descriptions.append(schema_.description)
 
+        # 生成模型名称和规范化名称
+        original_name = f"{context}Combined"
+        normalized_name = normalize_python_name(original_name)
+
         merged_model = DataModel(
-            name=f"{context}Combined",
+            name=original_name,  # 使用原始名称
             fields=self._merge_fields(merged_fields),
             required=merged_required,
             imports=merged_imports,
@@ -690,12 +717,16 @@ class JsonSchemaParser:
 
         self.model_registry.register(merged_model)
 
-        return DataType(
-            type=merged_model.name,
+        # 返回 DataType，使用原始名称作为类型，但设置 normalized_name 属性
+        data_type = DataType(
+            type=original_name,  # 使用原始名称
             is_custom_type=True,
-            reference=Reference(ref=merged_model.name),
-            imports={Import(from_='.models', import_=merged_model.name)}
+            reference=Reference(ref=original_name),
+            imports={Import(from_='.models', import_=normalized_name)}  # 导入使用规范化名称
         )
+        # 设置规范化名称
+        data_type.normalized_name = normalized_name
+        return data_type
 
     def _merge_fields(self, fields: List[DataModelField]) -> List[DataModelField]:
         """合并重复字段（后出现的覆盖先前的）"""
@@ -716,19 +747,23 @@ class JsonSchemaParser:
         # 如果值是字符串、整数或浮点数等简单类型，直接使用
         if isinstance(const_value, (str, int, float, bool)):
             type_hint = f"Literal[{repr(const_value)}]"
-            return DataType(
+            data_type = DataType(
                 type=type_hint,
                 imports=imports,
                 is_optional=schema_obj.nullable
             )
+            data_type.normalized_name = type_hint
+            return data_type
         else:
             # 对于复杂类型（如对象、数组等），回退到基本类型
             # 注意：严格来说，这不符合 const 的语义，但这里是一个合理的妥协
-            return DataType(
+            data_type = DataType(
                 type=base_type,
                 imports=imports,
                 is_optional=schema_obj.nullable
             )
+            data_type.normalized_name = base_type
+            return data_type
 
     def _parse_enum(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         base_type = self._parse_basic_datatype(schema_obj)
@@ -746,8 +781,14 @@ class JsonSchemaParser:
                 default=repr(value),
                 alias=alias
             ))
+            
+        # 保存原始名称
+        original_name = context
+        # 生成规范化名称
+        normalized_name = normalize_python_name(original_name)
+        
         enum_model = DataModel(
-            name=context,
+            name=original_name,  # 使用原始名称
             is_enum=True,
             tags=self.current_tags,
             imports={Import(from_="enum", import_="Enum")},
@@ -756,11 +797,15 @@ class JsonSchemaParser:
 
         self.model_registry.register(enum_model)
 
-        return DataType(
-            type=enum_model.name,
-            imports={Import(from_='.models', import_=enum_model.name)},
+        # 返回 DataType，使用原始名称作为类型，但设置 normalized_name 属性
+        data_type = DataType(
+            type=original_name,  # 使用原始名称
+            imports={Import(from_='.models', import_=normalized_name)},  # 导入使用规范化名称
             is_custom_type=True
         )
+        # 设置规范化名称
+        data_type.normalized_name = normalized_name
+        return data_type
 
     def _collect_imports_from_fields(self, fields: List[DataModelField]) -> Set[Import]:
         imports = set()

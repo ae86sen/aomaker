@@ -1,5 +1,6 @@
 # --coding:utf-8--
 import json
+import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
@@ -48,6 +49,9 @@ class OpenAPIParser(JsonSchemaParser):
             for method, op_data in path_item.items():
                 if method.lower() not in {'get', 'post', 'put', 'delete', 'patch'}:
                     continue
+                operation = Operation.model_validate(op_data)
+                # if "billing" not in operation.tags:
+                #     continue
                 if self.console:
                     self.console.log(
                         f"[primary]✅ [bold]已解析:[/] "
@@ -56,7 +60,7 @@ class OpenAPIParser(JsonSchemaParser):
                         f"[accent]{path}[/] "
                         f"[muted]({idx}/{total_paths})[/]"
                     )
-                operation = Operation.model_validate(op_data)
+                
                 self.current_tags = operation.tags
                 endpoint = self.parse_endpoint(path, method, operation)
 
@@ -230,16 +234,20 @@ class OpenAPIParser(JsonSchemaParser):
                 return response_type
             except Exception as e:
                 logger.error(f"解析响应失败: {str(e)}")
-                return DataType(
+                data_type = DataType(
                     type="Any",
                     imports={Import(from_='typing', import_='Any')}
                 )
+                data_type.normalized_name = "Any"
+                return data_type
                 
         logger.debug(f"未找到支持的内容类型: {class_name}")
-        return DataType(
+        data_type = DataType(
             type="Any",
             imports={Import(from_='typing', import_='Any')}
         )
+        data_type.normalized_name = "Any"
+        return data_type
 
     def _parse_content_schema(
             self,
@@ -270,12 +278,80 @@ class OpenAPIParser(JsonSchemaParser):
 
     def _organize_models(self):
         """整理模型到对应的APIGroup"""
+        # 先找出所有模型
+        all_models = self.model_registry.models
+        
+        # 找出可能的通用模型（如通用响应类型）
+        general_models = {}
+        for name, model in all_models.items():
+            # 通用模型通常包含"Response"或"Generic"字样
+            if ("Response" in name or "Generic" in name) and not model.is_inline:
+                # 确保模型有normalized_name属性
+                if not hasattr(model, 'normalized_name') or not model.normalized_name:
+                    model.normalized_name = normalize_python_name(model.name)
+                general_models[name] = model
+                logger.debug(f"[_organize_models] Found general model: {name}")
+        
+        # 收集每个endpoint使用的模型
+        endpoint_models = {}
         for group in self.api_groups.values():
-            group.models = {
-                name: model
-                for name, model in self.model_registry.models.items()
-                if not model.is_inline
-            }
+            for endpoint in group.endpoints:
+                if endpoint.response:
+                    resp_name = endpoint.response.name
+                    if resp_name in all_models:
+                        endpoint_models[resp_name] = all_models[resp_name]
+                        # 如果是通用模型，将其添加到所有分组中
+                        if resp_name in general_models:
+                            for g in self.api_groups.values():
+                                if resp_name not in g.models:
+                                    g.models[resp_name] = all_models[resp_name]
+                if endpoint.request_body:
+                    req_name = endpoint.request_body.name
+                    if req_name in all_models:
+                        endpoint_models[req_name] = all_models[req_name]
+        
+        # 为每个API组分配模型
+        for group in self.api_groups.values():
+            # 1. 先添加标签匹配的模型
+            for name, model in all_models.items():
+                if not model.is_inline and group.tag in model.tags:
+                    group.models[name] = model
+            
+            # 2. 添加通用模型
+            for name, model in general_models.items():
+                if name not in group.models:
+                    group.models[name] = model
+            
+            # 3. 添加当前组端点使用的模型
+            for endpoint in group.endpoints:
+                if endpoint.response and endpoint.response.name in all_models:
+                    group.models[endpoint.response.name] = all_models[endpoint.response.name]
+                if endpoint.request_body and endpoint.request_body.name in all_models:
+                    group.models[endpoint.request_body.name] = all_models[endpoint.request_body.name]
+            
+            # 添加模型依赖
+            self._add_model_dependencies(group.models, all_models)
+            
+            logger.debug(f"[_organize_models] Group '{group.tag}' has {len(group.models)} models")
+    
+    def _add_model_dependencies(self, models_dict: Dict[str, DataModel], all_models: Dict[str, DataModel]):
+        """递归添加模型依赖"""
+        added = True
+        while added:
+            added = False
+            # 收集当前已有模型中字段引用的所有类型
+            referenced_types = set()
+            for model in models_dict.values():
+                for field in model.fields:
+                    if field.data_type.is_custom_type and field.data_type.type in all_models:
+                        referenced_types.add(field.data_type.type)
+            
+            # 添加新发现的依赖模型
+            for type_name in referenced_types:
+                if type_name not in models_dict and type_name in all_models:
+                    models_dict[type_name] = all_models[type_name]
+                    added = True
+                    logger.debug(f"[_add_model_dependencies] Added dependency model: {type_name}")
 
 
 if __name__ == '__main__':

@@ -1,14 +1,14 @@
-from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Set
+from collections import defaultdict
 
 import black
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
 
-from .parser import APIGroup, Endpoint
-from .config import OpenAPIConfig
-from .models import Import, DataModelField, DataModel, DataType
+from aomaker.log import logger
+from aomaker.maker.models import DataModel, DataType, Endpoint, APIGroup, Import, DataModelField, normalize_python_name
+from aomaker.maker.config import OpenAPIConfig
 
 
 class ImportManager:
@@ -22,24 +22,86 @@ class ImportManager:
         self._imports[key].add(imp.alias)
 
 
-def collect_apis_imports(endpoints: List[Endpoint], config: OpenAPIConfig) -> ImportManager:
-    manager = ImportManager()
-    manager.add_import(Import(from_="attrs", import_="define, field"))
-    manager.add_import(Import(from_="aomaker.core.router", import_="router"))
+def collect_apis_imports(endpoints: List[Endpoint], manager: ImportManager) -> None:
+    """收集所有接口定义需要的导入，递归解析模型引用
+    
+    我们需要仔细区分三种类型：
+    1. 内部请求体模型（RequestBodyModel）- 这些不需要导入
+    2. 外部模型类型（RequestBodyModel中引用的字段类型）- 这些需要导入
+    3. 响应模型及其嵌套依赖 - 这些需要导入
+    """
+    # 已添加的模型名称集合，避免重复导入
+    added_models = set()
+    
+    # 递归函数：收集模型及其所有依赖的模型
+    def collect_model_dependencies(data_type: DataType):
+        """递归收集模型依赖"""
+        # 如果是None或已处理，则跳过
+        if data_type is None:
+            return
+            
+        # 处理列表或字典中的元素类型
+        if data_type.is_list or data_type.is_dict:
+            if data_type.data_types:
+                for nested_type in data_type.data_types:
+                    if nested_type:
+                        collect_model_dependencies(nested_type)
+            return
+            
+        # 检查是否是需要导入的模型类型
+        if not data_type.is_custom_type:
+            return  # 基础类型不需要导入
 
-    module_path, _, class_name = config.base_api_class.rpartition('.')
-    manager.add_import(
-        Import(
-            from_=module_path,
-            import_=class_name,
-            alias=config.base_api_class_alias
-        )
-    )
-
+        # 获取规范化名称（如果有）
+        normalized_name = getattr(data_type, 'normalized_name', None)
+        original_name = data_type.type
+        
+        # 使用规范化名称（如果有），否则使用原始名称
+        model_name = normalized_name or original_name
+        
+        # 避免重复添加
+        if model_name and model_name not in added_models:
+            # 检查是否是来自models.py的模型（而不是内联定义的）
+            should_import = False
+            
+            # 判断条件1：拥有引用，通常指向外部模型
+            if hasattr(data_type, 'reference') and data_type.reference:
+                should_import = True
+                
+            # 判断条件2：不是接口内联模型
+            if not getattr(data_type, 'is_inline', False):
+                should_import = True
+            
+            # 添加导入
+            if should_import:
+                logger.debug(f"[collect_apis_imports] Adding model import: '{model_name}'")
+                manager.add_import(Import(from_='.models', import_=model_name))
+                added_models.add(model_name)
+    
+    # 处理所有端点
     for endpoint in endpoints:
-        for imp in endpoint.imports:
-            manager.add_import(imp)
-    return manager
+        # 收集响应模型依赖 - 响应模型总是需要从models.py导入
+        if endpoint.response:
+            # 检查是否有规范化名称
+            if hasattr(endpoint.response, 'normalized_name') and endpoint.response.normalized_name:
+                model_name = endpoint.response.normalized_name
+                if model_name not in added_models:
+                    logger.debug(f"[collect_apis_imports] Adding response model: '{model_name}'")
+                    manager.add_import(Import(from_='.models', import_=model_name))
+                    added_models.add(model_name)
+            
+            # 递归收集响应模型的嵌套依赖
+            for field in endpoint.response.fields:
+                collect_model_dependencies(field.data_type)
+        
+        # 处理请求体中引用的外部模型
+        # 注意：RequestBodyModel本身不导入，它在API类中内联定义
+        # 但它的字段可能引用外部模型类型，这些需要导入
+        if endpoint.request_body and hasattr(endpoint.request_body, 'fields'):
+            for field in endpoint.request_body.fields:
+                collect_model_dependencies(field.data_type)
+    
+    logger.debug(f"[collect_apis_imports] Collected {len(added_models)} model imports: {sorted(list(added_models))}")
 
 
 def collect_models_imports(models: List[DataModel]) -> ImportManager:
@@ -250,16 +312,21 @@ class TemplateRenderUtils:
 
     @classmethod
     def render_optional_hint(cls, field: DataModelField) -> str:
-        """渲染字段的类型注解，非必填字段添加 Optional 包装"""
+        """渲染字段的类型注解，优先使用normalized_name，非必填字段添加 Optional 包装"""
         data_type = field.data_type
         
-        # 规范化自定义类型名称
-        if data_type.is_custom_type and data_type.type:
-            from aomaker.maker.models import normalize_python_name
-            base_type = normalize_python_name(data_type.type)
+        # 获取类型名称 - 优先使用normalized_name
+        if data_type.is_custom_type:
+            if hasattr(data_type, 'normalized_name') and data_type.normalized_name:
+                base_type = data_type.normalized_name
+            else:
+                # 只有在没有normalized_name时才规范化原始类型名
+                base_type = normalize_python_name(data_type.type)
         else:
+            # 基础类型直接使用原始类型名
             base_type = data_type.type
-            
+        
+        # 处理Optional包装
         if data_type.is_optional:
             return base_type
         if field.required is False:
@@ -334,10 +401,8 @@ class Generator:
         package_dir = self.output_dir / tag
         package_dir.mkdir(parents=True, exist_ok=True)
 
-        # 生成导入语句
-        apis_all_imports = self._generate_apis_imports(endpoints)
+        # 生成导入语句 - 只为models.py生成导入
         referenced_models = list(api_group.models.values())
-
         models_all_imports = self._gen_models_imports(referenced_models)
 
         # 创建__init__.py
@@ -346,8 +411,8 @@ class Generator:
         # 生成models.py
         self._generate_models(package_dir, referenced_models, models_all_imports)
 
-        # 生成apis.py
-        self._generate_apis(package_dir, endpoints, apis_all_imports)
+        # 生成apis.py - 导入会在_generate_apis内部生成
+        self._generate_apis(package_dir, endpoints, [])
 
     def _generate_init(self, package_dir: Path):
         template = self.env.get_template("init.j2")
@@ -356,35 +421,115 @@ class Generator:
 
     def _generate_models(self, package_dir: Path, referenced_models: List[DataModel], imports: List[str]):
         """生成models.py文件"""
+        # 确保列表非空
+        if not referenced_models:
+            logger.warning(f"[_generate_models] No models to generate for {package_dir}")
+            # 生成一个空的models.py，包含基本导入
+            empty_content = """from __future__ import annotations
+
+from typing import Dict, List, Optional
+from attrs import define, field
+
+__ALL__ = []
+"""
+            (package_dir / "models.py").write_text(empty_content, encoding="utf-8")
+            return
+
+        # 输出模型信息用于调试
+        logger.debug(f"[_generate_models] Preparing to generate {len(referenced_models)} models:")
+        for i, model in enumerate(referenced_models):
+            model_info = f"Model {i+1}: name='{model.name}'"
+            if hasattr(model, 'normalized_name') and model.normalized_name:
+                model_info += f", normalized_name='{model.normalized_name}'"
+            logger.debug(f"[_generate_models] {model_info}")
+
+        # 设置__ALL__值——收集所有规范化的模型名称
+        model_names = []
+        for model in referenced_models:
+            if hasattr(model, 'normalized_name') and model.normalized_name:
+                model_names.append(model.normalized_name)
+            else:
+                model_names.append(normalize_python_name(model.name))
+        
+        logger.debug(f"[_generate_models] Models in __ALL__: {model_names}")
+        
+        # 预处理：暂时将 name 替换为 normalized_name 以适配现有模板
+        original_names = {}
+        for model in referenced_models:
+            if hasattr(model, 'normalized_name') and model.normalized_name:
+                # 保存原始名称用于恢复
+                original_names[id(model)] = model.name
+                # 暂时使用规范化名称
+                model.name = model.normalized_name
+                logger.debug(f"[_generate_models] Temporarily using normalized name: '{model.normalized_name}' instead of original: '{original_names[id(model)]}'")
+        
+        # 正常渲染
         template = self.env.get_template("models.j2")
         content = template.render(
             referenced_models=referenced_models,
             imports=imports,
+            model_names=model_names  # 传递模型名称列表
         )
 
         format_content = self._format_content(content)
+        
+        # 恢复原始名称
+        for model in referenced_models:
+            if id(model) in original_names:
+                model.name = original_names[id(model)]
+                logger.debug(f"[_generate_models] Restored original name: '{model.name}'")
 
         # 写入文件
+        logger.debug(f"[_generate_models] Writing models.py with {len(referenced_models)} models to {package_dir}")
         (package_dir / "models.py").write_text(format_content,encoding="utf-8")
 
-    def _generate_apis(self, package_dir: Path, endpoints: List[Endpoint], imports: List[str]):
-        """生成apis.py文件"""
+    def _generate_apis(self, package_dir: Path, endpoints: List[Endpoint], imports: List[str]) -> None:
+        """生成apis.py文件，使用规范化的模型名称"""
+        logger.debug(f"[_generate_apis] Generating API interfaces for {len(endpoints)} endpoints")
+        if not endpoints:
+            logger.warning("[_generate_apis] No endpoints found to generate APIs")
+            return
+
+        # 导入管理器对象
+        import_manager = ImportManager()
+        
+        # 添加基础导入
+        import_manager.add_import(Import(from_="attrs", import_="define, field"))
+        import_manager.add_import(Import(from_="typing", import_="Optional, List, Dict, Any"))
+        
+        # 添加路由导入 - 根据配置决定路径
+        router_path = "aomaker.core.router" if hasattr(self.config, 'router_path') else "aomaker"
+        import_manager.add_import(Import(from_=router_path, import_="router"))
+        
+        # 添加基础API类
+        api_class_path, _, api_class_name = self.config.base_api_class.rpartition('.')
+        import_manager.add_import(
+            Import(
+                from_=api_class_path,
+                import_=api_class_name,
+                alias=self.config.base_api_class_alias
+            )
+        )
+        
+        # 收集规范化的模型导入
+        collect_apis_imports(endpoints, import_manager)
+        imports_list = generate_imports(import_manager)
+        logger.debug(f"[_generate_apis] Generated imports: {imports_list}")
+        
+        # 渲染模板 - 使用已注册的全局函数，不重复传递
         template = self.env.get_template("apis.j2")
         content = template.render(
             endpoints=endpoints,
-            imports=imports,
+            imports=imports_list
         )
-
-        format_content = self._format_content(content)
-
+        
+        # 格式化内容
+        formatted_content = self._format_content(content)
+        
         # 写入文件
-        (package_dir / "apis.py").write_text(format_content,encoding="utf-8")
-
-    def _generate_apis_imports(self, endpoints: List[Endpoint]) -> List[str]:
-        import_manager = collect_apis_imports(endpoints, self.config)
-        imports = generate_imports(import_manager)
-
-        return imports
+        file_path = package_dir / "apis.py"
+        file_path.write_text(formatted_content, encoding="utf-8")
+        logger.info(f"[_generate_apis] Generated API file at {file_path}")
 
     def _gen_models_imports(self, models: List[DataModel]) -> List[str]:
         imports_manager = collect_models_imports(models)

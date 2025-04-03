@@ -1,9 +1,15 @@
 {# templates/models.py.jinja #}
+from __future__ import annotations
+
 {% for import in imports %}
 {{ import }}
 {% endfor %}
 
+{% if model_names %}
+__ALL__ = {{ model_names | tojson }}
+{% else %}
 __ALL__ = {{ get_all_model_class_name(referenced_models) }}
+{% endif %}
 
 
 {% for model in referenced_models %}
