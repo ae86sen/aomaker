@@ -27,7 +27,7 @@ class BaseAPIObject(Generic[ResponseT]):
     endpoint_id: Optional[str] = field(default=None)
     endpoint_config: EndpointConfig = field(default=None)
     content_type: ContentType = field(default=ContentType.JSON)
-    http_client: Union[HTTPClient, Type[HTTPClient]] = field(default=HTTPClient)
+    http_client: Union[HTTPClient, Type[HTTPClient]] = field(default=None)
     converter: Union[RequestConverter, Type[RequestConverter]] = field(default=None)
     enable_schema_validation: bool = field(default=True)
 
@@ -37,7 +37,8 @@ class BaseAPIObject(Generic[ResponseT]):
             self.endpoint_config = getattr(self.__class__, '_endpoint_config', None)
             if self.endpoint_config is None:
                 raise ValueError("endpoint_config is not set in the class or instance.")
-        self.http_client = get_http_client(default_client=self.http_client)
+        if self.http_client is None:
+            self.http_client = get_http_client(default_client=HTTPClient)
         if self.converter is None:
             self.converter = RequestConverter(api_object=self)
         elif isinstance(self.converter, type):

@@ -97,3 +97,8 @@ product_details = [
         specifications={"type": "入耳式", "battery": "24小时", "noise_cancelling": True}
     ),
 ]
+
+# 用户凭证数据（用于登录验证）
+user_credentials = [
+    {"username": "aomaker", "password": "123456", "user_id": 1},
+]

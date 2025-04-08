@@ -1,5 +1,5 @@
 # --coding:utf-8--
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
@@ -11,6 +11,23 @@ class User(BaseModel):
     email: str
     created_at: datetime
     is_active: bool = True
+
+
+# 登录相关模型
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenData(BaseModel):
+    username: str
+    exp: Optional[datetime] = None
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int  # 过期时间（秒）
 
 
 # 产品模型
@@ -132,3 +149,7 @@ class FileUploadDataResponse(GenericDataResponse):
 # 系统状态响应模型
 class SystemStatusResponse(GenericDataResponse):
     data: Dict[str, Any] = {}
+
+# 登录响应模型
+class TokenResponseData(GenericDataResponse):
+    data: Optional[TokenResponse] = None

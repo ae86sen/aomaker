@@ -1,9 +1,12 @@
 # --coding:utf-8--
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Query, Path, Body, HTTPException
+from fastapi import FastAPI, Query, Path, Body, HTTPException, Depends, Request, Header
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uvicorn
+import jwt
+from jwt.exceptions import PyJWTError
 
 from .mock_models import (
     UserListResponse,
@@ -23,9 +26,13 @@ from .mock_models import (
     SystemStatusResponse,
     CommentResponse,
     FileUploadResponse,
-    FileUploadDataResponse
+    FileUploadDataResponse,
+    LoginRequest,
+    TokenData,
+    TokenResponse,
+    TokenResponseData
 )
-from .mock_datas import user_details, users, product_details, products, orders, comments
+from .mock_datas import user_details, users, product_details, products, orders, comments, user_credentials
 
 app = FastAPI(
     title="AOMaker Mock Server",
@@ -36,8 +43,11 @@ app = FastAPI(
     openapi_url="/api/aomaker-openapi.json"
 )
 
-# 添加标签元数据，使文档更有组织性
 tags_metadata = [
+    {
+        "name": "auth",
+        "description": "认证相关操作，包括用户登录、获取令牌等",
+    },
     {
         "name": "users",
         "description": "用户相关操作，包括获取用户列表、获取单个用户信息、创建用户等",
@@ -63,11 +73,89 @@ tags_metadata = [
 # 更新app的openapi_tags
 app.openapi_tags = tags_metadata
 
+# JWT 配置
+SECRET_KEY = "aomaker-secret-key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# 设置OAuth2密码Bearer
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login/token")
+
+# 身份验证函数
+def authenticate_user(username: str, password: str):
+    """验证用户名和密码"""
+    for user_cred in user_credentials:
+        if user_cred["username"] == username and user_cred["password"] == password:
+            return user_cred
+    return None
+
+def create_access_token(data: dict, expires_delta: timedelta):
+    """创建JWT访问令牌"""
+    to_encode = data.copy()
+    expire = datetime.now() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt, expire
+
+
+async def verify_token(token: str = Depends(oauth2_scheme)):
+    """验证JWT令牌"""
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="凭证无效",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username, exp=payload.get("exp"))
+    except PyJWTError:
+        raise credentials_exception
+    return token_data
+
+# 获取当前用户
+async def get_current_user(token_data: TokenData = Depends(verify_token)):
+    """根据令牌获取当前用户"""
+    for user_cred in user_credentials:
+        if user_cred["username"] == token_data.username:
+            for user in users:
+                if user.id == user_cred["user_id"]:
+                    return user
+    raise HTTPException(status_code=401, detail="用户不存在或已停用")
+
+# 登录接口
+@app.post("/api/login/token", response_model=TokenResponseData, tags=["auth"],
+         summary="用户登录获取令牌",
+         description="用户提供用户名和密码进行登录，成功后返回JWT令牌")
+async def login_for_access_token(login_data: LoginRequest):
+    """登录获取访问令牌"""
+    user = authenticate_user(login_data.username, login_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="用户名或密码错误",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token, expire = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    expires_in = int((expire - datetime.now()).total_seconds())
+    token_response = TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=expires_in
+    )
+    return TokenResponseData(ret_code=0, message="登录成功", data=token_response)
+
 
 @app.get("/api/users", response_model=UserListResponse, tags=["users"],
          summary="获取用户列表",
          description="获取系统中的用户列表，支持分页和按用户名模糊搜索")
 async def get_users(
+        current_user: User = Depends(get_current_user),
         offset: int = Query(0, description="偏移量，用于分页"),
         limit: int = Query(10, description="限制数量，用于分页"),
         username: Optional[str] = Query(None, description="用户名，支持模糊搜索")
@@ -87,7 +175,10 @@ async def get_users(
 @app.get("/api/users/{user_id}", response_model=UserResponse, tags=["users"],
          summary="获取单个用户信息",
          description="根据用户ID获取单个用户的详细信息")
-async def get_user(user_id: int = Path(..., description="用户ID")):
+async def get_user(
+        user_id: int = Path(..., description="用户ID"),
+        current_user: User = Depends(get_current_user)
+):
     for user in users:
         if user.id == user_id:
             return UserResponse(ret_code=0, message="success", data=user)
@@ -107,6 +198,7 @@ async def create_user(user: User = Body(..., description="用户信息")):
          summary="获取产品列表",
          description="获取系统中的产品列表，支持分页和按类别筛选")
 async def get_products(
+        current_user: User = Depends(get_current_user),
         offset: int = Query(0, description="偏移量，用于分页"),
         limit: int = Query(10, description="限制数量，用于分页"),
         category: Optional[str] = Query(None, description="产品类别，精确匹配")
@@ -380,6 +472,79 @@ async def root():
             "OpenAPI JSON": "/api/openapi.json"
         }
     }
+
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request, Response
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        auth_whitelist = [
+            "/api/login/token",  # 登录接口
+            "/",                 # 根路径
+            "/api/docs",         # Swagger文档
+            "/api/redoc",        # ReDoc文档
+            "/api/aomaker-openapi.json",  # OpenAPI规范
+        ]
+        
+        # 检查请求路径是否在白名单中
+        path = request.url.path
+        if path in auth_whitelist:
+            return await call_next(request)
+            
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return Response(
+                content='{"detail":"缺少认证信息"}',
+                status_code=401,
+                media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+            
+        try:
+            scheme, token = auth_header.split()
+            if scheme.lower() != "bearer":
+                return Response(
+                    content='{"detail":"认证方案无效"}',
+                    status_code=401,
+                    media_type="application/json",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+                
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username is None:
+                return Response(
+                    content='{"detail":"无效的认证凭据"}',
+                    status_code=401,
+                    media_type="application/json",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+                
+            user_exists = False
+            for user_cred in user_credentials:
+                if user_cred["username"] == username:
+                    user_exists = True
+                    break
+                    
+            if not user_exists:
+                return Response(
+                    content='{"detail":"用户不存在或已停用"}',
+                    status_code=401,
+                    media_type="application/json",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+                
+            return await call_next(request)
+        except Exception:
+            return Response(
+                content='{"detail":"无效的认证凭据"}',
+                status_code=401,
+                media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+app.add_middleware(AuthMiddleware)
 
 
 if __name__ == "__main__":

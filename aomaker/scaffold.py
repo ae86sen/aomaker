@@ -65,7 +65,7 @@ def create_scaffold(project_name):
 from datetime import datetime
 
 from attrs import define, field
-from aomaker.core.router import APIRouter
+from aomaker.core.router import router
 from aomaker.core.api_object import BaseAPIObject
 
 from .models import (
@@ -83,11 +83,23 @@ from .models import (
     SystemStatusResponse, 
     CommentResponse, 
     ProductListResponse,
-    FileUploadDataResponse
+    FileUploadDataResponse,
+    TokenResponseData
 
 )
 
-router = APIRouter()
+@define(kw_only=True)
+@router.post("/api/login/token")
+class LoginAPI(BaseAPIObject[TokenResponseData]):
+    \"""登录\"""
+
+    @define
+    class RequestBodyModel:
+        username: str = field()
+        password: str = field()
+
+    request_body: RequestBodyModel
+    response: Optional[TokenResponseData] = field(default=TokenResponseData)
 
 
 @define(kw_only=True)
@@ -537,6 +549,16 @@ class FileUploadDataResponse(GenericResponse):
 @define(kw_only=True)
 class SystemStatusResponse(GenericResponse):
     data: Optional[SystemStatus] = field(default=None)
+
+@define(kw_only=True)
+class TokenResponse:
+    access_token: str = field()
+    token_type: str = field()
+    expires_in: int = field()
+
+@define(kw_only=True)
+class TokenResponseData(GenericDataResponse):
+    data: Optional[TokenResponse] = field(default=None)   
     """
     create_file(mock_path / "models.py", models_content)
     testcase_path = Path(project_name) / "testcases"
@@ -875,21 +897,35 @@ filterwarnings =
     ignore::DeprecationWarning
     """
     create_file(Path(project_name) / "pytest.ini", pytest_ini_content)
-    login_content = """from requests import request
+    login_content = """from typing import Union
 
 from aomaker.fixture import BaseLogin
+from aomaker.core.http_client import HTTPClient
 
+from apis.mock.apis import LoginAPI
 
 class Login(BaseLogin):
 
-    def login(self) -> dict:
-        resp_login = {}
-        return resp_login
 
-    def make_headers(self, resp_login:dict) -> dict:
+    def login(self) -> Union[dict, str]:
+        login_request_data = LoginAPI.RequestBodyModel(
+            username=self.account['user'],
+            password=self.account['pwd']
+        )
+        login_api = LoginAPI(
+            request_body=login_request_data,
+            http_client=HTTPClient()
+        )
+        resp_login = login_api.send()
+        return resp_login.response_model.data.access_token
+
+    def make_headers(self, resp_login: Union[dict, str]) -> dict:
+        token = resp_login
         headers = {
-            'Cookie': f'csrftoken=aomakerniubility'}
+            'Authorization': f'Bearer {token}'
+        }
         return headers
+    
     """
     create_file(Path(project_name) / "login.py", login_content)
     create_file(Path(project_name) / "hooks.py", "")
