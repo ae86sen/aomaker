@@ -577,18 +577,33 @@ class JsonSchemaParser:
 
 
 def normalize_enum_name(value: Any) -> str:
-    """规范化枚举值名称"""
+    """规范化枚举值名称，生成有效的 Python 标识符，支持 Unicode"""
     # 转换为字符串
     str_value = str(value)
-    # 替换特殊字符为下划线
-    name = re.sub(r'[^a-zA-Z0-9]', '_', str_value)
+
+    # 替换非字母数字（包括 Unicode）和下划线的字符为下划线
+    # 使用 \w 包含字母、数字、下划线，并显式添加中文范围
+    name = re.sub(r'[^\w\u4e00-\u9fa5]', '_', str_value)
+
+    # 确保名称不为空，如果为空则使用原始值的安全版本
+    if not name:
+        name = f'value_{re.sub(r"[^a-zA-Z0-9_]", "_", str_value)}' # Fallback for completely invalid original value
+        if not name.strip('value_'): # If still empty after fallback
+             name = 'value_empty' # Final fallback
+
     # 处理数字开头的情况
-    if name[0].isdigit():
+    # 添加 name and 检查，防止空字符串导致 IndexError
+    if name and name[0].isdigit():
         name = f'value_{name}'
-    # 处理纯下划线的情况
+
+    # 处理原始值只包含非法字符，导致 name 只剩下下划线的情况
+    # 使用处理后的 name 而不是原始 str_value 来构建，确保合法性
     if name.strip('_') == '':
-        name = f'value_{str_value}'
-    # 确保是有效的 Python 标识符
+        # Example: input ' ' -> name = '_', strip = '' -> name = 'value__'
+        # Example: input '%' -> name = '_', strip = '' -> name = 'value__'
+        name = f'value_{name}' # 用处理后的 name (下划线) 构建
+
+    # 转换为小写
     name = name.lower()
     return name
 
