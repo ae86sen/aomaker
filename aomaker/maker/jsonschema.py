@@ -93,6 +93,7 @@ class JsonSchemaParser:
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
 
         if len(self.current_recursion_path) >= self.max_recursion_depth:
+            logger.warning(f"递归深度达到限制 ({self.max_recursion_depth}) at path: {self.current_recursion_path}. 返回 Any.")
             return DataType(
                 type="Any",
                 imports={Import(from_='typing', import_='Any')}
@@ -262,6 +263,13 @@ class JsonSchemaParser:
         """处理 $ref 引用，返回已注册模型的DataType"""
         logger.debug(f"开始处理引用: {ref}")
 
+        if len(self.current_recursion_path) >= self.max_recursion_depth:
+            logger.warning(f"处理引用 {ref} 前检测到递归深度达到限制 ({self.max_recursion_depth}) at path: {self.current_recursion_path}. 返回 Any.")
+            return DataType(
+                type="Any",
+                imports={Import(from_='typing', import_='Any')}
+            )
+
         ref_name = ref.split("/")[-1]
         import urllib.parse
 
@@ -298,9 +306,13 @@ class JsonSchemaParser:
             ref_schema = self.resolver.get_ref_schema(ref)
             if ref_schema is None:
                 logger.warning(f"无法找到引用的schema: {ref}")
+                return DataType(
+                    type="Any",
+                    imports={Import(from_='typing', import_='Any')},
+                )
             else:
                 logger.debug(f"找到引用schema，开始解析: {ref}")
-            self.parse_schema(ref_schema, normalized_name)
+                self.parse_schema(ref_schema, normalized_name)
         else:
             logger.debug(f"模型 {normalized_name} 已注册，更新标签")
             model = self.model_registry.get(normalized_name)
