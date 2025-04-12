@@ -609,11 +609,11 @@ def normalize_enum_name(value: Any) -> str:
 
 
 def normalize_class_name(name: str) -> str:
-    """将名称规范化为合法的Python类名（大驼峰命名）"""
+    """将名称规范化为合法的 Python 类名（大驼峰命名），支持 Unicode。"""
     logger.debug(f"开始规范化类名: {name}")
-
-    # 处理Java泛型符号
     original_name = name
+
+    # 处理 Java 泛型符号
     if '«' in name:
         pattern = r'(\w+)«(.+?)»'
         while re.search(pattern, name):
@@ -621,31 +621,44 @@ def normalize_class_name(name: str) -> str:
             name = re.sub(pattern, r'\1Of\2', name)
             logger.debug(f"泛型处理: {old_name} -> {name}")
 
-    # 只替换非法字符，保留中文和字母数字
+    # 替换非法字符（非字母数字包括 Unicode，非下划线）为下划线
     old_name = name
-    # 使用更精确的正则，只替换非法字符
     name = re.sub(r'[^\w\u4e00-\u9fa5]', '_', name)
     if old_name != name:
         logger.debug(f"特殊字符处理: {old_name} -> {name}")
 
-    # 确保不以数字开头
-    if name and name[0].isdigit():
-        old_name = name
-        name = '_' + name
-        logger.debug(f"数字开头处理: {old_name} -> {name}")
+    # 如果处理后名称为空，直接返回默认名称
+    if not name or name == '_': # 处理完全由非法字符组成的名称
+        logger.debug(f"处理后名称为空或仅为下划线，返回默认名称: {original_name} -> UnnamedModel")
+        return "UnnamedModel"
 
-    # 转换为大驼峰形式(只处理下划线分隔的部分)
+    # 存储是否需要前导下划线（因为数字开头）
+    needs_leading_underscore = name[0].isdigit()
+
+    # 转换为大驼峰形式
     old_name = name
-    if '_' in name:
-        # 只对下划线分隔的部分应用大驼峰转换
-        parts = name.split('_')
-        name = ''.join(part.capitalize() if part else '' for part in parts)
-    else:
-        # 非下划线分隔的情况，只确保首字母大写
-        name = name[0].upper() + name[1:] if name else ''
+    parts = name.split('_')
+    # 使用 part[0].upper() + part[1:] 来保证 PascalCase，避免 capitalize() 的副作用
+    # 同时过滤掉因连续下划线产生的空部分
+    name = ''.join(part[0].upper() + part[1:] if part else '' for part in parts if part)
 
-    if old_name != name:
-        logger.debug(f"大驼峰转换: {old_name} -> {name}")
+    if not name: # 如果分割和处理后变为空（例如输入 "__"）
+        logger.debug(f"大驼峰处理后为空，返回默认名称: {original_name} -> UnnamedModel")
+        return "UnnamedModel"
+
+
+    # 如果原始名称以数字开头，确保最终名称有前导下划线
+    if needs_leading_underscore and not name.startswith('_'):
+         name = '_' + name
+         logger.debug(f"添加前导下划线（因数字开头）: {old_name} -> {name}")
+    elif not needs_leading_underscore and name.startswith('_') and len(parts)>1 and parts[0]=='':
+         # 处理原本以下划线开头的情况, e.g., _my_var -> MyVar (移除因split产生的前导下划线)
+         # 只有在非数字开头且确实是下划线分割产生的首个空部分时才移除
+         pass # 在 join 时已处理好类似 _my_var -> MyVar
+
+    # 确保首字母大写（对于没有下划线的情况）
+    if name and not name[0].isupper() and not name.startswith('_'):
+         name = name[0].upper() + name[1:]
 
     logger.debug(f"类名规范化完成: {original_name} -> {name}")
     return name
