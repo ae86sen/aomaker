@@ -375,7 +375,7 @@ class JsonSchemaParser:
 
         # 如果有多个非null类型，且有null类型，则使用Union加Optional
         if has_null and len(child_types) > 1:
-            type_hint = f"Optional[Union[{', '.join(t.type_hint for t in child_types)}]]"
+            type_hint = f"Union[{', '.join(t.type_hint for t in child_types)}]"
             return DataType(
                 type=type_hint,
                 data_types=child_types,
