@@ -367,10 +367,10 @@ class JsonSchemaParser:
         # 如果只有一个非null类型，且有null类型，则使用Optional
         if has_null and len(child_types) == 1:
             return DataType(
-                type=f"Optional[{child_types[0].type_hint}]",
+                type=child_types[0].type_hint,
                 data_types=child_types,
                 imports=imports | {Import(from_='typing', import_='Optional')},
-                is_optional=True
+                is_optional=True 
             )
 
         # 如果有多个非null类型，且有null类型，则使用Union加Optional

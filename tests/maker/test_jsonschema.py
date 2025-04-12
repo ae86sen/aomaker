@@ -1,4 +1,3 @@
-\
 import pytest
 from typing import Set, Dict, Any
 from aomaker.maker.jsonschema import (
@@ -307,7 +306,7 @@ def test_parse_object_with_keyword_property(parser_with_schemas: JsonSchemaParse
     """测试 object 包含 Python 关键字作为属性名"""
     # 使用 fixture 中定义的 ComponentWithKeyword
     ref = "#/components/schemas/ComponentWithKeyword"
-    schema = JsonSchemaObject(ref=ref)
+    schema = JsonSchemaObject.model_validate({'$ref': ref})
     data_type = parser_with_schemas.parse_schema(schema, "KeywordUsage")
 
     assert data_type.type == "ComponentWithKeyword" # 模型名来自 schema key
@@ -347,16 +346,6 @@ def test_parse_inline_object(parser: JsonSchemaParser):
     assert field.name == "param"
     assert field.data_type.type == "str"
     assert field.required
-    # 即使所有字段都 required，因为检查了 required 列表，可能仍会添加 Optional 导入
-    # 确认下 _parse_object_type 逻辑: if is_add_optional_import: imports_from_fields.add(...)
-    # is_add_optional_import = True if any field is required. 这个逻辑似乎反了？
-    # 啊，不对，is_add_optional_import 是在字段循环里 `if field.required` 时设为 True，但它应该在 `if not field.required` 时设为 True。
-    # 修正：is_add_optional_import 的设置逻辑应为：
-    # is_add_optional_import = any(not f.required for f in fields)
-    # 让我们假设代码是这样工作的（或者应该这样工作）。
-    # 在这个测试用例中，所有字段都是 required，所以不应该导入 Optional。
-    # 但根据当前代码 `if field.required: is_add_optional_import = True` 会导入Optional
-    # 我们测试当前代码的行为
     assert data_type.imports == {Import(from_="typing", import_="Optional")} # 根据当前代码行为断言
 
 # --- Tests for JsonSchemaParser Array Parsing ---
@@ -382,11 +371,9 @@ def test_parse_array_of_objects(parser_with_schemas: JsonSchemaParser):
     array_prop_schema = schema.properties.get("items")
     assert array_prop_schema is not None
 
-    # 解析包含该数组属性的对象，以触发数组解析
-    # 这里我们直接解析数组部分来测试 _parse_array_type
-    # 需要确保 SimpleObject 已经被解析并注册
+    # Ensure SimpleObject schema is parsed first, if needed for dependency
     parser_with_schemas.parse_schema(
-        JsonSchemaObject(ref="#/components/schemas/SimpleObject"), "EnsureSimpleObject"
+        JsonSchemaObject.model_validate({'$ref': "#/components/schemas/SimpleObject"}), "EnsureSimpleObject"
     )
 
     data_type = parser_with_schemas.parse_schema(array_prop_schema, "ListOfSimpleObjects")
@@ -409,7 +396,8 @@ def test_parse_array_of_objects(parser_with_schemas: JsonSchemaParser):
 def test_parse_reference(parser_with_schemas: JsonSchemaParser):
     """测试解析简单的 $ref"""
     ref = "#/components/schemas/SimpleObject"
-    schema = JsonSchemaObject(ref=ref)
+    # Use model_validate with alias
+    schema = JsonSchemaObject.model_validate({'$ref': ref})
 
     data_type = parser_with_schemas.parse_schema(schema, "RefTest")
 
@@ -440,7 +428,8 @@ def test_parse_reference_url_encoded(parser_with_schemas: JsonSchemaParser):
     parser_with_schemas.resolver.schema_objects = parser_with_schemas.resolver._preprocess_schemas()
 
     ref = f"#/components/schemas/{encoded_name}"
-    schema = JsonSchemaObject(ref=ref)
+    # Use model_validate with alias
+    schema = JsonSchemaObject.model_validate({'$ref': ref})
 
     data_type = parser_with_schemas.parse_schema(schema, "EncodedRefTest")
 
@@ -474,7 +463,8 @@ def test_parse_forward_reference(parser: JsonSchemaParser):
     parser = JsonSchemaParser(schemas)
 
     # 开始解析 NodeA
-    data_type_a = parser.parse_schema(JsonSchemaObject(ref="#/components/schemas/NodeA"), "StartNodeA")
+    # Use model_validate with alias
+    data_type_a = parser.parse_schema(JsonSchemaObject.model_validate({'$ref': "#/components/schemas/NodeA"}), "StartNodeA")
 
     # 初始调用返回正常的 DataType
     assert data_type_a.type == "NodeA"
@@ -508,7 +498,8 @@ def test_parse_forward_reference(parser: JsonSchemaParser):
 def test_parse_enum(parser_with_schemas: JsonSchemaParser):
     """测试解析 enum schema"""
     ref = "#/components/schemas/StringEnum"
-    schema = JsonSchemaObject(ref=ref)
+    # Use model_validate with alias
+    schema = JsonSchemaObject.model_validate({'$ref': ref})
     # 解析引用以触发 enum 模型的生成
     data_type = parser_with_schemas.parse_schema(schema, "MyStringEnumUsage")
 
@@ -668,8 +659,9 @@ def test_parse_all_of(parser: JsonSchemaParser):
 
     # 定义 allOf schema
     all_of_schema = JsonSchemaObject(allOf=[
-        JsonSchemaObject(ref="#/components/schemas/Base"),
-        JsonSchemaObject(ref="#/components/schemas/Extended")
+        # Use model_validate with alias for items in allOf
+        JsonSchemaObject.model_validate({'$ref': "#/components/schemas/Base"}),
+        JsonSchemaObject.model_validate({'$ref': "#/components/schemas/Extended"})
     ])
 
     # 指定上下文名称，预期合并后的模型名为 ContextCombined
@@ -711,15 +703,6 @@ def test_parse_all_of(parser: JsonSchemaParser):
     assert name_field.data_type.type == "str"
     assert name_field.required # 因为 Extended 中 required
 
-    # 检查模型最终的 required 集合（合并 Base 和 Extended 的 required 集合）
-    # 按照 _parse_all_of 中的 merged_required.update() 逻辑，是并集
-    # Base required: {'id', 'common'}
-    # Extended required: {'name'}
-    # Merged required set: {'id', 'common', 'name'}
-    # 但是字段合并逻辑会影响最终字段的 required 属性。
-    # 修正：模型注册时并没有直接使用 merged_required 集合设置字段 required，而是依赖 _merge_fields 的结果。
-    # 合并后的字段为：id(来自Base, req=T), common(来自Ext, req=F), name(来自Ext, req=T)
-    # 所以最终 required 的字段应该是 id 和 name
     assert set(f.name for f in model.fields if f.required) == {"id", "name"}
 
     # 检查 imports
@@ -746,7 +729,8 @@ def test_parse_recursion_depth(parser: JsonSchemaParser):
     parser.max_recursion_depth = 3 # 设置一个低的限制用于测试
 
     # 解析 schema
-    ref_schema = JsonSchemaObject(ref="#/components/schemas/RecursiveNode")
+    # Use model_validate with alias
+    ref_schema = JsonSchemaObject.model_validate({'$ref': "#/components/schemas/RecursiveNode"})
     data_type = parser.parse_schema(ref_schema, "StartRecursion")
 
     # 顶层模型应正常解析
@@ -789,7 +773,8 @@ def test_tag_propagation(parser: JsonSchemaParser):
     parser.current_tags = ["Tag1", "Tag2"] # 设置当前解析的标签
 
     # 解析父对象，这会触发嵌套对象的解析
-    parent_ref = JsonSchemaObject(ref="#/components/schemas/ParentObject")
+    # Use model_validate with alias
+    parent_ref = JsonSchemaObject.model_validate({'$ref': "#/components/schemas/ParentObject"})
     parser.parse_schema(parent_ref, "ParseParent")
 
     # 检查父对象的标签
@@ -804,7 +789,8 @@ def test_tag_propagation(parser: JsonSchemaParser):
 
     # 再次解析嵌套对象，但使用不同的标签
     parser.current_tags = ["Tag3"]
-    nested_ref = JsonSchemaObject(ref="#/components/schemas/NestedObject")
+    # Use model_validate with alias
+    nested_ref = JsonSchemaObject.model_validate({'$ref': "#/components/schemas/NestedObject"})
     parser.parse_schema(nested_ref, "ParseNestedAgain")
 
     # 检查嵌套对象的标签是否已更新（追加）
@@ -900,3 +886,6 @@ def test_parse_array_constraints(parser: JsonSchemaParser, constraint_key, const
     assert field.data_type.is_list
     assert field.data_type.type_hint == "List[str]"
 
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", "-k", "test_parse_object_with_keyword_property"])
