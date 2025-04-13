@@ -9,10 +9,10 @@ from aomaker.maker.models import DataModel, Import, DataType, DataModelField, Js
 from aomaker.log import logger
 
 TypeMap = {
-    'string': ('str', set()),
-    'integer': ('int', set()),
-    'number': ('float', set()),
-    'boolean': ('bool', set()),
+    'string': ('str', None),
+    'integer': ('int', None),
+    'number': ('float', None),
+    'boolean': ('bool', None),
     'array': ('List', {Import(from_='typing', import_='List')}),
     'object': ('Dict', {Import(from_='typing', import_='Dict')}),
 }
@@ -421,22 +421,27 @@ class JsonSchemaParser:
         for schema_ in schemas:
             data_type = self.parse_schema(schema_, f"{context}_AllOfPart")
             data_model = self.model_registry.get(data_type.type)
+            if not data_model:
+                 logger.warning(f"在 allOf 合并期间未能找到模型: {data_type.type} (来自 {context})")
+                 continue
 
             merged_fields.extend(data_model.fields)
             merged_required.update(data_model.required)
             merged_imports.update(data_model.imports)
 
             if data_model.description:
-                merged_descriptions.append(schema_.description)
+                merged_descriptions.append(data_model.description)
+
+        valid_descriptions = [desc for desc in merged_descriptions if desc is not None]
 
         merged_model = DataModel(
             name=f"{context}Combined",
             fields=self._merge_fields(merged_fields),
-            required=merged_required,
             imports=merged_imports,
             tags=self.current_tags,
-            description="\n".join(merged_descriptions)
+            description="\n".join(valid_descriptions)
         )
+        merged_model.required = {f.name for f in merged_model.fields if f.required}
 
         self.model_registry.register(merged_model)
 
@@ -564,7 +569,10 @@ class JsonSchemaParser:
         return self._get_base_type_mapping(schema_type, schema_format)
 
     def _get_base_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
-        # 原来的_get_type_mapping逻辑
+        default_imports = {Import(from_='typing', import_='Any')}
+        base_type, imports_or_none = TypeMap.get(schema_type, ('Any', default_imports))
+        imports = set() if imports_or_none is None else imports_or_none
+
         if schema_type == 'string':
             if schema_format == 'date-time':
                 return 'datetime', {Import(from_='datetime', import_='datetime')}
@@ -585,8 +593,7 @@ class JsonSchemaParser:
                 return 'bytes', set()
             elif schema_format == 'binary':  # 二进制数据
                 return 'bytes', set()
-        return TypeMap.get(schema_type, ('Any', {Import(from_='typing', import_='Any')}))
-
+        return base_type, imports
 
 def normalize_enum_name(value: Any) -> str:
     """规范化枚举值名称，生成有效的 Python 标识符，支持 Unicode"""

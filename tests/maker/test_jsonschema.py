@@ -590,25 +590,21 @@ def test_parse_oneof_literal(parser: JsonSchemaParser):
 
     data_type = parser.parse_schema(schema, "FruitLiteral")
 
-    # 根据当前代码行为：_parse_enum 会为每个 oneOf 项创建单独的 Enum 模型
-    # 然后 _parse_union_type 会将它们 Union 起来，即使 union_type='Literal'
-    # 所以预期结果是 Union[FruitLiteral_Union0, FruitLiteral_Union1]
-    expected_union_str = "Union[FruitLiteral_Union0, FruitLiteral_Union1]"
+    expected_union_str = "Literal[FruitLiteral_Literal0, FruitLiteral_Literal1]"
     assert data_type.type_hint == expected_union_str
     assert data_type.type == expected_union_str # type 和 type_hint 一致
     assert data_type.imports == {
-        Import(from_='typing', import_='Union'),
-        Import(from_='.models', import_='FruitLiteral_Union0'),
-        Import(from_='.models', import_='FruitLiteral_Union1')
+        Import(from_='typing', import_='Literal'),
+        Import(from_='.models', import_='FruitLiteral_Literal0'),
+        Import(from_='.models', import_='FruitLiteral_Literal1')
     }
     assert not data_type.is_optional
 
     # 验证生成的 Enum 模型
-    enum0 = parser.model_registry.get("FruitLiteral_Union0")
-    enum1 = parser.model_registry.get("FruitLiteral_Union1")
+    enum0 = parser.model_registry.get("FruitLiteral_Literal0")
+    enum1 = parser.model_registry.get("FruitLiteral_Literal1")
     assert enum0 is not None and enum0.is_enum and len(enum0.fields) == 1 and enum0.fields[0].name == "apple"
     assert enum1 is not None and enum1.is_enum and len(enum1.fields) == 1 and enum1.fields[0].name == "banana"
-    # 注意：此行为可能与期望的 Literal['apple', 'banana'] 不同，但测试反映了当前实现。
 
 def test_parse_const_string(parser: JsonSchemaParser):
     """测试解析 string 类型的 const"""
@@ -738,16 +734,6 @@ def test_parse_recursion_depth(parser: JsonSchemaParser):
     model = parser.model_registry.get("RecursiveNode")
     assert model is not None
 
-    # 检查模型内的字段类型，它应该是在递归中达到限制时返回的类型
-    # 追踪路径：
-    # parse_schema(StartRecursion) -> path=['StartRecursion']
-    # -> _parse_reference(RecursiveNode) -> path=['StartRecursion', 'RecursiveNode']
-    #   -> parse_schema(RecursiveNode, context=RecursiveNode) -> path=['StartRecursion', 'RecursiveNode']
-    #     -> _parse_object_type
-    #       -> parse_schema(child_ref, context=RecursiveNode_child) -> path=['StartRecursion', 'RecursiveNode', 'RecursiveNode_child']
-    #         -> _parse_reference(RecursiveNode) -> path=[..., 'RecursiveNode_child', 'RecursiveNode'] len=4 >= max=3
-    #         -> 返回 Any
-    # 所以，模型 'RecursiveNode' 中 'child' 字段的类型应该是 Any
     assert len(model.fields) == 1
     child_field = model.fields[0]
     assert child_field.name == "child"

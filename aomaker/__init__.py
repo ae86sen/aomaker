@@ -1,7 +1,7 @@
 from emoji import emojize
 
 __version__ = "3.0.0beta15"
-__description__ = "Docs as code,Definitions as tests."
+__description__ = "Docs as code, Definitions as tests."
 __image__ = emojize(fr"""
  █████╗  ██████╗ ███╗   ███╗ █████╗ ██╗  ██╗███████╗██████╗ 
 ██╔══██╗██╔═══██╗████╗ ████║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗
@@ -12,5 +12,5 @@ __image__ = emojize(fr"""
                                 
                                  {__description__}
                                  version:{__version__}
-                                 :sun: :rainbow: :unicorn:
+                                 :sun:  :rainbow: :unicorn:
 """)

@@ -95,7 +95,7 @@ class DataModel(BaseModel):
     description: Optional[str] = None
     base_class: str = "attrs.define"
     imports: Set[Import] = Field(default_factory=set)
-    required: List[DataModelField] = Field(default_factory=set)
+    required: Set[str] = Field(default_factory=set)
     is_forward_ref: bool = False
 
 
