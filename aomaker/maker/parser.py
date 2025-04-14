@@ -188,19 +188,37 @@ class OpenAPIParser(JsonSchemaParser):
             logger.debug(f"未找到成功响应状态码: {class_name}")
             return None
         response = responses[success_code]
+
+        # FIX: Check if response.content exists before iterating
+        if response.content is None:
+            logger.debug(f"响应 {success_code} in {class_name} 没有 'content' 字段")
+            return None
+
         for content_type in SUPPORTED_CONTENT_TYPES:
+            # Now safe to call .get()
             content = response.content.get(content_type)
             if not content or not content.schema_:
-                logger.debug(f"响应未定义JSON Schema: {class_name}")
-                continue
+                continue # Try next content type
 
             # 4. 统一解析Schema（自动处理嵌套引用）
             context_name = f"{class_name}Response"
-            response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
-            if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-                raise ValueError(f"未注册的自定义类型: {response_type.type}")
+            try:
+                response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
+            except Exception as e:
+                 logger.error(f"解析响应 schema 时出错 for {class_name}, content type {content_type}: {e}")
+                 continue # Try other content types if one fails
 
+            # REVERT: Check for internal inconsistency and raise Exception instead of logging/returning None
+            if response_type.is_custom_type and response_type.type not in self.model_registry.models:
+                # This indicates an internal bug in the parser/registry logic. Fail fast.
+                raise ValueError(f"内部解析错误：自定义类型 '{response_type.type}' 在解析响应 for '{class_name}' 后未注册。")
+
+            # Found a valid schema, return its type
             return response_type
+
+        # If loop completes without finding a supported content type with schema
+        logger.debug(f"响应 {success_code} in {class_name} 没有在支持的 content types 中找到 schema")
+        return None
 
     def _parse_content_schema(
             self,
