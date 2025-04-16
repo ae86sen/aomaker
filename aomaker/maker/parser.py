@@ -109,13 +109,20 @@ class OpenAPIParser(JsonSchemaParser):
         # 解析响应
         if operation.responses:
             response_type = self.parse_response(operation.responses, endpoint.class_name)
-
             if response_type is not None:
-                endpoint.response = self.model_registry.get(response_type.type)
-                response_import = Import(from_='.models', import_=response_type.type)
-                endpoint.imports.add(response_import)
-                # for imp in endpoint.response.imports:
-                #     endpoint.imports.add(imp)
+                type_name = None
+
+                if response_type.is_list and response_type.data_types and response_type.data_types[0].is_custom_type:
+                    item_type = response_type.data_types[0]
+                    type_name = item_type.type
+                    endpoint.imports.add(Import(from_='typing', import_='List'))
+                elif response_type.is_custom_type:
+                    type_name = response_type.type
+
+                if type_name:
+                    endpoint.response = self.model_registry.get(type_name)
+                    endpoint.imports.add(Import(from_='.models', import_=type_name))
+
         endpoint.imports.add(Import(from_='typing', import_='Optional'))
         return endpoint
 
@@ -189,16 +196,14 @@ class OpenAPIParser(JsonSchemaParser):
             return None
         response = responses[success_code]
 
-        # FIX: Check if response.content exists before iterating
         if response.content is None:
             logger.debug(f"响应 {success_code} in {class_name} 没有 'content' 字段")
             return None
 
         for content_type in SUPPORTED_CONTENT_TYPES:
-            # Now safe to call .get()
             content = response.content.get(content_type)
             if not content or not content.schema_:
-                continue # Try next content type
+                continue
 
             # 4. 统一解析Schema（自动处理嵌套引用）
             context_name = f"{class_name}Response"
@@ -206,17 +211,13 @@ class OpenAPIParser(JsonSchemaParser):
                 response_type = self.parse_schema(schema_obj=content.schema_, context=context_name)
             except Exception as e:
                  logger.error(f"解析响应 schema 时出错 for {class_name}, content type {content_type}: {e}")
-                 continue # Try other content types if one fails
+                 continue
 
-            # REVERT: Check for internal inconsistency and raise Exception instead of logging/returning None
             if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-                # This indicates an internal bug in the parser/registry logic. Fail fast.
                 raise ValueError(f"内部解析错误：自定义类型 '{response_type.type}' 在解析响应 for '{class_name}' 后未注册。")
 
-            # Found a valid schema, return its type
             return response_type
 
-        # If loop completes without finding a supported content type with schema
         logger.debug(f"响应 {success_code} in {class_name} 没有在支持的 content types 中找到 schema")
         return None
 

@@ -248,16 +248,24 @@ class JsonSchemaParser:
     def _parse_array_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         item_schema = schema_obj.items
         item_type = self.parse_schema(item_schema, f"{context}Item")
-
-        if item_type.is_list:
-            return item_type
-
-        return DataType(
+        
+        if item_type.is_custom_type:
+            dt = DataType(
+                type=f"List[{item_type.type_hint}]",
+                is_list=True,
+                data_types=[item_type],
+                is_custom_type=False,
+                imports=item_type.imports | {Import(from_='typing', import_='List')}
+            )
+            return dt
+        
+        dt = DataType(
             type=f"List[{item_type.type_hint}]",
             is_list=True,
             data_types=[item_type],
             imports=item_type.imports | {Import(from_='typing', import_='List')}
         )
+        return dt
 
     def _parse_reference(self, ref: str) -> DataType:
         """处理 $ref 引用，返回已注册模型的DataType"""
