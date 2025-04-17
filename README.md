@@ -203,8 +203,8 @@ def test_create_user_success():
 
 ## 📜 更新日志
 
-详细的版本变更历史请查看 [CHANGELOG.md](占位符 - 指向你的 CHANGELOG 文件链接) 文件。
+详细的版本变更历史请查看 [CHANGELOG.md](https://aomaker.cn/releases) 文件。
 
 ## 📄 许可证
 
-`aomaker` 项目基于 [MIT License](占位符 - 指向你的 LICENSE 文件链接) 发布。请查看 `LICENSE` 文件获取详细信息。
+`aomaker` 项目基于 [MIT License](https://github.com/ae86sen/aomaker/blob/v3.0.0-beta/LICENSE) 发布。请查看 `LICENSE` 文件获取详细信息。
