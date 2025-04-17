@@ -28,7 +28,15 @@ class OpenAPIParser(JsonSchemaParser):
     def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None, console: Console = None):
         if SwaggerAdapter.is_swagger(openapi_data):
             openapi_data =  SwaggerAdapter.adapt(openapi_data)
-        super().__init__(openapi_data.get("components", {}).get("schemas", {}))
+        components = openapi_data.get("components", {})
+        super().__init__(components.get("schemas", {}))
+
+        raw_parameters = components.get("parameters", {})
+        self.parameters_objects = {
+            name: Parameter.model_validate(raw)
+            for name, raw in raw_parameters.items()
+        }
+
         self.openapi_data = openapi_data
         self.api_groups: Dict[str, APIGroup] = {}
         self.config: OpenAPIConfig = config or OpenAPIConfig()
@@ -245,7 +253,12 @@ class OpenAPIParser(JsonSchemaParser):
     def _resolve_parameter(self, param: Union[Reference, Parameter]) -> Parameter:
         """解析参数引用"""
         if isinstance(param, Reference):
-            param = self.resolver.get_ref_schema(param.ref)
+            ref = param.ref
+            if ref.startswith("#/components/parameters/"):
+                key = ref.split("/")[-1]
+                return self.parameters_objects[key]
+
+            return self.resolver.get_ref_schema(param.ref)
         return param
 
     def _organize_models(self):
