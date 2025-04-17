@@ -1,4 +1,3 @@
-
 ![logo_with_slogan.png](https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/logo_with_slogan.png)
 
 
@@ -18,6 +17,7 @@
 `aomaker` V3 针对这些痛点，提出了创新的解决方案：
 通过**对象化建模**将接口的完整定义（URL、方法、请求头、参数、请求体、响应体等）整合为统一、结构化的 Python 类。结合**声明式定义**和与 **OpenAPI/Swagger 的深度集成**，`aomaker` 彻底革新了接口自动化测试的开发与维护模式，实现了从“脚本级”到“工程化”的转变。
 同时，在单元测试引擎上拥抱`pytest` 生态，支持并兼容所有`pytest` 插件。
+
 <img src="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/aomaker-poster.PNG" width="360" height="450" alt="描述文本">
 
 ## ✨ 核心特性一览
@@ -174,14 +174,14 @@ def test_create_user_success():
     assert res.response_model.data.username == "测试用户"
 ```
 
-**👉 想了解更多高级用法？请查阅 [完整文档](占位符 - 指向你的详细文档链接，例如 Read the Docs 或 aomaker v3.0新功能（含quick start）.md 的在线版本)。**
+**👉 想了解更多高级用法？请查阅 [完整文档](https://aomaker.cn/docs)。**
 
 ## 🤝 如何贡献
 
 我们热烈欢迎社区的贡献！无论是报告 Bug、提出功能建议还是提交代码，都对 `aomaker` 的发展至关重要。
 
-*   🐞 **报告 Bug**: 如果你发现了 Bug，请通过 [GitHub Issues](占位符 - 指向你的项目 Issues 页面链接) 提交详细的报告。
-*   💡 **功能建议**: 有好的想法？欢迎在 [GitHub Issues](占位符 - 指向你的项目 Issues 页面链接) 中分享。
+*   🐞 **报告 Bug**: 如果你发现了 Bug，请通过 [GitHub Issues](https://github.com/ae86sen/aomaker/issues) 提交详细的报告。
+*   💡 **功能建议**: 有好的想法？欢迎在 [GitHub Issues](https://github.com/ae86sen/aomaker/issues) 中分享。
 *   🧑‍💻 **提交代码**:
     1.  Fork 本仓库到你的 GitHub 账号。
     2.  基于 `main` (或开发分支) 创建你的特性分支 (`git checkout -b feature/your-amazing-feature`)。
@@ -189,10 +189,13 @@ def test_create_user_success():
     4.  将你的更改推送到你的 Fork 仓库 (`git push origin feature/your-amazing-feature`)。
     5.  在 `aomaker` 原始仓库发起 Pull Request，详细说明你的更改。
 ## 加入社区
+
 加作者微信，进入交流群与优秀同行一起交流进步
+
 <img src="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/wechat.JPG" width="30%" height="30%" alt="描述文本">
 
 请作者喝杯☕️
+
 <img src="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/payment.jpg" width="30%" height="30%" alt="描述文本">
 
 
