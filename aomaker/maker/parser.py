@@ -134,11 +134,11 @@ class OpenAPIParser(JsonSchemaParser):
             if param_obj.schema_:
                 data_type = self._parse_parameter_schema(param_obj.name, param_obj.schema_)
                 default = param_obj.schema_.default
-                description = param_obj.schema_.description
+                description = param_obj.description or param_obj.schema_.description
             elif param_obj.content:
                 data_type = self._parse_content_schema(param_obj.name, param_obj.content)
                 default = param_obj.content.get(MediaTypeEnum.JSON.value).schema_.default
-                description = param_obj.content.get(MediaTypeEnum.JSON.value).description
+                description = param_obj.description or param_obj.content.get(MediaTypeEnum.JSON.value).description
             else:
                 raise ValueError(f"参数未定义 schema_obj 或 content: {param_obj.name}")
 
