@@ -144,9 +144,17 @@ class OpenAPIParser(JsonSchemaParser):
                 default = param_obj.schema_.default
                 description = param_obj.description or param_obj.schema_.description
             elif param_obj.content:
+                media = param_obj.content.get(MediaTypeEnum.JSON.value)
+                schema_obj = media.schema_
+                
+                if isinstance(schema_obj, Reference):
+                    real_schema = self.resolver.get_ref_schema(schema_obj.ref)
+                else:
+                    real_schema = schema_obj
+
                 data_type = self._parse_content_schema(param_obj.name, param_obj.content)
-                default = param_obj.content.get(MediaTypeEnum.JSON.value).schema_.default
-                description = param_obj.description or param_obj.content.get(MediaTypeEnum.JSON.value).description
+                default = getattr(real_schema, "default", None)
+                description = param_obj.description or getattr(real_schema, "description", None)
             else:
                 raise ValueError(f"参数未定义 schema_obj 或 content: {param_obj.name}")
 
@@ -238,8 +246,10 @@ class OpenAPIParser(JsonSchemaParser):
         media_type = content.get(MediaTypeEnum.JSON.value)
         if not media_type or not media_type.schema_:
             raise ValueError("仅支持 JSON 类型的 content 参数")
-
-        return self._parse_parameter_schema(param_name, media_type.schema_)
+        schema_obj = media_type.schema_
+        if isinstance(schema_obj, Reference):
+            return self._parse_reference(schema_obj.ref)
+        return self._parse_parameter_schema(param_name, schema_obj)
 
     def _parse_parameter_schema(self, param_name: str, schema: JsonSchemaObject) -> DataType:
         """专用方法解析参数schema"""
@@ -248,6 +258,10 @@ class OpenAPIParser(JsonSchemaParser):
         model_name = f"{param_name.capitalize()}Param"
 
         datatype = self.parse_schema(schema, model_name)
+        datatype.is_inline = True
+        model = self.model_registry.models.get(model_name)
+        if model:
+            model.is_inline = True
         return datatype
 
     def _resolve_parameter(self, param: Union[Reference, Parameter]) -> Parameter:
