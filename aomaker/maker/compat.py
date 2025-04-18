@@ -358,10 +358,12 @@ def validate_openapi3(doc):
         errors.append("缺少 'info' 对象")
     elif not isinstance(doc['info'], dict):
         errors.append("'info' 不是对象")
-    elif 'title' not in doc['info']:
-        errors.append("'info' 对象缺少 'title'")
-    elif 'version' not in doc['info']:
-        errors.append("'info' 对象缺少 'version'")
+    else:
+        # 在 info 已存在且为 dict 的情况下，分别检查 title 和 version
+        if 'title' not in doc['info']:
+            errors.append("'info' 对象缺少 'title'")
+        if 'version' not in doc['info']:
+            errors.append("'info' 对象缺少 'version'")
 
     # 检查 paths
     if 'paths' not in doc:
