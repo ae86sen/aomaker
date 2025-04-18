@@ -214,7 +214,8 @@ class JsonSchemaParser:
             fields=fields,
             description=schema_obj.description,
             tags=self.current_tags,
-            imports=imports_from_fields
+            imports=imports_from_fields,
+            required=set(schema_obj.required),
         )
         self.model_registry.register(data_model)
 
