@@ -1014,4 +1014,225 @@ def test_reqbody_multipart():
 
 # --- Response Parsing Tests ---
 
+def test_response_ref_component_schema():
+    """
+    Purpose: 测试响应引用组件模式 ($ref) 的解析。
+    Input: components.schemas 定义了 CustomModel, 接口返回 JSON 的 $ref。
+    Expected: endpoint.response 是 DataModel(CustomModel)，字段及类型正确，imports 包含 .models 和 Optional。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Ref Response API", "version": "1.0.0"},
+        "components": {
+            "schemas": {
+                "CustomModel": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "title": {"type": "string"}
+                    },
+                    "required": ["id"]
+                }
+            }
+        },
+        "paths": {
+            "/custom": {
+                "get": {
+                    "operationId": "getCustom",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/CustomModel"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    # 响应模型应注册为 CustomModel
+    assert isinstance(endpoint.response, DataModel)
+    assert endpoint.response.name == "CustomModel"
+    # 校验字段顺序：必填字段 id 在前，可选字段 title 在后
+    assert [f.name for f in endpoint.response.fields] == ["id", "title"]
+    assert endpoint.response.fields[0].data_type.type == "int"
+    assert endpoint.response.fields[1].data_type.type == "str"
+    # Imports 应包含 .models.CustomModel 和 Optional
+    assert Import(from_='.models', import_='CustomModel') in endpoint.imports
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+
+def test_response_inline_object_schema():
+    """
+    Purpose: 测试 inline 对象响应模式的解析。
+    Input: 接口返回 inline object schema。
+    Expected: endpoint.response 是 DataModel 并命名为 <ClassName>Response，字段及类型正确，imports 包含 .models 及 Optional。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Inline Response API", "version": "1.0.0"},
+        "paths": {
+            "/item": {
+                "get": {
+                    "operationId": "getItem",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "count": {"type": "integer"}
+                                        },
+                                        "required": ["name"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    expected_model = endpoint.class_name + "Response"
+    assert isinstance(endpoint.response, DataModel)
+    assert endpoint.response.name == expected_model
+    # 字段顺序: name(required) 首位，count 可选
+    assert [f.name for f in endpoint.response.fields] == ["name", "count"]
+    assert endpoint.response.fields[0].data_type.type == "str"
+    assert endpoint.response.fields[1].data_type.type == "int"
+    # Imports 验证
+    assert Import(from_='.models', import_=expected_model) in endpoint.imports
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+
+def test_response_primitive_not_model():
+    """
+    Purpose: 测试原始类型响应不生成模型。
+    Input: 接口返回 primitive 类型 JSON。
+    Expected: endpoint.response 为 None，imports 仅包含 Optional。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Primitive Response API", "version": "1.0.0"},
+        "paths": {
+            "/echo": {
+                "get": {
+                    "operationId": "echo",
+                    "responses": {
+                        "200": {
+                            "description": "Echo",
+                            "content": {"application/json": {"schema": {"type": "string"}}}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    assert endpoint.response is None
+    # 仅 Optional 导入
+    assert endpoint.imports == {Import(from_='typing', import_='Optional')}
+
+def test_response_only_error_codes():
+    """
+    Purpose: 测试仅有非2xx状态码时不生成模型。
+    Input: 只有 400 响应。
+    Expected: endpoint.response 为 None。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Error Only API", "version": "1.0.0"},
+        "paths": {
+            "/err": {
+                "get": {
+                    "operationId": "getErr",
+                    "responses": {
+                        "400": {
+                            "description": "Bad Request",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"msg": {"type": "string"}}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    assert endpoint.response is None
+
+def test_response_array_of_ref():
+    """
+    Purpose: 测试数组响应中引用组件模式的解析。
+    Input: responses 返回 array of $ref。
+    Expected: endpoint.response 对应组件模型，imports 包含 List、 .models 和 Optional。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Array Ref Response API", "version": "1.0.0"},
+        "components": {
+            "schemas": {
+                "Item": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "name": {"type": "string"}
+                    },
+                    "required": ["id", "name"]
+                }
+            }
+        },
+        "paths": {
+            "/items": {
+                "get": {
+                    "operationId": "getItems",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/components/schemas/Item"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    # 对应组件模型 Item
+    assert isinstance(endpoint.response, DataModel)
+    assert endpoint.response.name == "Item"
+    # 字段 id, name 都为 required
+    assert [f.name for f in endpoint.response.fields] == ["id", "name"]
+    # imports 验证
+    assert Import(from_='typing', import_='List') in endpoint.imports
+    assert Import(from_='.models', import_='Item') in endpoint.imports
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+
 # --- Integration and Edge Cases ---
