@@ -88,10 +88,16 @@ class BaseAPIObject(Generic[ResponseT]):
         return self._handle_response(cached_response, stream)
     
     def _handle_response(self, cached_response, stream: bool = False) -> AoResponse[ResponseT]:
-        """处理HTTP响应"""
+        """
+        处理 HTTP 响应
+        """
+        if stream or self.response is None:
+            parsed = None
+        else:
+            parsed = self._parse_response(cached_response)
         return AoResponse(
             cached_response=cached_response,
-            response_model=self._parse_response(cached_response) if not stream else None,
+            response_model=parsed,
             is_stream=stream
         )
     
