@@ -32,6 +32,7 @@ class BaseAPIObject(Generic[ResponseT]):
     enable_schema_validation: bool = field(default=True)
 
     def __attrs_post_init__(self):
+        self.base_url = self.base_url.rstrip("/")
         self._validate_field_is_attrs()
         if self.endpoint_config is None:
             self.endpoint_config = getattr(self.__class__, '_endpoint_config', None)
