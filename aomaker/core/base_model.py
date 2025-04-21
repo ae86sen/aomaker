@@ -55,7 +55,7 @@ class TextPlainRequest(BaseHTTPRequest):
 class EndpointConfig:
     route: str = field(default="")
     method: HTTPMethod = field(default="")
-    route_params: List[str] = field(default=None)
+    route_params: List[str] = field(factory=list)
 
 
 @define(frozen=True)

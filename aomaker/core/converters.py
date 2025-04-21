@@ -177,7 +177,7 @@ class RequestConverter:
 
     def _replace_route_params(self, route: str) -> str:
         # 路由参数替换
-        for path_param in self.endpoint_config.route_params:
+        for path_param in (self.endpoint_config.route_params or []):
             if hasattr(self.api_object.path_params, path_param):
                 value = getattr(self.api_object.path_params, path_param)
                 route = route.replace(f"{{{path_param}}}", str(value))
