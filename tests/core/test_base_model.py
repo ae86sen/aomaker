@@ -101,7 +101,7 @@ def test_endpoint_config_default():
     cfg = EndpointConfig()
     assert cfg.route == ""
     assert cfg.method == ""
-    assert cfg.route_params is None
+    assert cfg.route_params == []
 
 
 def test_endpoint_config_custom():
