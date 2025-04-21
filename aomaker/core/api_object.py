@@ -52,7 +52,7 @@ class BaseAPIObject(Generic[ResponseT]):
                 raise TypeError(f"{field_name} must be an attrs instance")
 
     def __call__(self, *args, **kwargs):
-        self.send(*args, **kwargs)
+        return self.send(*args, **kwargs)
 
     @property
     def class_name(self):
