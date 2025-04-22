@@ -715,9 +715,7 @@ def test_parse_recursion_depth(parser: JsonSchemaParser):
         "RecursiveNode": {
             "type": "object",
             "properties": {
-                # 注意：为了更容易触发深度限制，让 child 也是一个可能递归的类型
-                 "child": {"$ref": "#/components/schemas/RecursiveNode"}
-                #"child": { "type": "object", "properties": { "grandchild": {"$ref": "#/components/schemas/RecursiveNode"}}}
+                "child": {"$ref": "#/components/schemas/RecursiveNode"}
             }
         }
     }
@@ -758,8 +756,6 @@ def test_tag_propagation(parser: JsonSchemaParser):
     parser = JsonSchemaParser(schemas)
     parser.current_tags = ["Tag1", "Tag2"] # 设置当前解析的标签
 
-    # 解析父对象，这会触发嵌套对象的解析
-    # Use model_validate with alias
     parent_ref = JsonSchemaObject.model_validate({'$ref': "#/components/schemas/ParentObject"})
     parser.parse_schema(parent_ref, "ParseParent")
 
@@ -794,8 +790,6 @@ def test_tag_propagation(parser: JsonSchemaParser):
         ("pattern", "^[a-z]+$", {"pattern": "^[a-z]+$"}),
         ("minimum", 0, {"minimum": 0}),
         ("maximum", 100.5, {"maximum": 100.5}),
-        # JSON Schema spec uses number for exclusiveMin/Max, OpenAPI 3.0 used boolean.
-        # The model `JsonSchemaObject` uses Optional[float]. Assume float here.
         ("exclusiveMinimum", 0.1, {"exclusive_minimum": 0.1}),
         ("exclusiveMaximum", 99.9, {"exclusive_maximum": 99.9}),
         ("multipleOf", 5, {"multiple_of": 5}),
@@ -807,10 +801,8 @@ def test_parse_object_property_constraints(parser: JsonSchemaParser, constraint_
     if constraint_key in ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"]:
         prop_schema["type"] = "number"
 
-    # Add the constraint to the property schema
     prop_schema[constraint_key] = constraint_value
 
-    # Create the object schema
     schema_dict = {
         "type": "object",
         "properties": {
@@ -820,12 +812,10 @@ def test_parse_object_property_constraints(parser: JsonSchemaParser, constraint_
     schema = JsonSchemaObject.model_validate(schema_dict)
     data_type = parser.parse_schema(schema, "ConstrainedModel")
 
-    # Verify the generated model's field
     model = parser.model_registry.get("ConstrainedModel")
     assert model is not None
     field = next(f for f in model.fields if f.name == "constrained_prop")
 
-    # Check if the constraint attribute exists on the DataModelField and has the correct value
     attr_name = list(expected_field_attr.keys())[0]
     expected_value = list(expected_field_attr.values())[0]
     assert hasattr(field, attr_name), f"Field should have attribute {attr_name}"
@@ -841,14 +831,12 @@ def test_parse_object_property_constraints(parser: JsonSchemaParser, constraint_
 )
 def test_parse_array_constraints(parser: JsonSchemaParser, constraint_key, constraint_value, expected_field_attr):
     """测试数组属性上的约束条件"""
-    # Define the array schema with the constraint
     array_schema: Dict[str, Any] = {
         "type": "array",
         "items": {"type": "string"}
     }
     array_schema[constraint_key] = constraint_value
 
-    # Define an object schema containing this array property
     schema_dict = {
         "type": "object",
         "properties": {
@@ -858,17 +846,14 @@ def test_parse_array_constraints(parser: JsonSchemaParser, constraint_key, const
     schema = JsonSchemaObject.model_validate(schema_dict)
     data_type = parser.parse_schema(schema, "ArrayConstraintModel")
 
-    # Verify the generated model's field
     model = parser.model_registry.get("ArrayConstraintModel")
     assert model is not None
     field = next(f for f in model.fields if f.name == "constrained_array")
 
-    # Check if the constraint attribute exists on the DataModelField for the array
     attr_name = list(expected_field_attr.keys())[0]
     expected_value = list(expected_field_attr.values())[0]
     assert hasattr(field, attr_name), f"Field should have attribute {attr_name}"
     assert getattr(field, attr_name) == expected_value, f"Attribute {attr_name} has wrong value"
-    # Also check the field's data type is correct (List)
     assert field.data_type.is_list
     assert field.data_type.type_hint == "List[str]"
 

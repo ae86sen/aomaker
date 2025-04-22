@@ -10,7 +10,6 @@ from unittest.mock import patch
 from attrs import define, field
 from cattrs import Converter
 
-# Assuming converters.py is in aomaker.core
 from aomaker.core.converters import (
     cattrs_converter,
     datetime_structure_hook,
@@ -51,9 +50,8 @@ def test_datetime_structure_hook_iso():
 
 def test_datetime_structure_hook_timestamp():
     """测试 datetime 结构化钩子 - 时间戳"""
-    ts = 1666866600  # Represents 2022-10-27 10:30:00 UTC
+    ts = 1666866600 
     expected_dt = datetime.utcfromtimestamp(ts) # Hook produces naive datetime
-    # Hook creates naive datetime from UTC timestamp
     structured_dt = datetime_structure_hook(ts, datetime)
     assert structured_dt == expected_dt
 
@@ -149,7 +147,6 @@ def test_remove_nones_simple_dict():
     """测试 _remove_nones - 简单字典"""
     data = {"a": 1, "b": None, "c": "hello"}
     expected = {"a": 1, "c": "hello"}
-    # Need RequestConverter instance to call _remove_nones
     converter = RequestConverter()
     assert converter._remove_nones(data) == expected
 
@@ -169,10 +166,9 @@ def test_remove_nones_list():
 
 def test_remove_nones_attrs_object_unstructured():
     """测试 _remove_nones - 已反结构化的 attrs 对象字典"""
-    # Simulate the dict after cattrs.unstructure
     unstructured_data = {
         'name': 'test',
-        'timestamp': None, # Explicit None from unstructure
+        'timestamp': None,
         'items': [{'id': 1, 'value': None}, {'id': 2, 'value': 'present'}],
         'flag': True,
         'maybe_present': None
@@ -201,7 +197,7 @@ class MockAPIObject:
     endpoint_config: EndpointConfig = field(default=EndpointConfig(method=HTTPMethod.GET, route="/ping", route_params=[]))
     headers: dict | None = None
     query_params: ParametersT | None = None
-    path_params: dict | None = None # Simple dict for testing _replace_route_params directly
+    path_params: dict | None = None
     request_body: RequestBodyT | None = None
     files: dict | None = None
 
@@ -228,12 +224,9 @@ def test_get_request_builder_supported(content_type, expected_builder):
 
 def test_get_request_builder_unsupported():
     """测试 get_request_builder - 不支持的 ContentType"""
-    # Create a dummy content type for testing
     class UnsupportedContentType(Enum):
         YAML = "application/yaml"
 
-    # Temporarily add this to REQUEST_BUILDERS or mock ContentType enum if necessary
-    # For now, assume it's not in REQUEST_BUILDERS
     mock_api = MockAPIObject(content_type=UnsupportedContentType.YAML)
     converter = RequestConverter(api_object=mock_api)
     with pytest.raises(ValueError, match="Unsupported content type"):
@@ -253,11 +246,9 @@ def test_replace_route_params_success():
         route_params=["user_id", "item_id"]
     )
     path_params_obj = PathParamsModel(user_id=123, item_id="abc")
-    # Update MockAPIObject definition or instance to include path_params
     mock_api = MockAPIObject(endpoint_config=endpoint_config)
-    mock_api.path_params = path_params_obj # Assign directly for this test
+    mock_api.path_params = path_params_obj
     converter = RequestConverter(api_object=mock_api)
-    # Access the internal method directly for focused testing
     replaced_route = converter._replace_route_params(converter.endpoint_config.route)
     assert replaced_route == "/users/123/items/abc"
 
@@ -268,7 +259,6 @@ def test_replace_route_params_no_params():
         route="/status",
         route_params=[]
     )
-    # Path params obj can be anything or None if no route params expected
     mock_api = MockAPIObject(endpoint_config=endpoint_config, path_params=None)
     converter = RequestConverter(api_object=mock_api)
     replaced_route = converter._replace_route_params(converter.endpoint_config.route)
@@ -281,7 +271,6 @@ def test_replace_route_params_missing_param():
         route="/users/{user_id}/items/{item_id}",
         route_params=["user_id", "item_id"]
     )
-    # Missing item_id in the path params object
     @define
     class IncompletePathParams:
         user_id: int
@@ -301,12 +290,9 @@ def test_replace_route_params_attribute_error_on_none():
     )
     mock_api = MockAPIObject(endpoint_config=endpoint_config, path_params=None) # path_params is None
     converter = RequestConverter(api_object=mock_api)
-    # getattr(None, 'user_id') raises AttributeError, caught and re-raised
     with pytest.raises(ValueError, match="Missing required route parameter: user_id"):
          converter._replace_route_params(converter.endpoint_config.route)
 
-
-# Next: Tests for prepare_url, prepare_headers, prepare_params, etc. 
 
 @pytest.mark.parametrize(
     "base_url, route_in_config, expected_path",
@@ -333,27 +319,23 @@ def test_prepare_url(base_url, route_in_config, expected_path):
          path_params_obj = P()
 
     mock_api = MockAPIObject(base_url=base_url, endpoint_config=endpoint_config)
-    # Need to set path_params on the mock_api instance if needed for route replacement
     if path_params_obj:
         mock_api.path_params = path_params_obj
 
     converter = RequestConverter(api_object=mock_api)
-    # prepare_url relies on the 'route' property which does the replacement
     assert converter.prepare_url() == expected_path
 
 
 def test_prepare_headers():
     """测试 prepare_headers"""
     headers_dict = {"X-API-Key": "12345", "Accept": "application/json"}
-    # Case 1: Headers are set
     mock_api_with_headers = MockAPIObject(headers=headers_dict)
     converter_with = RequestConverter(api_object=mock_api_with_headers)
     assert converter_with.prepare_headers() == headers_dict
 
-    # Case 2: Headers are None
     mock_api_no_headers = MockAPIObject(headers=None)
     converter_without = RequestConverter(api_object=mock_api_no_headers)
-    assert converter_without.prepare_headers() == {} # Should return empty dict
+    assert converter_without.prepare_headers() == {}
 
 @define
 class SampleQueryParams:
@@ -363,12 +345,10 @@ class SampleQueryParams:
 def test_prepare_params():
     """测试 prepare_params"""
     params_obj = SampleQueryParams(page=2, size=20)
-    # Case 1: Query params object is set
     mock_api_with_params = MockAPIObject(query_params=params_obj)
     converter_with = RequestConverter(api_object=mock_api_with_params)
     assert converter_with.prepare_params() == params_obj
 
-    # Case 2: Query params is None
     mock_api_no_params = MockAPIObject(query_params=None)
     converter_without = RequestConverter(api_object=mock_api_no_params)
     assert converter_without.prepare_params() is None
@@ -381,12 +361,10 @@ class SampleRequestBody:
 def test_prepare_request_body():
     """测试 prepare_request_body"""
     body_obj = SampleRequestBody(username="testuser", password="123")
-    # Case 1: Request body object is set
     mock_api_with_body = MockAPIObject(request_body=body_obj)
     converter_with = RequestConverter(api_object=mock_api_with_body)
     assert converter_with.prepare_request_body() == body_obj
 
-    # Case 2: Request body is None
     mock_api_no_body = MockAPIObject(request_body=None)
     converter_without = RequestConverter(api_object=mock_api_no_body)
     assert converter_without.prepare_request_body() is None
@@ -395,25 +373,19 @@ def test_prepare_files():
     """测试 prepare_files (仅 multipart 时相关)"""
     files_dict = {"file1": ("report.txt", b"content"), "image": ("logo.png", b"pngdata", "image/png")}
 
-    # Case 1: ContentType is MULTIPART and files are set
-    # Need to ensure MockAPIObject has 'files' attribute
-    # Modify MockAPIObject or set attribute directly
     mock_api_with_files = MockAPIObject(content_type=ContentType.MULTIPART)
     mock_api_with_files.files = files_dict
     converter_with = RequestConverter(api_object=mock_api_with_files)
     assert converter_with.prepare_files() == files_dict
 
-    # Case 2: ContentType is MULTIPART but files is None (or missing)
     mock_api_no_files = MockAPIObject(content_type=ContentType.MULTIPART)
     mock_api_no_files.files = None
     converter_without = RequestConverter(api_object=mock_api_no_files)
     assert converter_without.prepare_files() == {}
 
-    # Case 3: ContentType is MULTIPART but files attribute is missing
     @define
     class MockApiWithoutFiles:
         content_type: ContentType = ContentType.MULTIPART
-        # No 'files' attribute
         base_url: str = "http://test.com"
         endpoint_config: EndpointConfig = field(default=EndpointConfig(method=HTTPMethod.GET, route="/ping", route_params=[]))
         headers: dict | None = None
@@ -425,7 +397,6 @@ def test_prepare_files():
     converter_missing = RequestConverter(api_object=mock_api_missing_files_attr)
     assert converter_missing.prepare_files() == {}
 
-    # Case 4: ContentType is NOT MULTIPART (files attribute should be ignored by prepare_files)
     mock_api_json_with_files = MockAPIObject(content_type=ContentType.JSON)
     mock_api_json_with_files.files = files_dict
     converter_json = RequestConverter(api_object=mock_api_json_with_files)
@@ -436,7 +407,6 @@ def test_prepare_method():
     """测试 prepare_method"""
     mock_api_get = MockAPIObject(endpoint_config=EndpointConfig(method=HTTPMethod.GET, route="/"))
     converter_get = RequestConverter(api_object=mock_api_get)
-    # The actual implementation returns the method string value
     assert converter_get.prepare_method() == HTTPMethod.GET.value
 
     mock_api_post = MockAPIObject(endpoint_config=EndpointConfig(method=HTTPMethod.POST, route="/"))
@@ -490,21 +460,21 @@ def test_prepare_integration_json():
     prepared_request = converter.prepare()
 
     expected_url = "https://api.example.com/v2/entities/ent-123/items"
-    expected_params = {"search": "keyword", "limit": 10, "active": True} # created_after=None removed
-    expected_body = {"name": "Test Item", "tags": ["a", "b"]} # description=None removed, config=None removed
+    expected_params = {"search": "keyword", "limit": 10, "active": True}
+    expected_body = {"name": "Test Item", "tags": ["a", "b"]}
 
     assert isinstance(prepared_request, PreparedRequest)
     assert prepared_request.method == HTTPMethod.POST.value
     assert prepared_request.url == expected_url
-    assert prepared_request.headers == headers # Headers are passed as is initially
+    assert prepared_request.headers == headers
     assert prepared_request.params == expected_params
     assert prepared_request.request_body == expected_body
-    assert prepared_request.files is None # JSON type has no files processed
+    assert prepared_request.files is None
 
 def test_prepare_integration_form():
     """测试 prepare 方法 - FORM 类型集成测试"""
-    query_params = FullQueryParams(limit=5, active=False) # search=None, created_after=None
-    request_body = FullRequestBody(name="Form Item", tags=["tag1"]) # description=None, config=None
+    query_params = FullQueryParams(limit=5, active=False)
+    request_body = FullRequestBody(name="Form Item", tags=["tag1"])
     headers = {"Accept": "text/plain"}
     endpoint = EndpointConfig(method=HTTPMethod.PUT, route="/submit")
 
@@ -515,15 +485,15 @@ def test_prepare_integration_form():
         headers=headers,
         query_params=query_params,
         request_body=request_body,
-        path_params=None # No path params in this route
+        path_params=None
     )
 
     converter = RequestConverter(api_object=mock_api)
     prepared_request = converter.prepare()
 
     expected_url = "http://form.example.com/submit"
-    expected_params = {"limit": 5, "active": False} # search=None, created_after=None removed
-    expected_body = {"name": "Form Item", "tags": ["tag1"]} # description=None, config=None removed
+    expected_params = {"limit": 5, "active": False}
+    expected_body = {"name": "Form Item", "tags": ["tag1"]}
 
     assert prepared_request.method == HTTPMethod.PUT.value
     assert prepared_request.url == expected_url
@@ -534,7 +504,7 @@ def test_prepare_integration_form():
 
 def test_prepare_integration_multipart():
     """测试 prepare 方法 - MULTIPART 类型集成测试"""
-    request_body = FullRequestBody(name="Multipart Data", tags=["file"]) # description=None, config=None
+    request_body = FullRequestBody(name="Multipart Data", tags=["file"])
     files_dict = {"attachment": ["data.bin", b"binarystuff"]}
     endpoint = EndpointConfig(method=HTTPMethod.POST, route="/upload")
 
@@ -546,30 +516,29 @@ def test_prepare_integration_multipart():
         path_params=None,
         query_params=None,
         headers=None,
-        # files attribute needs to be set for multipart
     )
-    mock_api.files = files_dict # Set files attribute
+    mock_api.files = files_dict
 
     converter = RequestConverter(api_object=mock_api)
     prepared_request = converter.prepare()
 
     expected_url = "http://files.example.com/upload"
     expected_body = {"name": "Multipart Data", "tags": ["file"]}
-    expected_files = files_dict # Files dict should be passed through
+    expected_files = files_dict
 
     assert prepared_request.method == HTTPMethod.POST.value
     assert prepared_request.url == expected_url
-    assert prepared_request.headers == {} # Default empty dict if None
-    assert prepared_request.params is None # query_params was None
+    assert prepared_request.headers == {}
+    assert prepared_request.params is None
     assert prepared_request.request_body == expected_body
-    assert prepared_request.files == expected_files # Check files
+    assert prepared_request.files == expected_files
 
 def test_prepare_integration_minimal():
     """测试 prepare 方法 - 最少参数情况"""
     endpoint = EndpointConfig(method=HTTPMethod.GET, route="/health")
     mock_api = MockAPIObject(
         base_url="http://minimal.com",
-        content_type=ContentType.TEXT, # Example: Text content type
+        content_type=ContentType.TEXT,
         endpoint_config=endpoint,
         headers=None,
         query_params=None,
@@ -614,14 +583,11 @@ def test_post_prepare_custom_hook():
     mock_api = MockAPIObject(
         base_url="http://hook.test",
         endpoint_config=endpoint,
-        headers={"Existing": "Header"} # Start with existing headers
+        headers={"Existing": "Header"}
     )
-    # Use the custom converter
     converter = CustomHeaderConverter(api_object=mock_api)
-    # Call prepare() to trigger the whole process including post_prepare
     prepared_request = converter.prepare()
 
-    # Check if the hook added the header
     expected_headers = {"Existing": "Header", "X-Added-By-Hook": "Hooked"}
     assert prepared_request.headers == expected_headers
 
@@ -630,14 +596,13 @@ def test_post_prepare_custom_hook():
 
 def test_convert_flow(monkeypatch):
     """测试 convert 方法的整体流程"""
-    # Setup a basic API object
     endpoint = EndpointConfig(method=HTTPMethod.POST, route="/echo")
-    request_body = {"message": "hello"} # Simple dict body for this test
+    request_body = {"message": "hello"}
     mock_api = MockAPIObject(
         base_url="http://convert.test",
         endpoint_config=endpoint,
         request_body=request_body,
-        content_type=ContentType.JSON # Use JSON for simplicity
+        content_type=ContentType.JSON
     )
 
     mock_api.path_params = None
@@ -645,7 +610,7 @@ def test_convert_flow(monkeypatch):
     converter = RequestConverter(api_object=mock_api)
 
    
-    mock_builder_instance = Mock(spec=JSONRequestBuilder) # Mock the builder instance
+    mock_builder_instance = Mock(spec=JSONRequestBuilder)
     built_request_dict = {"final_method": "POST", "final_url": "http://convert.test/echo", "json_payload": {"message": "hello"}}
     mock_builder_instance.build_request.return_value = built_request_dict
     monkeypatch.setattr(
@@ -659,7 +624,7 @@ def test_convert_flow(monkeypatch):
 
     mock_builder_instance.build_request.assert_called_once()
 
-    prepared_request_expected = converter.prepare() # Call prepare again to get expected input
+    prepared_request_expected = converter.prepare()
     mock_builder_instance.build_request.assert_called_once_with(prepared_request_expected)
 
     expected_final_result = converter._serialize_data(built_request_dict)
@@ -687,9 +652,8 @@ def test_convert_with_post_prepare_modification(monkeypatch):
     converter = ConvertModifyConverter(api_object=mock_api)
 
     # Mock Builder
-    mock_builder_instance = Mock(spec=JSONRequestBuilder) # Can use any builder spec
+    mock_builder_instance = Mock(spec=JSONRequestBuilder)
     def mock_build_request(prep_req):
-        # 确保 headers 存在于字典中
         unstructured_prep = converter.unstructure(prep_req)
         if "headers" not in unstructured_prep:
              unstructured_prep["headers"] = {}

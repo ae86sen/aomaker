@@ -55,11 +55,9 @@ def mock_config_get(monkeypatch):
         "base_url": "http://mock-base-url/",
         "run_mode": "main", # Provide a default valid run_mode
         "headers": {}, # Provide default headers if needed by get_http_client
-        # Add other expected config keys if necessary
     }
     mock_get = MagicMock(side_effect=lambda key, default=None: config_values.get(key, default))
     monkeypatch.setattr("aomaker.storage.config.get", mock_get)
-    # Also mock cache.get as it seems to be used by get_http_client indirectly via config
     cache_values = {
         "headers": {} # Mock cache get for headers
     }
@@ -102,9 +100,7 @@ class TestBaseAPIObjectInit:
         assert isinstance(api.converter, RequestConverter)
         assert api.enable_schema_validation is True
 
-        # Verify config.get was called for base_url (and maybe others like run_mode by http_client)
         mock_config_get.assert_any_call("base_url")
-        # Verify get_http_client was called
         self.mock_get_http_client.assert_called_once_with(default_client=HTTPClient)
 
     def test_init_with_values(self):
@@ -115,16 +111,13 @@ class TestBaseAPIObjectInit:
         request_body = DummyRequestBody(data=456)
         response_model = DummyResponse
 
-        # Use the actual RequestConverter unless specifically testing custom one
-        # class CustomConverter(RequestConverter):
-        #     pass
         mock_converter_instance = MockRequestConverter()
 
 
         mock_client_instance = MockHTTPClient()
 
         api = BaseAPIObject[response_model](
-            base_url="http://custom-url/", # Keep trailing slash for consistency or test removal
+            base_url="http://custom-url/", 
             headers=custom_headers,
             path_params=path_params,
             query_params=query_params,
@@ -152,14 +145,12 @@ class TestBaseAPIObjectInit:
     def test_init_missing_endpoint_config(self):
         """测试缺少 endpoint_config 时抛出 ValueError"""
         with pytest.raises(ValueError, match="endpoint_config is not set"):
-            # Need to ensure http_client is mocked even for failure cases if post_init runs partially
             with patch('aomaker.core.api_object.get_http_client', return_value=MockHTTPClient()):
                  BaseAPIObject()
 
 
     def test_init_endpoint_config_from_class(self):
         """测试从类属性获取 endpoint_config"""
-        # Need http_client mocked here too
         with patch('aomaker.core.api_object.get_http_client', return_value=MockHTTPClient()):
             class APIWithClassConfig(BaseAPIObject):
                 _endpoint_config = MOCK_ENDPOINT_CONFIG
@@ -168,30 +159,25 @@ class TestBaseAPIObjectInit:
 
     def test_init_converter_instance(self):
         """测试传入自定义 converter 实例"""
-        custom_converter_instance = MockRequestConverter(api_object=None) # Use our mock
+        custom_converter_instance = MockRequestConverter(api_object=None)
 
-        # Need http_client mocked
         with patch('aomaker.core.api_object.get_http_client', return_value=MockHTTPClient()):
             class MyAPI(BaseAPIObject):
                  _endpoint_config = MOCK_ENDPOINT_CONFIG
 
             api = MyAPI(converter=custom_converter_instance)
             assert api.converter is custom_converter_instance
-            # The default post_init assigns api_object to the converter instance if it's not a type
-            # assert api.converter.api_object is api # Re-enable if MockRequestConverter stores it
 
 
 # 测试字段类型校验
 class TestFieldValidation:
 
-     # Need to mock http_client for instantiation
     @pytest.fixture
     def api_instance(self, monkeypatch):
         """提供一个基本的API实例, mocking dependencies."""
         monkeypatch.setattr("aomaker.core.api_object.get_http_client", MagicMock(return_value=MockHTTPClient()))
         class MyAPI(BaseAPIObject):
             _endpoint_config = MOCK_ENDPOINT_CONFIG
-        # Instance creation happens here, benefiting from autouse mock_config_get
         return MyAPI()
 
 
@@ -199,18 +185,13 @@ class TestFieldValidation:
         "path_params",
         "query_params",
         "request_body",
-        # "response" # response field in BaseAPIObject allows Type[T] or None
     ])
     def test_validate_attrs_instance_ok(self, api_instance, field_name):
         """测试字段是 attrs 实例时通过校验 (校验发生在post_init)"""
-        # We test this by successfully initializing an instance where fields *are* attrs
-        # The actual validation check method _validate_field_is_attrs is implicitly tested
-        # by initializing with valid types. Let's try setting and validating after init.
         valid_value = DummyRequestBody() if field_name == "request_body" else DummyParams()
         setattr(api_instance, field_name, valid_value)
-        # Re-run validation (optional, as it passed during init implicitly)
         try:
-            api_instance._validate_field_is_attrs() # Call the internal validation
+            api_instance._validate_field_is_attrs()
         except TypeError:
             pytest.fail(f"Field {field_name} with attrs instance raised TypeError unexpectedly.")
 
@@ -219,7 +200,6 @@ class TestFieldValidation:
         ("path_params", {"key": "value"}), # dict 不是 attrs 实例
         ("query_params", [1, 2, 3]),       # list 不是 attrs 实例
         ("request_body", "plain string"), # str 不是 attrs 实例
-        # ("response", DummyResponse()) # response field allows Type[T] or None, not instance
     ])
     def test_validate_non_attrs_instance_fail(self, field_name, invalid_value, monkeypatch):
         """测试字段不是 attrs 实例时抛出 TypeError"""
@@ -227,7 +207,6 @@ class TestFieldValidation:
         monkeypatch.setattr("aomaker.core.api_object.get_http_client", MagicMock(return_value=MockHTTPClient()))
         # 尝试使用非 attrs 实例初始化
         kwargs = {
-            # Corrected: Pass 'endpoint_config' not '_endpoint_config'
             "endpoint_config": MOCK_ENDPOINT_CONFIG,
             field_name: invalid_value
         }
@@ -237,7 +216,6 @@ class TestFieldValidation:
 
     def test_validate_response_field_is_type_or_none(self, monkeypatch):
         """测试 response 字段允许是类型或 None"""
-        # Mock http client for initialization attempts
         monkeypatch.setattr("aomaker.core.api_object.get_http_client", MagicMock(return_value=MockHTTPClient()))
 
         class MyAPI(BaseAPIObject[DummyResponse]): # 指定了泛型
@@ -252,10 +230,6 @@ class TestFieldValidation:
             api2 = MyAPI(response=DummyResponse) # Pass the type
             api2._validate_field_is_attrs() # Should pass validation
 
-            # 3. Test that providing an *instance* would fail if response validation was strict
-            #    (Currently BaseAPIObject._validate_field_is_attrs doesn't check response)
-            # with pytest.raises(TypeError, match="response must be an attrs instance"):
-            #    MyAPI(response=DummyResponse()) # Pass an instance
 
         except TypeError:
             pytest.fail("Response field validation failed unexpectedly.")
@@ -263,12 +237,10 @@ class TestFieldValidation:
 
 # 测试属性访问器
 class TestProperties:
-    # Need to mock http_client for instantiation
     @pytest.fixture(autouse=True)
     def mock_properties_deps(self, monkeypatch):
          monkeypatch.setattr("aomaker.core.api_object.get_http_client", MagicMock(return_value=MockHTTPClient()))
 
-    # Define test classes inside the test class or ensure they inherit the mock
     class APIDocTest(BaseAPIObject):
         """This is a test docstring."""
         _endpoint_config = MOCK_ENDPOINT_CONFIG
@@ -277,7 +249,6 @@ class TestProperties:
         _endpoint_config = MOCK_ENDPOINT_CONFIG
 
     def test_class_name(self):
-        # Instantiation now works because mock_config_get (autouse) and mock_properties_deps (autouse) run
         api = self.APIDocTest()
         assert api.class_name == "APIDocTest"
 
@@ -298,58 +269,39 @@ class TestSendLogic:
     @pytest.fixture
     def api_instance(self, monkeypatch, mock_config_get) -> BaseAPIObject[DummyResponse]: # Inject shared config mock
         """提供一个配置好的 API 实例，并 mock 依赖"""
-        # mock_config_get fixture already handles config.get for base_url and run_mode
 
-        # Mock schema operations more robustly
         mock_schema_value = {"type": "object", "properties": {"result": {"type": "string"}, "code": {"type": "integer"}}, "required": ["result", "code"]}
         self.mock_extract_schema = MagicMock(return_value=mock_schema_value)
         monkeypatch.setattr("aomaker.core.api_object.extract_jsonschema", self.mock_extract_schema)
 
-        # Mock schema storage object instead of individual functions if possible
-        # If schema is a class instance:
         mock_schema_storage = MagicMock()
-        mock_schema_storage.get_schema.return_value = None # Default: schema not found
+        mock_schema_storage.get_schema.return_value = None 
         mock_schema_storage.save_schema = MagicMock()
-        monkeypatch.setattr("aomaker.core.api_object.schema", mock_schema_storage) # Patch the imported object
-        self.mock_schema_storage = mock_schema_storage # Store for assertions
+        monkeypatch.setattr("aomaker.core.api_object.schema", mock_schema_storage)
+        self.mock_schema_storage = mock_schema_storage
 
-        # self.mock_get_schema = MagicMock(return_value=None) # Replaced by mock_schema_storage
-        # monkeypatch.setattr("aomaker.storage.schema.get_schema", self.mock_get_schema)
-        # self.mock_save_schema = MagicMock() # Replaced by mock_schema_storage
-        # monkeypatch.setattr("aomaker.storage.schema.save_schema", self.mock_save_schema)
 
         self.mock_validate = MagicMock() # 默认验证通过
         monkeypatch.setattr("aomaker.core.api_object.validate", self.mock_validate)
 
 
-        # 创建 Mock HTTPClient 和 Converter
-        # We use instance attributes for mocks defined in the fixture scope
-        self.mock_http_client = MockHTTPClient()
-        self.mock_converter = MockRequestConverter() # Use our defined Mock class
 
-        # Mock get_http_client specifically for this class setup if needed,
-        # although the instance is passed directly below.
-        # This ensures post_init doesn't try to call the real get_http_client
+        self.mock_http_client = MockHTTPClient()
+        self.mock_converter = MockRequestConverter() 
+
         monkeypatch.setattr("aomaker.core.api_object.get_http_client", MagicMock(return_value=self.mock_http_client))
 
 
         class MySendAPI(BaseAPIObject[DummyResponse]):
             _endpoint_config = MOCK_ENDPOINT_CONFIG
-            # Override fields to use the fixture's mock instances directly
-            # No need for factory/default here as we pass them in __init__ below
-            # http_client: MockHTTPClient = field(init=False) # Mark as not expecting in init
-            # converter: MockRequestConverter = field(init=False)
             response: Optional[Type[DummyResponse]] = field(default=DummyResponse) # 设置响应模型
 
 
-        # Instantiate with mocks directly, post_init will use them
         api = MySendAPI(
              http_client=self.mock_http_client, # Pass instance
              converter=self.mock_converter      # Pass instance
         )
-        # Assign api_object manually if converter needs it and post_init didn't do it
         self.mock_converter.api_object = api
-        # 增加这一行，确保实例有正确的 response 属性
         api.response = DummyResponse
 
         return api
@@ -361,7 +313,6 @@ class TestSendLogic:
         api_instance.converter.convert.return_value = mock_prepared_request # type: ignore
 
         mock_response_json = {"result": "success", "code": 200}
-        # Make cached_response mock more realistic if needed
         mock_cached_response = MagicMock(spec=['json', 'status_code', 'headers', 'text', 'content']) # Add spec
         mock_cached_response.json.return_value = mock_response_json
         mock_cached_response.status_code = 200
@@ -375,16 +326,11 @@ class TestSendLogic:
 
         # 验证调用顺序和参数
         api_instance.converter.convert.assert_called_once() # type: ignore
-        # _prepare_request adds meta info *before* returning the dict from convert()
-        # So the dict passed to send_request should have it.
-        # We'll test _prepare_request separately or inspect the call to send_request
 
-        # Check args passed to send_request
         call_args, call_kwargs = api_instance.http_client.send_request.call_args # type: ignore
         sent_request = call_kwargs.get('request') or (call_args[0] if call_args else None) # Get the request dict
 
         assert sent_request is not None
-        # Check meta info was added by _prepare_request (implicitly called by send)
         assert "_api_meta" in sent_request
         assert sent_request["_api_meta"]["class_name"] == "MySendAPI"
         assert sent_request["_api_meta"]["is_streaming"] is False
@@ -398,7 +344,6 @@ class TestSendLogic:
         api_instance.converter.structure.assert_called_once_with(mock_response_json, DummyResponse) # type: ignore
 
         # 验证 schema 校验 (默认启用)
-        # Use the mocked storage object
         self.mock_schema_storage.get_schema.assert_called_once_with("DummyResponse")
         self.mock_extract_schema.assert_called_once_with(DummyResponse)
         # 因为 get_schema 返回 None，所以应该保存
@@ -411,7 +356,6 @@ class TestSendLogic:
         assert ao_response.cached_response == mock_cached_response
         assert ao_response.response_model == expected_response_model
         assert ao_response.is_stream is False
-        # assert ao_response.is_success is True # Add if AoResponse has this
 
     def test_send_successful_stream(self, api_instance: BaseAPIObject[DummyResponse]):
         """测试成功发送请求 (流式)"""
@@ -424,12 +368,10 @@ class TestSendLogic:
         mock_cached_response.status_code = 200
         api_instance.http_client.send_request.return_value = mock_cached_response # type: ignore
 
-        # 调用 send with stream=True
         ao_response = api_instance.send(stream=True)
 
         # 验证调用
         api_instance.converter.convert.assert_called_once() # type: ignore
-        # 检查传递给 http_client 的请求是否包含 stream=True 和正确的元信息
         call_args, call_kwargs = api_instance.http_client.send_request.call_args # type: ignore
         actual_request_sent = call_kwargs.get('request') or (call_args[0] if call_args else None)
 
@@ -472,10 +414,8 @@ class TestSendLogic:
             ao_response = api_instance(override_headers=True, stream=False)
 
             # 验证 send 被调用
-            # Check default args passed to the *wrapped* send method
             mock_send.assert_called_once_with(override_headers=True, stream=False)
             call_args, call_kwargs = mock_send.call_args
-            # __call__ 不会显式传 default 参数，args 和 kwargs 应当都是空
             assert call_args == ()
             assert call_kwargs == {'override_headers': True, 'stream': False}
 
@@ -506,7 +446,6 @@ class TestSendLogic:
         mock_cached_response.json.assert_called_once()
         api_instance.converter.structure.assert_called_once_with(mock_response_json, DummyResponse) # type: ignore
 
-        # 验证 schema 相关 mock 未被调用
         self.mock_schema_storage.get_schema.assert_not_called()
         self.mock_extract_schema.assert_not_called()
         self.mock_schema_storage.save_schema.assert_not_called()
@@ -534,11 +473,9 @@ class TestSendLogic:
         # 验证调用
         api_instance.converter.convert.assert_called_once() # type: ignore
         api_instance.http_client.send_request.assert_called_once() # type: ignore
-        # response=None 时应跳过解析，也不应调用 .json()
         mock_cached_response.json.assert_not_called()
 
 
-        # 验证解析和 schema 相关 mock 未被调用
         api_instance.converter.structure.assert_not_called() # type: ignore
         self.mock_schema_storage.get_schema.assert_not_called()
         self.mock_extract_schema.assert_not_called()
@@ -552,18 +489,13 @@ class TestSendLogic:
 
     def test_send_schema_validation_fails(self, api_instance: BaseAPIObject[DummyResponse], monkeypatch):
         """测试 schema 验证失败时抛出 AssertionError"""
-        # Mock schema.get_schema to return an existing schema immediately
         mock_existing_schema = {"type": "object", "properties": {"result": {"type": "string"}, "code": {"type": "integer"}}, "required": ["result", "code"]}
-        # Use the storage mock object
         self.mock_schema_storage.get_schema.return_value = mock_existing_schema
 
-        # Mock validate to raise ValidationError
-        # Create a more realistic ValidationError if possible
-        mock_validator = MagicMock() # Mock the validator instance if needed
+        mock_validator = MagicMock()
         validation_error = ValidationError("Invalid type for 'code'", validator='type', path=['code'], schema_path=['properties', 'code', 'type'], instance='not-an-int', schema={'type': 'integer'}, validator_value='integer')
-         # Add context for best_match if needed: validation_error.context = [...]
+
         mock_validate_fail = MagicMock(side_effect=validation_error)
-        # Patch the validate function used inside schema_validate method
         monkeypatch.setattr("aomaker.core.api_object.validate", mock_validate_fail)
 
         # 准备 mock 返回值
@@ -577,7 +509,6 @@ class TestSendLogic:
         api_instance.http_client.send_request.return_value = mock_cached_response # type: ignore
 
         # 调用 send 并断言异常
-        # The message includes path info added by schema_validate method
         with pytest.raises(AssertionError, match=r"Invalid type for 'code' \(path: code\)"):
              api_instance.send()
 
@@ -598,12 +529,9 @@ class TestSendLogic:
 
     def test_send_prepare_request_meta_info(self, api_instance: BaseAPIObject[DummyResponse]):
         """测试 _prepare_request 是否正确添加元信息"""
-        # We inspect the request passed to http_client.send_request
 
-        # Mock send_request to capture its input
-        send_request_spy = MagicMock(return_value=MagicMock(spec=['json', 'status_code'])) # Return a basic mock response
+        send_request_spy = MagicMock(return_value=MagicMock(spec=['json', 'status_code']))
         api_instance.http_client.send_request = send_request_spy # type: ignore
-        # Mock converter structure to prevent errors after send_request mock
         api_instance.converter.structure = MagicMock() # type: ignore
 
         # --- Case 1: No Stream ---

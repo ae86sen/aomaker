@@ -60,7 +60,7 @@ def structured_logging_middleware(request: RequestType, call_next: CallNext) -> 
     api_meta = request.get("_api_meta", {})
     is_streaming = api_meta.get("is_streaming", False)
     
-    log_data = LogData(request=request, class_name=api_meta.get("class_name"), class_doc=api_meta.get("class_doc"))
+    log_data = LogData(request=request, class_name=api_meta.get("class_name",""), class_doc=api_meta.get("class_doc",""))
     response = None
 
     try:

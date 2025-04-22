@@ -1,9 +1,8 @@
-import pytest
 from unittest.mock import patch, MagicMock
 
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.config import OpenAPIConfig
-from aomaker.maker.models import DataModel, DataType, APIGroup, Endpoint, DataModelField, JsonSchemaObject  # Import necessary models if needed later
+from aomaker.maker.models import DataModel, DataType, DataModelField, JsonSchemaObject, Import
 
 
 # Minimal valid OpenAPI v3 structure
@@ -85,7 +84,7 @@ DOC_WITH_NON_HTTP_METHODS = {
     "info": {"title": "Non HTTP Methods API", "version": "1.0.0"},
     "paths": {
         "/items": {
-            "parameters": [ # Path-level parameter, ignored by method loop
+            "parameters": [
                 {"name": "commonParam", "in": "query", "schema": {"type": "string"}}
             ],
             "get": {
@@ -93,15 +92,13 @@ DOC_WITH_NON_HTTP_METHODS = {
                 "operationId": "getItems",
                 "responses": {"200": {"description": "Success"}}
             },
-            "x-custom-property": "some_value", # Ignored key
-            "summary": "Path summary ignored" # Ignored key
+            "x-custom-property": "some_value",
+            "summary": "Path summary ignored"
         }
     }
 }
 
-# Helper to create a basic parser instance
 def create_parser(doc):
-    # Mock console to avoid printing during tests
     mock_console = MagicMock()
     return OpenAPIParser(doc, console=mock_console)
 
@@ -118,10 +115,9 @@ def test_init_with_openapi_v3():
     assert parser.openapi_data == MINIMAL_OPENAPI_V3_DOC
     assert isinstance(parser.config, OpenAPIConfig)
     assert parser.api_groups == {}
-    # JsonSchemaParser (parent) initializes resolver and model_registry
     assert hasattr(parser, 'resolver')
     assert hasattr(parser, 'model_registry')
-    assert parser.model_registry.models == {} # No components/schemas initially
+    assert parser.model_registry.models == {}
 
 @patch('aomaker.maker.parser.SwaggerAdapter')
 def test_init_with_swagger_v2(mock_swagger_adapter):
@@ -130,7 +126,6 @@ def test_init_with_swagger_v2(mock_swagger_adapter):
     Input: Simple Swagger v2 dict.
     Expected: SwaggerAdapter.adapt is called, parser uses adapted data.
     """
-    # Configure the mock adapter
     mock_swagger_adapter.is_swagger.return_value = True
     adapted_doc = {"openapi": "3.0.0", "info": {"title": "Adapted API"}, "paths": {}}
     mock_swagger_adapter.adapt.return_value = adapted_doc
@@ -139,11 +134,8 @@ def test_init_with_swagger_v2(mock_swagger_adapter):
 
     # Verify is_swagger was called
     mock_swagger_adapter.is_swagger.assert_called_once_with(MINIMAL_SWAGGER_V2_DOC)
-    # Verify adapt was called
     mock_swagger_adapter.adapt.assert_called_once_with(MINIMAL_SWAGGER_V2_DOC)
-    # Verify the parser now holds the *adapted* data
     assert parser.openapi_data == adapted_doc
-    # Other initializations should still be correct
     assert isinstance(parser.config, OpenAPIConfig)
     assert parser.api_groups == {}
     assert hasattr(parser, 'resolver')
@@ -174,7 +166,6 @@ def test_init_with_components():
     }
     parser = create_parser(doc_with_component)
 
-    # Verify the resolver knows about the raw schema object
     assert "SimpleItem" in parser.resolver.schema_objects
     assert isinstance(parser.resolver.schema_objects["SimpleItem"], JsonSchemaObject)
     parser._register_component_schemas()  # 触发注册
@@ -184,7 +175,7 @@ def test_init_with_components():
     assert registered_model.name == "SimpleItem"
     assert len(registered_model.fields) == 2
     assert registered_model.fields[0].name == "id"
-    assert registered_model.fields[0].data_type.type == "int" # Check basic type mapping
+    assert registered_model.fields[0].data_type.type == "int"
     assert registered_model.fields[0].required is True
     assert registered_model.fields[1].name == "name"
     assert registered_model.fields[1].data_type.type == "str"
@@ -219,7 +210,7 @@ def test_parse_single_endpoint_no_tags():
     endpoint = group.endpoints[0]
     assert endpoint.path == '/items'
     assert endpoint.method == 'get'
-    assert endpoint.endpoint_id == 'getItems' # Uses operationId
+    assert endpoint.endpoint_id == 'getItems'
     assert endpoint.tags == []
 
 def test_parse_multiple_endpoints_single_tag():
@@ -270,10 +261,10 @@ def test_parse_ignores_non_http_methods():
     parser = create_parser(DOC_WITH_NON_HTTP_METHODS)
     api_groups = parser.parse()
 
-    assert len(api_groups) == 1 # Should be default group
+    assert len(api_groups) == 1
     group = api_groups[0]
     assert group.tag == 'default'
-    assert len(group.endpoints) == 1 # Only the 'get' method
+    assert len(group.endpoints) == 1
     endpoint = group.endpoints[0]
     assert endpoint.method == 'get'
     assert endpoint.endpoint_id == 'getItems'
@@ -318,7 +309,6 @@ def test_endpoint_basic_info():
     assert endpoint.description == "Returns the current operational status."
     assert endpoint.endpoint_id == 'getStatus'
     assert endpoint.tags == ["System"]
-    # Default class name will be checked in the next test
 
 DOC_ENDPOINT_PATH_PARAM = {
     "openapi": "3.0.0",
@@ -357,9 +347,7 @@ def test_endpoint_class_name_default():
     assert len(api_groups) == 1
     endpoint = api_groups[0].endpoints[0]
 
-    # Default strategy: PascalCase(method + path parts replacing params)
-    # Example: get /users/{user_id} -> GetUsersUserId
-    assert endpoint.class_name == 'GetUserByIdAPI' # Based on default OpenAPIConfig strategy
+    assert endpoint.class_name == 'GetUserByIdAPI'
 
 def test_endpoint_class_name_custom():
     """
@@ -367,13 +355,9 @@ def test_endpoint_class_name_custom():
     Input: Operation, custom class_name_strategy in config.
     Expected: Endpoint.class_name matches the output of the custom strategy.
     """
-    # Define a custom strategy
     def custom_strategy(path, method, operation):
-        # Example: Use operationId if available, otherwise default
         if operation.operationId:
-            # Simple PascalCase conversion for the example
             return "".join(word.capitalize() for word in operation.operationId.split('_'))
-        # Fallback (simplified default)
         return f"{method.capitalize()}{path.replace('/', '').replace('{', '').replace('}', '').capitalize()}"
 
     custom_config = OpenAPIConfig(class_name_strategy=custom_strategy)
@@ -428,8 +412,8 @@ def test_param_path_required_string():
     assert param.data_type.type == "str"
     assert not param.data_type.is_custom_type
     assert not param.data_type.is_list
-    assert not param.data_type.is_inline # Basic types are not considered inline models
-    assert param.data_type.imports == set() # Basic types don't need imports initially
+    assert not param.data_type.is_inline
+    assert param.data_type.imports == set()
 
 def test_param_query_optional_int_default():
     """
@@ -505,7 +489,7 @@ def test_param_header_boolean():
 
     param = endpoint.header_parameters[0]
     assert isinstance(param, DataModelField)
-    assert param.name == "X-Debug-Enabled" # Parameter name is preserved
+    assert param.name == "X-Debug-Enabled"
     assert param.required is False
     assert param.default is None
     assert param.description == "Enable debug logs"
@@ -514,7 +498,6 @@ def test_param_header_boolean():
     assert not param.data_type.is_custom_type
     assert param.data_type.imports == set()
 
-from aomaker.maker.models import Import # Add Import for assertion
 
 def test_param_reference():
     """
@@ -552,14 +535,13 @@ def test_param_reference():
     assert len(endpoint.query_parameters) == 1
     param = endpoint.query_parameters[0]
 
-    assert param.name == "limit" # Name comes from resolved component
+    assert param.name == "limit"
     assert param.required is False
     assert param.default == 20
     assert param.description == "Common limit parameter"
     assert param.data_type.type == "int"
-    # Ensure no unnecessary imports are added for basic referenced types
-    assert Import(from_='typing', import_='Optional') in endpoint.imports # Optional import is always added
-    assert len(endpoint.imports) == 1 # Only Optional should be needed here
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+    assert len(endpoint.imports) == 1
 
 def test_param_inline_object():
     """
@@ -601,15 +583,13 @@ def test_param_inline_object():
     assert param.required is False
     assert param.description == "Filter criteria"
 
-    # Check the DataType
     assert isinstance(param.data_type, DataType)
-    assert param.data_type.is_custom_type is True # Inline objects result in a custom type
-    assert param.data_type.type == "FilterParam" # Expected name for inline param model
-    assert param.data_type.is_inline is True # Mark as inline
+    assert param.data_type.is_custom_type is True
+    assert param.data_type.type == "FilterParam"
+    assert param.data_type.is_inline is True
     assert param.data_type.is_list is False
     assert Import(from_='.models', import_='FilterParam') in param.data_type.imports
 
-    # Check the registered inline parent model
     assert "FilterParam" in parser.model_registry.models
     inline_model = parser.model_registry.models["FilterParam"]
     assert isinstance(inline_model, DataModel)
@@ -621,7 +601,6 @@ def test_param_inline_object():
     assert inline_model.fields[1].name == "min_value"
     assert inline_model.fields[1].data_type.type == "int"
 
-    # Check endpoint imports
     assert Import(from_='.models', import_='FilterParam') in endpoint.imports
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
@@ -660,8 +639,6 @@ def test_param_with_content():
         }
     }
     parser = create_parser(doc)
-    # Initialize components schema
-    # parser._register_component_schemas() # Manually call as parse() is not called directly
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
 
@@ -673,11 +650,10 @@ def test_param_with_content():
     assert param.description == "Filter as JSON string in query"
     assert isinstance(param.data_type, DataType)
     assert param.data_type.is_custom_type is True
-    assert param.data_type.type == "FilterObject" # Uses the referenced schema name
+    assert param.data_type.type == "FilterObject"
     assert param.data_type.reference.ref == "#/components/schemas/FilterObject"
     assert not param.data_type.is_inline
 
-    # Check endpoint imports
     assert Import(from_='.models', import_='FilterObject') in endpoint.imports
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
@@ -721,14 +697,12 @@ def test_param_sorting():
             }
         }
     }
-    # Path param needs to be reflected in path template
     doc["paths"]["/sorted_params/{id}"] = doc["paths"].pop("/sorted_params")
 
     parser = create_parser(doc)
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
 
-    # Check Query Params Sorting (required_param should be first)
     assert len(endpoint.query_parameters) == 3
     query_param_names = [p.name for p in endpoint.query_parameters]
     assert query_param_names == ["required_param", "optional_param", "optional_default"]
@@ -736,12 +710,10 @@ def test_param_sorting():
     assert endpoint.query_parameters[1].required is False
     assert endpoint.query_parameters[2].required is False
 
-    # Check Path Params (only one)
     assert len(endpoint.path_parameters) == 1
     assert endpoint.path_parameters[0].name == "id"
     assert endpoint.path_parameters[0].required is True
 
-    # Check Header Params (only one)
     assert len(endpoint.header_parameters) == 1
     assert endpoint.header_parameters[0].name == "X-Req"
     assert endpoint.header_parameters[0].required is True
@@ -784,7 +756,6 @@ def test_reqbody_json_ref():
         }
     }
     parser = create_parser(doc)
-    # parser._register_component_schemas() # Need models registered before parse
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
     assert endpoint.request_body is not None
@@ -838,11 +809,9 @@ def test_reqbody_json_inline_object():
     endpoint = api_groups[0].endpoints[0]
 
     assert endpoint.request_body is not None
-    # For inline request bodies, the parser creates a nested DataModel within the endpoint
     assert isinstance(endpoint.request_body, DataModel)
-    assert endpoint.request_body.name == "RequestBody" # Default name for inline request body model
+    assert endpoint.request_body.name == "RequestBody"
 
-    # Check fields of the inline model
     assert len(endpoint.request_body.fields) == 2
     assert endpoint.request_body.fields[0].name == "name"
     assert endpoint.request_body.fields[0].data_type.type == "str"
@@ -866,7 +835,7 @@ def test_reqbody_json_primitive():
                     "requestBody": {
                         "required": True,
                         "content": {
-                            "text/plain": { # Let's use text/plain for variety
+                            "text/plain": {
                                 "schema": {"type": "string"}
                             }
                         }
@@ -881,7 +850,6 @@ def test_reqbody_json_primitive():
     endpoint = api_groups[0].endpoints[0]
 
     assert endpoint.request_body is not None
-    # As per code: else: endpoint.request_body = request_body_datatype
     assert isinstance(endpoint.request_body, DataType)
     assert endpoint.request_body.type == "str"
     assert not endpoint.request_body.is_custom_type
@@ -889,8 +857,7 @@ def test_reqbody_json_primitive():
     assert not endpoint.request_body.is_inline
     assert endpoint.request_body.imports == set()
 
-    # Endpoint imports should not be affected by primitive request body
-    assert len(endpoint.imports) == 1 # Only Optional should be present
+    assert len(endpoint.imports) == 1
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
 def test_reqbody_no_body():
@@ -899,7 +866,6 @@ def test_reqbody_no_body():
     Input: Operation without requestBody field.
     Expected: Endpoint.request_body is None.
     """
-    # We can reuse DOC_SINGLE_ENDPOINT_NO_TAGS which has no request body
     parser = create_parser(DOC_SINGLE_ENDPOINT_NO_TAGS)
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
@@ -942,10 +908,9 @@ def test_reqbody_form_data():
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
 
-    # Should be parsed as an inline model like JSON inline objects
     assert endpoint.request_body is not None
     assert isinstance(endpoint.request_body, DataModel)
-    assert endpoint.request_body.name == "RequestBody" # Inline model name
+    assert endpoint.request_body.name == "RequestBody"
     assert len(endpoint.request_body.fields) == 2
     fields_dict = {f.name: f for f in endpoint.request_body.fields}
     assert "username" in fields_dict
@@ -953,7 +918,6 @@ def test_reqbody_form_data():
     assert "password" in fields_dict
     assert fields_dict["password"].required is True
 
-    # Endpoint imports should be minimal
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
 def test_reqbody_multipart():
@@ -995,7 +959,6 @@ def test_reqbody_multipart():
     api_groups = parser.parse()
     endpoint = api_groups[0].endpoints[0]
 
-    # Should be parsed as an inline model
     assert endpoint.request_body is not None
     assert isinstance(endpoint.request_body, DataModel)
     assert endpoint.request_body.name == "RequestBody"
@@ -1007,7 +970,6 @@ def test_reqbody_multipart():
     assert fields_dict["description"].required is False
     assert "file" in fields_dict
     assert fields_dict["file"].required is True
-    # Check if binary format results in UploadFile type/import
     assert fields_dict["file"].data_type.type == "bytes"
 
     assert Import(from_='typing', import_='Optional') in endpoint.imports
@@ -1235,4 +1197,3 @@ def test_response_array_of_ref():
     assert Import(from_='.models', import_='Item') in endpoint.imports
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
-# --- Integration and Edge Cases ---
