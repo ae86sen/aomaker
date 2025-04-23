@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch, Mock
 from typing import Optional, Type
 from attrs import define, field, has
 from jsonschema import ValidationError
+import re
 
 from aomaker.core.api_object import BaseAPIObject
 from aomaker.core.base_model import EndpointConfig, ContentType, AoResponse
@@ -484,7 +485,7 @@ class TestSendLogic:
 
         # 验证结果
         assert ao_response.cached_response == mock_cached_response
-        assert ao_response.response_model is None # 没有定义 response 模型，结果为 None
+        assert ao_response.response_model is None
         assert ao_response.is_stream is False
 
     def test_send_schema_validation_fails(self, api_instance: BaseAPIObject[DummyResponse], monkeypatch):
@@ -492,38 +493,38 @@ class TestSendLogic:
         mock_existing_schema = {"type": "object", "properties": {"result": {"type": "string"}, "code": {"type": "integer"}}, "required": ["result", "code"]}
         self.mock_schema_storage.get_schema.return_value = mock_existing_schema
 
-        mock_validator = MagicMock()
-        validation_error = ValidationError("Invalid type for 'code'", validator='type', path=['code'], schema_path=['properties', 'code', 'type'], instance='not-an-int', schema={'type': 'integer'}, validator_value='integer')
-
+        validation_error = ValidationError(
+            "Invalid type for 'code'", 
+            validator='type',
+            path=['code'],
+            schema_path=['properties', 'code', 'type'],
+            instance='not-an-int',
+            schema={'type': 'integer'},
+            validator_value='integer'
+        )
         mock_validate_fail = MagicMock(side_effect=validation_error)
         monkeypatch.setattr("aomaker.core.api_object.validate", mock_validate_fail)
 
         # 准备 mock 返回值
         mock_prepared_request = {"url": "http://test.com/test/endpoint", "method": "POST"}
         api_instance.converter.convert.return_value = mock_prepared_request # type: ignore
-        # 响应数据不符合 schema (code 是字符串)
         mock_response_json = {"result": "fail", "code": "not-an-int"}
         mock_cached_response = MagicMock(spec=['json', 'status_code'])
         mock_cached_response.json.return_value = mock_response_json
         mock_cached_response.status_code = 200
         api_instance.http_client.send_request.return_value = mock_cached_response # type: ignore
 
-        # 调用 send 并断言异常
-        with pytest.raises(AssertionError, match=r"Invalid type for 'code' \(path: code\)"):
+        expected_error_message = '字段 \'code\' 类型应为 \'integer\'，实际值为: "not-an-int" (类型: str).'
+        with pytest.raises(AssertionError, match=re.escape(expected_error_message)):
              api_instance.send()
 
-        # 验证调用链在 validate 处中断
         api_instance.converter.convert.assert_called_once() # type: ignore
         api_instance.http_client.send_request.assert_called_once() # type: ignore
         mock_cached_response.json.assert_called_once()
-        # 验证 schema 获取和校验被调用
         self.mock_schema_storage.get_schema.assert_called_once_with("DummyResponse") # type: ignore
-        # extract_jsonschema 会始终被调用一次来获取 current_schema
         self.mock_extract_schema.assert_called_once_with(DummyResponse)
-        # save_schema 不应该被调用 (schema existed)
         self.mock_schema_storage.save_schema.assert_not_called()
         mock_validate_fail.assert_called_once_with(instance=mock_response_json, schema=mock_existing_schema)
-        # structure 不应该被调用，因为校验失败了
         api_instance.converter.structure.assert_not_called() # type: ignore
 
 
@@ -545,12 +546,10 @@ class TestSendLogic:
 
         assert meta_no_stream is not None
         assert meta_no_stream.get("class_name") == "MySendAPI"
-        # class_doc 应等于 api_instance.class_doc
         assert meta_no_stream.get("class_doc") == api_instance.class_doc
         assert meta_no_stream.get("is_streaming") is False
         assert prepared_req_no_stream.get("stream") is None # stream key should not be present
 
-        # Reset mocks for next case
         send_request_spy.reset_mock()
         api_instance.converter.convert.reset_mock() # type: ignore
 
@@ -568,4 +567,4 @@ class TestSendLogic:
         assert meta_stream.get("class_name") == "MySendAPI"
         assert meta_stream.get("class_doc") == api_instance.class_doc
         assert meta_stream.get("is_streaming") is True
-        assert prepared_req_stream.get("stream") is True # stream key should be True
+        assert prepared_req_stream.get("stream") is True
