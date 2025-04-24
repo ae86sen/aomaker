@@ -1,437 +1,542 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-    <title> {{ title }} </title>
-    <meta name="generator" content="XTestRunner {{ version }}"/>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <script src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
-    <link rel="stylesheet" href="http://telegraph-image-cq2.pages.dev/seldom-main.css">
-    <link rel="stylesheet" href="http://telegraph-image-cq2.pages.dev/seldom-utilities.css">
-
-    <style type="text/css" media="screen">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 页面标题，使用 report.py 中定义的 title -->
+    <title>{{ title }}</title>
+    <!-- Favicon，引用 assets 目录下的图标 -->
+    <link rel="icon" href="assets/aomaker-icon.png" type="image/png">
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    <!-- 引入 Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- 引入Chart.js用于圆环图 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 自定义 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'aomaker-purple': { light: '#8B5CF6', DEFAULT: '#6366F1', dark: '#4F46E5' },
+                        'status-passed': 'var(--color-success, #4ADE80)',
+                        'status-failed': 'var(--color-error, #F87171)',
+                        'status-error': 'var(--color-warning, #FBBF24)',
+                        'status-skipped': 'var(--color-info, #60A5FA)',
+                        'bg-gradient-start': '#F0F3FF',
+                        'bg-gradient-end': '#FAFAFD',
+                        'legend-bg': 'rgba(255, 255, 255, 0.2)',
+                        'legend-border': '#EAEAF5',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        'lg': '0.75rem',
+                    },
+                    boxShadow: {
+                        'neu-outer': '4px 4px 8px rgba(0, 0, 0, 0.04), -4px -4px 8px rgba(255, 255, 255, 0.6)',
+                        'neu-inner': 'inset 2px 2px 4px rgba(0, 0, 0, 0.03), inset -2px -2px 4px rgba(255, 255, 255, 0.7)',
+                        'neu-card': 'var(--shadow-neu-outer), var(--shadow-neu-inner)',
+                        'neu-pill-active': 'inset 2px 2px 4px rgba(0, 0, 0, 0.1)',
+                        'pill-hover': '0 1px 4px rgba(0, 0, 0, 0.06)',
+                    },
+                    fontSize: {
+                        '3xl': ['1.75rem', { lineHeight: '2.25rem', fontWeight: '700' }],
+                        'xl': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+                        'sm': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+                        'xs': ['0.75rem', { lineHeight: '1rem', fontWeight: '400' }],
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"'],
+                    },
+                    height: {
+                        '14': '3.5rem',
+                        '16': '4rem',
+                    },
+                    minHeight: {
+                        '14': '3.5rem',
+                        '16': '4rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        :root {
+            --color-success: #4ADE80;
+            --color-error: #F87171;
+            --color-warning: #FBBF24;
+            --color-info: #60A5FA;
+            --shadow-neu-outer: 4px 4px 8px rgba(0, 0, 0, 0.04), -4px -4px 8px rgba(255, 255, 255, 0.6);
+            --shadow-neu-inner: inset 2px 2px 4px rgba(0, 0, 0, 0.03), inset -2px -2px 4px rgba(255, 255, 255, 0.7);
+        }
+        /* 基础样式 */
         body {
-            font-family: verdana, arial, helvetica, sans-serif;
-            font-size: 80%;
+            @apply bg-gradient-to-br from-bg-gradient-start to-bg-gradient-end min-h-screen font-sans text-sm text-gray-600 antialiased;
+        }
+        .neu-card {
+            @apply bg-white rounded-xl shadow-neu-card p-6 border border-white/50;
+        }
+        h1 { @apply text-3xl font-bold text-gray-800; }
+        h2 { @apply text-xl font-semibold text-gray-800; }
+        h3 { @apply text-lg font-semibold text-gray-700; }
+        h4 { @apply text-base font-semibold text-gray-700; }
+        p, span, div { @apply text-sm; }
+
+        /* 表格样式 */
+        thead {
+            @apply bg-gray-50/70 sticky top-0 z-10 backdrop-blur-sm;
+        }
+        tbody tr {
+            @apply border-b border-gray-100 h-16;
+            @apply transition-colors duration-150;
+        }
+        tbody tr:hover {
+            @apply bg-gray-900/5;
+        }
+        tbody tr:hover .action-button {
+             @apply opacity-100;
+        }
+        .table-icon {
+             @apply h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center mr-3;
+        }
+        .status-badge {
+             @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+        }
+        .status-dot {
+             @apply h-1.5 w-1.5 rounded-full mr-1.5;
+        }
+        .action-button {
+             @apply text-gray-400 hover:text-aomaker-purple focus-ring rounded-full p-1.5 opacity-0 transition-opacity duration-150;
         }
 
-        table {
-            font-size: 100%;
+        /* 过滤按钮 (Pill) 样式 */
+        .filter-pill {
+            @apply px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer bg-white shadow-neu-outer hover:shadow-pill-hover;
+        }
+        .filter-pill-active {
+            @apply text-white shadow-neu-pill-active;
+        }
+        .filter-pill-active[data-status='all'] { @apply bg-aomaker-purple; }
+        .filter-pill-active[data-status='passed'] { @apply bg-status-passed; }
+        .filter-pill-active[data-status='failed'] { @apply bg-status-failed; }
+        .filter-pill-active[data-status='error'] { @apply bg-status-error; }
+        .filter-pill-active[data-status='skipped'] { @apply bg-status-skipped; }
+
+        /* 模态框样式 */
+        .modal { @apply fixed inset-0 z-50 flex items-center justify-center p-4; }
+        .modal-overlay { @apply fixed inset-0 bg-black/10 backdrop-blur-sm; }
+        .modal-content {
+            @apply relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6 border border-gray-100 shadow-neu-card;
+        }
+        .modal-close-button { @apply absolute top-4 right-4 text-gray-400 hover:text-gray-700 focus-ring rounded; }
+        .log-pre { @apply bg-gray-50 text-gray-700 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-words font-mono border border-gray-200; }
+
+        /* 统计图例样式 */
+        .legend-item {
+            @apply flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-150;
+            @apply bg-legend-bg border border-legend-border;
+        }
+        .legend-item:hover {
+             @apply bg-gray-900/10;
+        }
+        .legend-icon {
+             @apply h-3 w-3 mr-2 rounded-sm flex-shrink-0;
+        }
+        .legend-text {
+             @apply text-sm font-medium text-gray-700 mr-auto;
+        }
+        .legend-value {
+             @apply text-sm font-semibold text-gray-800;
         }
 
-        .table td {
-            white-space: inherit !important;
-        }
+        /* 动画效果 */
+        .fade-in-down { animation: fadeInDown 150ms ease-out forwards; }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* -- heading ---------------------------------------------------------------------- */
-        h1 {
-            font-size: 16pt;
-            color: gray;
-        }
-
-        pre {
-            background-color: #eef2f7;
-            padding-top: 10px;
-            text-align: left;
-            max-height: 600px;
-            overflow: auto;
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-            background-color: #F5F5F5;
-        }
-
-        ::-webkit-scrollbar-track {
-            -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            background-color: rgba(114, 124, 245, .25);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            border-radius: 10px;
-            -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
-            background-color: #6c757d;
-        }
-
-        .heading {
-            margin-top: 20px;
-            margin-bottom: 1ex;
-            margin-left: 10px;
-            margin-right: 10px;
-            width: 23%;
-            float: left;
-            padding-top: 10px;
-            padding-left: 10px;
-            padding-bottom: 10px;
-            padding-right: 10px;
-            box-shadow: 0px 0px 5px #000;
-        }
-
-        .heading .attribute {
-            margin-top: 1ex;
-            margin-bottom: 0;
-        }
-
-        .heading .description {
-            margin-top: 4ex;
-            margin-bottom: 6ex;
-        }
-
-        /* -- css div popup ------------------------------------------------------------------------ */
-
-        a.popup_link:hover {
-            color: red;
-        }
-
-        .log_window {
-            max-width: 70%;
-            max-height: 70%;
-        }
-
-        /* -- report ------------------------------------------------------------------------ */
-        .show_detail_line {
-            margin-left: 10px;
-            margin-top: 30px;
-            margin-bottom: 20px;
-        }
-
-        .show_detail_button {
-            margin-top: 3ex;
-            margin-bottom: 1ex;
-            margin-left: 10px;
-            text-align: right;
-            margin-right: 15px;
-        }
-
-        .header_row {
-            font-weight: bold;
-            color: #606060;
-            border-top-width: 10px;
-            border-color: #d6e9c6;
-            font-size: 15px;
-        }
-
-        .total_row {
-            font-weight: bold;
-            background-color: #dee2e6;
-        }
-
-        .passedClass {
-            background-color: #ccf5e7;
-        }
-
-        .failedClass {
-            background-color: #ffe8cc;
-        }
-
-        .brokenClass {
-            background-color: #f6b6c1;
-        }
-
-        .skippedClass {
-            background-color: #d2cccc;
-        }
-
-        .passCase {
-            color: #00CC88;
-            font-weight: bold;
-        }
-
-        .failCase {
-            color: #FF8C00;
-            font-weight: bold;
-        }
-
-        .errorCase {
-            color: #FF3366;
-            font-weight: bold;
-        }
-
-        .hiddenRow {
-            display: none;
-        }
-
-        .caseStatistics {
-            width: 46%
-        }
-
-        .none {
-            color: #009900
-        }
-
-        .testcase {
-            margin-left: 2em;
-        }
-
-        /* -- chars ---------------------------------------------------------------------- */
-        .testChars {
-            width: 900px;
-            margin-left: 0px;
-        }
-
-        .error-color {
-            color: #fff;
-            background-color: #f44455;
-            border-color: #f44455;
-        }
-
-        .pass-color {
-            color: #fff;
-            background-color: #5fc27e;
-            border-color: #5fc27e;
-        }
-
-        .fail-color {
-            color: #fff;
-            background-color: #fcc100;
-            border-color: #fcc100;
-        }
-
-        .skip-color {
-            color: #fff;
-            background-color: #6c757d;
-            border-color: #6c757d;
-        }
-
-        /* -- screenshots ---------------------------------------------------------------------- */
-        .img {
-            border-collapse: collapse;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            margin: auto;
-        }
-
-        .img-card {
-            height: 600px;
-            width: 800px;
-            background-color: #e7eaf0;
-        }
-
-        .img-circle {
-            height: 20px;
-            border-radius: 12px;
-            background-color: red;
-            padding-left: 13px;
-            margin: 0 auto;
-            position: relative;
-            top: -40px;
-            background-color: rgba(1, 150, 0, 0.3);
-        }
-
-        .img-circle font {
-            border: 1px solid white;
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            margin-right: 9px;
-            margin-top: 4px;
-            display: block;
-            float: left;
-            background-color: white;
-        }
-
-        .close-shots {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            z-index: 99;
-        }
-
-        .footer {
-            height: 50px;
-            width: 100%;
-            position: fixed;
-            bottom: 0;
-        }
-
-        #headContainer {
-            margin-top: 20px;
-            margin-bottom: 20px;
-            padding-left: 30px;
-            padding-right: 30px;
-        }
-
-        .head-list {
-            padding-top: 5px;
-            padding-bottom: 5px;
-        }
-
-        #resultContainer {
-            margin-left: 30px;
-            margin-right: 30px;
-        }
-
-
+        /* 可访问性 */
+        .focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-aomaker-purple/50 focus:ring-offset-2; }
     </style>
-
 </head>
-<body style="background-color: #f5f9fc;">
-<script language="javascript" type="text/javascript">
-    function showLog(id) {
-        document.body.style.overflow = 'hidden'
-        document.body.style.height = '100%'
-        document.getElementById(id).style.display = 'block'
+<body x-data="{
+    activeFilter: 'all',
+    showModal: false,
+    currentLog: '',
+    currentCaseId: '',
+    chartData: {
+        labels: ['通过', '失败', '错误', '跳过'],
+        values: [{{ passed_count }}, {{ failed_count }}, {{ error_count }}, {{ skipped_count }}],
+        colors: ['#4ADE80', '#F87171', '#FBBF24', '#60A5FA']
+    }
+}" x-init="
+    const chartCtx = document.getElementById('donutChart')?.getContext('2d');
+    if (chartCtx) {
+        new Chart(chartCtx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    data: chartData.values,
+                    backgroundColor: chartData.colors,
+                    borderWidth: 0,
+                    hoverOffset: 8,
+                    hoverBorderColor: '#ffffff',
+                    hoverBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        titleFont: { size: 12 },
+                        bodyFont: { size: 12 },
+                        padding: 8,
+                        cornerRadius: 4,
+                        callbacks: {
+                            label: (context) => {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.raw || 0;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return `${context.label}: ${value} (${percentage})`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 600,
+                    easing: 'easeOutQuart'
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const clickedIndex = elements[0].index;
+                        const statusMap = ['passed', 'failed', 'error', 'skipped'];
+                        const status = statusMap[clickedIndex];
+                        if (status) {
+                             Alpine.store('reportData').filterCases(status);
+                        }
+                    }
+                }
+            }
+        });
     }
 
-    function hideLog(id) {
-        document.body.style.overflow = 'auto';
-        document.getElementById(id).style.display = 'none'
-    }
-
-    function showImg(obj) {
-        document.body.style.overflow = 'hidden'
-        document.body.style.height = '100%'
-        var nextObj = obj.nextElementSibling
-        nextObj.style.display = 'block'
-        var index = 0;   //每张图片的下标，
-        var len = nextObj.getElementsByTagName('img').length;
-        var imgCircle = nextObj.getElementsByClassName('img-circle')[0]
-        nextObj.onmouseover = function () {  //当鼠标光标停在图片上，则停止轮播
-            clearInterval(start);
+    Alpine.store('reportData', {
+        activeFilter: 'all',
+        filterCases(status) {
+            this.activeFilter = status;
+        },
+        shouldShow(caseResult) {
+             return this.activeFilter === 'all' || this.activeFilter === caseResult;
         }
-        nextObj.onmouseout = function () {  //当鼠标光标停在图片上，则开始轮播
-            start = setInterval(autoPlay, 1000);
-        }
-        for (var i = 0; i < len; i++) {
-            var fontTag = document.createElement('font')
-            imgCircle.appendChild(fontTag)
-        }
-        var fontTagList = nextObj.getElementsByTagName('font');  //得到所有圆圈
-        changeImg(0)
-        var funny = function (i) {
-            fontTagList[i].onmouseover = function () {
-                index = i
-                changeImg(i)
-            }
-        }
-        for (var i = 0; i < fontTagList.length; i++) {
-            funny(i);
-        }
+    });
+">
 
-        function autoPlay() {
-            if (index > len - 1) {
-                index = 0;
-                clearInterval(start); //运行一轮后停止
-            }
-            changeImg(index++);
-        }
+    <div class="container mx-auto px-4 lg:px-8 py-8 max-w-screen-xl">
+        <!-- 顶部栏 -->
+        <header class="flex items-center justify-between mb-8">
+            <div class="flex items-center space-x-3">
+                <img src="assets/aomaker-logo.png" alt="AoMaker Logo" class="h-10">
+                <h1>{{ title }}</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="#" class="text-aomaker-purple hover:text-aomaker-purple-dark focus-ring text-sm font-medium rounded">
+                    查看历史报告
+                </a>
+                <a href="#" class="bg-aomaker-purple hover:bg-aomaker-purple-dark text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-150 font-medium text-sm focus-ring">
+                    导出报告
+                </a>
+            </div>
+        </header>
 
-        imgCircle.style.width = 30 * len + "px";
+        <!-- 主要内容 - 两栏网格 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+            <!-- 左侧 Profile Card - 4/12 宽度 -->
+            <div class="lg:col-span-4 fade-in-down" style="animation-delay: 50ms;">
+                <div class="neu-card h-full flex flex-col">
+                    <!-- 用户/执行信息 -->
+                    <div class="flex items-center space-x-4 mb-6">
+                        <div class="w-12 h-12 rounded-full bg-aomaker-purple/10 flex items-center justify-center border border-aomaker-purple/20">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-aomaker-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-800">测试执行者</h3>
+                            <p class="text-xs text-gray-500">生产环境 / Cron Job</p>
+                        </div>
+                    </div>
 
-        // 对应圆圈和图片同步
-        function changeImg(index) {
-            var imgTags = nextObj.getElementsByTagName('img');
-            var fontTags = nextObj.getElementsByTagName('font');
-            for (i = 0; i < fontTags.length; i++) {
-                imgTags[i].style.display = 'none';
-                fontTags[i].style.backgroundColor = 'white';
-            }
-            imgTags[index].style.display = 'block';
-            if (fontTags.length > 0) {
-                fontTags[index].style.backgroundColor = 'red';
-            }
-        }
-    }
+                    <!-- 测试基本信息 -->
+                    <div class="space-y-3 text-sm flex-grow">
+                        <h3 class="text-lg mb-3">基本信息</h3>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">开始时间:</span>
+                            <span class="font-medium text-gray-700">{{ start_time }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">结束时间:</span>
+                            <span class="font-medium text-gray-700">{{ end_time }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">运行时长:</span>
+                            <span class="font-medium text-gray-700">{{ duration }}</span>
+                        </div>
+                    </div>
 
-    function hideImg(obj) {
-        document.body.style.overflow = 'auto';
-        obj.parentElement.parentElement.parentElement.parentElement.parentElement.style.display = "none";
-        obj.parentElement.parentElement.parentElement.getElementsByClassName('img-circle')[0].innerHTML = "";
-    }
+                    <!-- 总计 -->
+                    <div class="mt-6 pt-4 border-t border-gray-100">
+                        <div class="flex items-baseline justify-between">
+                            <h4 class="text-gray-500">总计</h4>
+                            <div class="flex items-baseline space-x-1">
+                                <span class="text-2xl font-bold text-aomaker-purple">{{ total }}</span>
+                                <span class="text-xs text-gray-500">个用例</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    output_list = Array();
+            <!-- 右侧 Statistics Card - 8/12 宽度 -->
+            <div class="lg:col-span-8 fade-in-down" style="animation-delay: 100ms;">
+                 <div class="neu-card h-full flex flex-col">
+                     <h2 class="mb-6">测试结果统计</h2>
+                     <div class="flex-grow grid grid-cols-1 md:grid-cols-12 gap-6">
+                         <!-- 圆环图 -->
+                         <div class="md:col-span-6 lg:col-span-5 flex items-center justify-center min-h-[200px]">
+                             <div class="w-full max-w-[280px] h-auto relative">
+                                 <canvas id="donutChart"></canvas>
+                                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                     {% if total > 0 %}
+                                     <span class="text-3xl font-bold text-gray-800">{{ passed_rate }}</span>
+                                     <span class="text-xs text-gray-500 mt-1">通过率</span>
+                                     {% else %}
+                                     <span class="text-lg font-medium text-gray-400">未执行</span>
+                                     {% endif %}
+                                 </div>
+                             </div>
+                         </div>
+                         <!-- 图例 (Legend) -->
+                         <div class="md:col-span-6 lg:col-span-7 flex flex-col justify-center space-y-3">
+                             <!-- Passed -->
+                             <div class="legend-item" @click="$store.reportData.filterCases('passed')">
+                                 <span class="legend-icon bg-status-passed"></span>
+                                 <span class="legend-text">通过</span>
+                                 <span class="legend-value">{{ passed_count }}</span>
+                             </div>
+                             <!-- Failed -->
+                             <div class="legend-item" @click="$store.reportData.filterCases('failed')">
+                                 <span class="legend-icon bg-status-failed"></span>
+                                 <span class="legend-text">失败</span>
+                                 <span class="legend-value">{{ failed_count }}</span>
+                             </div>
+                             <!-- Error -->
+                             <div class="legend-item" @click="$store.reportData.filterCases('error')">
+                                 <span class="legend-icon bg-status-error"></span>
+                                 <span class="legend-text">错误</span>
+                                 <span class="legend-value">{{ error_count }}</span>
+                             </div>
+                             <!-- Skipped -->
+                             <div class="legend-item" @click="$store.reportData.filterCases('skipped')">
+                                 <span class="legend-icon bg-status-skipped"></span>
+                                 <span class="legend-text">跳过</span>
+                                 <span class="legend-value">{{ skipped_count }}</span>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        </div>
 
-    /* result
-    - passed
-    - failed
-    - error
-    - All
-    */
-    function showCase(result) {
-        trs = document.getElementsByTagName("tr");
-        for (var i = 1; i < trs.length; i++) {
-            tr = trs[i];
-            td_result = tr.children[5].innerHTML;
-            if (td_result !== result) {
-                tr.style.display = "none";
-            } else {
-                tr.style.display = "";
-            }
-            if (result === "all") {
-                tr.style.display = "";
-            }
+        <!-- 结果详情表格 - 全宽 -->
+        <div class="mt-8 fade-in-down" style="animation-delay: 150ms;">
+            <div class="neu-card p-0 overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+                    <h2 class="mb-4 md:mb-0">测试结果详情</h2>
+                    <div class="flex flex-wrap gap-2" x-data>
+                         <button
+                             @click="$store.reportData.filterCases('all')"
+                             data-status="all"
+                             :class="$store.reportData.activeFilter === 'all' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                             class="focus-ring">
+                             所有
+                         </button>
+                         <button
+                             @click="$store.reportData.filterCases('passed')"
+                             data-status="passed"
+                             :class="$store.reportData.activeFilter === 'passed' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                              style="--status-color: var(--color-success);"
+                             class="focus-ring">
+                             通过
+                         </button>
+                         <button
+                             @click="$store.reportData.filterCases('failed')"
+                             data-status="failed"
+                             :class="$store.reportData.activeFilter === 'failed' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                             style="--status-color: var(--color-error);"
+                             class="focus-ring">
+                             失败
+                         </button>
+                         <button
+                             @click="$store.reportData.filterCases('error')"
+                             data-status="error"
+                             :class="$store.reportData.activeFilter === 'error' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                             style="--status-color: var(--color-warning);"
+                             class="focus-ring">
+                             错误
+                         </button>
+                         <button
+                             @click="$store.reportData.filterCases('skipped')"
+                             data-status="skipped"
+                             :class="$store.reportData.activeFilter === 'skipped' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                             style="--status-color: var(--color-info);"
+                             class="focus-ring">
+                             跳过
+                         </button>
+                    </div>
+                </div>
 
-        }
-    }
+                <div class="overflow-x-auto">
+                    <div class="max-h-[60vh] overflow-y-auto">
+                        <table class="min-w-full">
+                            <thead class="select-none">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-2/12">测试类</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-2/12">测试用例</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-3/12">用例描述</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/12">时长</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-2/12">时间</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/12">结果</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/12">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody x-data>
+                                {% for case in case_list %}
+                                <tr
+                                    x-show="$store.reportData.shouldShow('{{ case.result | lower }}')"
+                                    x-transition:enter="transition ease-out duration-100"
+                                    x-transition:enter-start="opacity-0"
+                                    x-transition:enter-end="opacity-100"
+                                    class="group"
+                                >
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="table-icon flex-shrink-0">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                                </svg>
+                                            </div>
+                                            <div class="text-sm text-gray-700 font-medium">{{ case.test_class }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ case.test_method }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title="{{ case.doc }}">{{ case.doc or '无描述' }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ case.f_duration }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ case.time }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="status-badge"
+                                              :class="{
+                                                  'bg-status-passed/10 text-status-passed': '{{ case.result | lower }}' === 'passed',
+                                                  'bg-status-failed/10 text-status-failed': '{{ case.result | lower }}' === 'failed',
+                                                  'bg-status-error/10 text-status-error': '{{ case.result | lower }}' === 'error',
+                                                  'bg-status-skipped/10 text-status-skipped': '{{ case.result | lower }}' === 'skipped'
+                                              }">
+                                            <span class="status-dot"
+                                                  :class="{
+                                                      'bg-status-passed': '{{ case.result | lower }}' === 'passed',
+                                                      'bg-status-failed': '{{ case.result | lower }}' === 'failed',
+                                                      'bg-status-error': '{{ case.result | lower }}' === 'error',
+                                                      'bg-status-skipped': '{{ case.result | lower }}' === 'skipped'
+                                                  }"></span>
+                                            {{ case.result | capitalize }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                        <button @click="showModal = true; currentLog = document.getElementById('log-{{ case.case_id }}').innerText; currentCaseId = '{{ case.test_class }}.{{ case.test_method }}'"
+                                                class="action-button group-hover:opacity-100 focus-ring"
+                                                title="查看日志">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                            </svg>
+                                        </button>
+                                        <div id="log-{{ case.case_id }}" style="display: none;">{{ case.logs }}</div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="px-6 py-16 text-center">
+                                        <div class="flex flex-col items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                            </svg>
+                                            <p class="text-base font-medium text-gray-500">没有找到符合条件的测试结果</p>
+                                            <p class="text-sm text-gray-400 mt-1">尝试选择其他过滤条件或等待测试执行。</p>
+                                             {% if activeFilter != 'all' %}
+                                             <button @click="$store.reportData.filterCases('all')" class="mt-4 text-sm text-aomaker-purple hover:underline focus-ring rounded">显示所有结果</button>
+                                             {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-    function showClassDetail(cid, count) {
-        var id_list = Array(count);
-        var toHide = 1;
-        for (var i = 0; i < count; i++) {
-            tid0 = 't' + cid.substr(1) + '.' + (i + 1);
-            tid = 'f' + tid0;
-            tr = document.getElementById(tid);
-            if (!tr) {
-                tid = 'p' + tid0;
-                tr = document.getElementById(tid);
-            }
-            if (!tr) {
-                tid = 'e' + tid0;
-                tr = document.getElementById(tid);
-            }
-            if (!tr) {
-                tid = 's' + tid0;
-                tr = document.getElementById(tid);
-            }
-            id_list[i] = tid;
-            if (tr.className) {
-                toHide = 0;
-            }
-        }
-        for (var i = 0; i < count; i++) {
-            tid = id_list[i];
-            if (toHide) {
-                document.getElementById(tid).className = 'hiddenRow';
-            } else {
-                document.getElementById(tid).className = '';
-            }
-        }
-    }
+                <div class="px-6 py-4 bg-white/50 border-t border-gray-100 flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-xs">
+                    <span class="font-medium text-gray-600">总计: <span class="font-bold text-aomaker-purple">{{ total }}</span></span>
+                    <span class="flex items-center text-[var(--color-success)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-status-passed mr-1"></span>
+                        通过: <span class="font-medium ml-0.5">{{ passed_count }}</span>
+                    </span>
+                    <span class="flex items-center text-[var(--color-error)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-status-failed mr-1"></span>
+                        失败: <span class="font-medium ml-0.5">{{ failed_count }}</span>
+                    </span>
+                    <span class="flex items-center text-[var(--color-warning)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-status-error mr-1"></span>
+                        错误: <span class="font-medium ml-0.5">{{ error_count }}</span>
+                    </span>
+                    <span class="flex items-center text-[var(--color-info)]">
+                        <span class="h-1.5 w-1.5 rounded-full bg-status-skipped mr-1"></span>
+                        跳过: <span class="font-medium ml-0.5">{{ skipped_count }}</span>
+                    </span>
+                </div>
+            </div>
+        </div>
 
-    function showTestDetail(div_id) {
-        var detailsDiv = document.getElementById(div_id)
-        var displayState = detailsDiv.style.display
+        <!-- 页脚 -->
+        <footer class="mt-10 text-center text-xs text-gray-400">
+            <p>AoMaker 自动化测试报告 &copy; | 生成时间: {{ end_time }}</p>
+        </footer>
+    </div>
 
-        if (displayState != 'block') {
-            displayState = 'block'
-            detailsDiv.style.display = 'block'
-        } else {
-            detailsDiv.style.display = 'none'
-        }
-    }
-
-    function html_escape(s) {
-        s = s.replace(/&/g, '&amp;');
-        s = s.replace(/</g, '&lt;');
-        s = s.replace(/>/g, '&gt;');
-        return s;
-    }
-</script>
-
-{{ heading }}
-{{ report }}
-{{ chart_script }}
-
-
+    <!-- 日志查看模态框 -->
+    <div x-show="showModal" class="modal" style="display: none;" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95">
+        <!-- 模态框遮罩 -->
+        <div class="modal-overlay" @click="showModal = false"></div>
+        <!-- 模态框内容 -->
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                 <h3 class="text-lg font-semibold text-gray-800" x-text="'日志详情: ' + currentCaseId"></h3>
+                 <button @click="showModal = false" class="modal-close-button focus-ring">
+                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                     </svg>
+                 </button>
+            </div>
+            <pre class="log-pre max-h-[60vh]" x-text="currentLog"></pre>
+        </div>
+    </div>
 </body>
-
 </html>
