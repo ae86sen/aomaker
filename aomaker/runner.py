@@ -16,7 +16,7 @@ from aomaker.log import logger, aomaker_logger
 from aomaker._constants import Allure
 from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
-from aomaker.report import gen_reports
+from aomaker.report import gen_aomaker_reports
 from aomaker import pytest_plugins
 from aomaker.utils.gen_allure_report import rewrite_summary
 
@@ -80,9 +80,7 @@ class Runner:
         _progress_init(args)
         pytest.main(args, plugins=self.pytest_plugins)
         if is_gen_allure:
-            self.allure_env_prop()
-            self.gen_allure()
-            gen_reports()
+            self.gen_reports()
 
     @staticmethod
     def make_testsuite_path(path: str) -> list:
@@ -153,6 +151,13 @@ class Runner:
                 content += f"{k}={v}\n"
             with open(os.path.join(allure_json_dir, "environment.properties"), mode='w', encoding='utf-8') as f:
                 f.write(content)
+    
+    @printer("gen_rep")
+    def gen_reports(self):
+        self.allure_env_prop()
+        self.gen_allure()
+        gen_aomaker_reports()
+
 
     @staticmethod
     def clean_allure_json(allure_json_path: str):
@@ -199,10 +204,9 @@ class ProcessesRunner(Runner):
             pool.map(task_func, make_args_group(task_args, extra_args))
             # pool.map(main_task, make_args_group(task_args, extra_args))
 
-    def _generate_reports(self):
-        self.allure_env_prop()
-        self.gen_allure()
-        gen_reports()
+    # def _generate_reports(self):
+    #     self.allure_env_prop()
+    #     gen_aomaker_reports()
 
     @fixture_session
     def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, process_count=None,
@@ -227,7 +231,7 @@ class ProcessesRunner(Runner):
         pytest_plugin_names = [plugin.__name__ for plugin in self.pytest_plugins]
         self._execute_tasks(process_count, task_args, extra_args, pytest_plugin_names)
         if is_gen_allure:
-            self._generate_reports()
+            self.gen_reports()
 
 
 class ThreadsRunner(Runner):
@@ -255,9 +259,7 @@ class ThreadsRunner(Runner):
         wait(_, return_when=ALL_COMPLETED)
         tp.shutdown()
         if is_gen_allure:
-            self.allure_env_prop()
-            self.gen_allure()
-            gen_reports()
+            self.gen_reports()
 
 
 def main_task(args: list, pytest_plugin_names: list):

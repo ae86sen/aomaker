@@ -4,8 +4,7 @@ from pathlib import Path
 from jinja2 import Template
 
 from aomaker.utils.gen_allure_report import CaseSummary, CaseDetail
-from aomaker.path import REPORT_DIR 
-from aomaker._printer import printer
+from aomaker.path import REPORT_DIR
 from aomaker.storage import config
 
 base_dir = Path(__file__).parent
@@ -42,9 +41,7 @@ class HtmlMaker:
         with open(self.report_html_file_path, "w", encoding='utf-8') as f:
             f.write(rendered_html)
 
-
-@printer("gen_rep")
-def gen_reports():
+def gen_aomaker_reports():
     case_summary = CaseSummary()
     case_detail = CaseDetail()
     summary = {
