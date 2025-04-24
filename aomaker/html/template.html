@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 页面标题，使用 report.py 中定义的 title -->
     <title>{{ title }}</title>
-    <!-- Favicon，引用 assets 目录下的图标 -->
-    <link rel="icon" href="assets/aomaker-icon.png" type="image/png">
+    <link rel="icon" href="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/aomaker_light.png" type="image/png">
     <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
     <!-- 引入 Alpine.js CDN -->
@@ -20,10 +18,10 @@
                 extend: {
                     colors: {
                         'aomaker-purple': { light: '#8B5CF6', DEFAULT: '#6366F1', dark: '#4F46E5' },
-                        'status-passed': 'var(--color-success, #4ADE80)',
-                        'status-failed': 'var(--color-error, #F87171)',
-                        'status-error': 'var(--color-warning, #FBBF24)',
-                        'status-skipped': 'var(--color-info, #60A5FA)',
+                        'status-passed': 'var(--color-success, #5CBA95)',
+                        'status-failed': 'var(--color-error, #E88A8A)',
+                        'status-broken': 'var(--color-warning, #E6B55C)',
+                        'status-skipped': 'var(--color-info, #7A9FE2)',
                         'bg-gradient-start': '#F0F3FF',
                         'bg-gradient-end': '#FAFAFD',
                         'legend-bg': 'rgba(255, 255, 255, 0.2)',
@@ -63,20 +61,69 @@
     </script>
     <style type="text/tailwindcss">
         :root {
-            --color-success: #4ADE80;
-            --color-error: #F87171;
-            --color-warning: #FBBF24;
-            --color-info: #60A5FA;
-            --shadow-neu-outer: 4px 4px 8px rgba(0, 0, 0, 0.04), -4px -4px 8px rgba(255, 255, 255, 0.6);
-            --shadow-neu-inner: inset 2px 2px 4px rgba(0, 0, 0, 0.03), inset -2px -2px 4px rgba(255, 255, 255, 0.7);
+            --color-success: #5CBA95;
+            --color-error: #E88A8A;
+            --color-warning: #E6B55C;
+            --color-info: #7A9FE2;
+            --shadow-neu-outer: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            --shadow-neu-inner: inset 0 1px 2px rgba(255, 255, 255, 0.1);
+            --purple-glow-1: rgba(139, 92, 246, 0.2);
+            --purple-glow-2: rgba(99, 102, 241, 0.2);
+            --purple-fade-1: rgba(139, 92, 246, 0.02);
+            --purple-fade-2: rgba(99, 102, 241, 0.02);
         }
         /* 基础样式 */
         body {
-            @apply bg-gradient-to-br from-bg-gradient-start to-bg-gradient-end min-h-screen font-sans text-sm text-gray-600 antialiased;
+            background: 
+                radial-gradient(circle at 5% 5%, var(--purple-glow-1) 0%, rgba(139, 92, 246, 0.08) 15%, var(--purple-fade-1) 40%, transparent 70%),
+                radial-gradient(circle at 95% 95%, var(--purple-glow-2) 0%, rgba(99, 102, 241, 0.08) 15%, var(--purple-fade-2) 40%, transparent 70%),
+                linear-gradient(to bottom right, var(--color-from, #F0F3FF), var(--color-to, #FAFAFD));
+            @apply min-h-screen font-sans text-sm text-gray-600 antialiased;
+            background-attachment: fixed;
+            background-size: 200% 200%, 200% 200%, 400% 400%;
+            --color-from: #F0F3FF;
+            --color-to: #FAFAFD;
+            animation: gradientAnimation 25s ease-in-out infinite alternate;
         }
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 0%, 100% 100%, 0% 50%; }
+            25% { background-position: 2% 5%, 95% 97%, 30% 60%; }
+            50% { background-position: 0% 15%, 85% 100%, 60% 70%; }
+            75% { background-position: 5% 2%, 97% 95%, 70% 40%; }
+            100% { background-position: 0% 0%, 100% 100%, 0% 50%; }
+        }
+        
         .neu-card {
-            @apply bg-white rounded-xl shadow-neu-card p-6 border border-white/50;
+            @apply bg-white/20 rounded-xl p-6 border border-white/30 backdrop-blur-md;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+            transition: all 0.3s ease-out, transform 0.2s ease-out;
+            position: relative;
+            z-index: 1;
         }
+        
+        .neu-card:hover {
+            @apply bg-white/30 border-white/40;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 0 20px rgba(99, 102, 241, 0.15);
+            transform: translateY(-5px) scale(1.01);
+            z-index: 2;
+        }
+        
+        .neu-card:hover::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(225deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2), transparent 60%);
+            border-radius: inherit;
+            z-index: -1;
+            opacity: 0;
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+        
         h1 { @apply text-3xl font-bold text-gray-800; }
         h2 { @apply text-xl font-semibold text-gray-800; }
         h3 { @apply text-lg font-semibold text-gray-700; }
@@ -85,60 +132,68 @@
 
         /* 表格样式 */
         thead {
-            @apply bg-gray-50/70 sticky top-0 z-10 backdrop-blur-sm;
+            @apply bg-white/10 sticky top-0 z-10 backdrop-blur-md border-b border-white/20;
         }
         tbody tr {
-            @apply border-b border-gray-100 h-16;
+            @apply border-b border-gray-100/30 h-16;
             @apply transition-colors duration-150;
         }
         tbody tr:hover {
-            @apply bg-gray-900/5;
+            @apply bg-white/10 backdrop-blur-sm;
         }
         tbody tr:hover .action-button {
-             @apply opacity-100;
+             @apply text-aomaker-purple;
         }
         .table-icon {
-             @apply h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center mr-3;
+             @apply h-8 w-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center mr-3;
         }
         .status-badge {
              @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+             backdrop-filter: blur(4px);
         }
         .status-dot {
              @apply h-1.5 w-1.5 rounded-full mr-1.5;
         }
         .action-button {
-             @apply text-gray-400 hover:text-aomaker-purple focus-ring rounded-full p-1.5 opacity-0 transition-opacity duration-150;
+             @apply text-gray-400 hover:text-aomaker-purple focus-ring rounded-full p-1.5 transition-colors duration-150;
         }
 
         /* 过滤按钮 (Pill) 样式 */
         .filter-pill {
-            @apply px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer bg-white shadow-neu-outer hover:shadow-pill-hover;
+            @apply px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer bg-white/30 backdrop-blur-sm border border-white/20;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+        }
+        .filter-pill:hover {
+            @apply bg-white/40;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
         }
         .filter-pill-active {
-            @apply text-white shadow-neu-pill-active;
+            @apply text-white shadow-none border-transparent;
         }
         .filter-pill-active[data-status='all'] { @apply bg-aomaker-purple; }
         .filter-pill-active[data-status='passed'] { @apply bg-status-passed; }
         .filter-pill-active[data-status='failed'] { @apply bg-status-failed; }
-        .filter-pill-active[data-status='error'] { @apply bg-status-error; }
+        .filter-pill-active[data-status='broken'] { @apply bg-status-broken; }
         .filter-pill-active[data-status='skipped'] { @apply bg-status-skipped; }
 
         /* 模态框样式 */
         .modal { @apply fixed inset-0 z-50 flex items-center justify-center p-4; }
         .modal-overlay { @apply fixed inset-0 bg-black/10 backdrop-blur-sm; }
         .modal-content {
-            @apply relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6 border border-gray-100 shadow-neu-card;
+            @apply relative bg-white/20 rounded-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6 border border-white/30 backdrop-blur-md;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
         }
         .modal-close-button { @apply absolute top-4 right-4 text-gray-400 hover:text-gray-700 focus-ring rounded; }
-        .log-pre { @apply bg-gray-50 text-gray-700 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-words font-mono border border-gray-200; }
+        .log-pre { @apply bg-gray-50/90 text-gray-700 text-xs p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-words font-mono border border-gray-200/50; }
 
         /* 统计图例样式 */
         .legend-item {
             @apply flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-150;
-            @apply bg-legend-bg border border-legend-border;
+            @apply bg-white/15 backdrop-blur-sm border border-white/20;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
         }
         .legend-item:hover {
-             @apply bg-gray-900/10;
+             @apply bg-white/25;
         }
         .legend-icon {
              @apply h-3 w-3 mr-2 rounded-sm flex-shrink-0;
@@ -156,6 +211,86 @@
 
         /* 可访问性 */
         .focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-aomaker-purple/50 focus:ring-offset-2; }
+
+        /* 表格底部 */
+        .table-footer {
+            @apply px-6 py-4 bg-white/10 backdrop-blur-sm border-t border-gray-100/30 flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-xs;
+        }
+
+        /* 表格卡片的特殊处理 */
+        .neu-card.p-0:hover {
+            transform: translateY(-5px) scale(1.005);
+        }
+        
+        .neu-card.p-0:hover::after {
+            inset: -1px;
+        }
+        
+        /* 防止表格卡片内的内容被抖动效果影响 */
+        .neu-card.p-0:hover .overflow-x-auto,
+        .neu-card.p-0:hover table,
+        .neu-card.p-0:hover thead,
+        .neu-card.p-0:hover tbody {
+            animation: none;
+            transform: none;
+        }
+
+        /* 响应式处理和修复 */
+        @media (max-width: 640px) {
+            .neu-card:hover {
+                transform: translateY(-3px) scale(1.005);
+            }
+            
+            .neu-card.p-0:hover {
+                transform: translateY(-2px) scale(1.002);
+            }
+        }
+        
+        /* 确保卡片在层叠上下文中正确显示 */
+        .grid > div {
+            z-index: 1;
+        }
+        
+        .grid > div:hover {
+            z-index: 5;
+        }
+        
+        /* 自定义滚动条样式 */
+        .custom-scrollbar {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(99, 102, 241, 0.2) transparent; /* Firefox */
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(99, 102, 241, 0.2);
+            border-radius: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(99, 102, 241, 0.4);
+        }
+        
+        /* 滚动时显示滚动条 */
+        .custom-scrollbar {
+            transition: opacity 0.3s;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            opacity: 0;
+        }
+        
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            opacity: 1;
+        }
     </style>
 </head>
 <body x-data="{
@@ -164,9 +299,9 @@
     currentLog: '',
     currentCaseId: '',
     chartData: {
-        labels: ['通过', '失败', '错误', '跳过'],
-        values: [{{ passed_count }}, {{ failed_count }}, {{ error_count }}, {{ skipped_count }}],
-        colors: ['#4ADE80', '#F87171', '#FBBF24', '#60A5FA']
+        labels: ['通过', '失败', '阻塞', '跳过'],
+        values: [{{ passed_count }}, {{ failed_count }}, {{ broken_count }}, {{ skipped_count }}],
+        colors: ['#5CBA95', '#E88A8A', '#E6B55C', '#7A9FE2']
     }
 }" x-init="
     const chartCtx = document.getElementById('donutChart')?.getContext('2d');
@@ -214,7 +349,7 @@
                 onClick: (event, elements) => {
                     if (elements.length > 0) {
                         const clickedIndex = elements[0].index;
-                        const statusMap = ['passed', 'failed', 'error', 'skipped'];
+                        const statusMap = ['passed', 'failed', 'broken', 'skipped'];
                         const status = statusMap[clickedIndex];
                         if (status) {
                              Alpine.store('reportData').filterCases(status);
@@ -231,7 +366,8 @@
             this.activeFilter = status;
         },
         shouldShow(caseResult) {
-             return this.activeFilter === 'all' || this.activeFilter === caseResult;
+            const lowerResult = caseResult.toLowerCase();
+            return this.activeFilter === 'all' || this.activeFilter === lowerResult;
         }
     });
 ">
@@ -240,17 +376,11 @@
         <!-- 顶部栏 -->
         <header class="flex items-center justify-between mb-8">
             <div class="flex items-center space-x-3">
-                <img src="assets/aomaker-logo.png" alt="AoMaker Logo" class="h-10">
-                <h1>{{ title }}</h1>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="#" class="text-aomaker-purple hover:text-aomaker-purple-dark focus-ring text-sm font-medium rounded">
-                    查看历史报告
-                </a>
-                <a href="#" class="bg-aomaker-purple hover:bg-aomaker-purple-dark text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-150 font-medium text-sm focus-ring">
-                    导出报告
+                <a href="https://aomaker.cn" target="_blank" title="访问AoMaker官网">
+                    <img src="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/aomaker-logo.png" alt="AoMaker Logo" class="h-10 hover:opacity-80 transition-opacity duration-200">
                 </a>
             </div>
+
         </header>
 
         <!-- 主要内容 - 两栏网格 -->
@@ -266,14 +396,26 @@
                             </svg>
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-800">测试执行者</h3>
-                            <p class="text-xs text-gray-500">生产环境 / Cron Job</p>
+                            <h3 class="font-semibold text-gray-800">{{ base_config.tester }}</h3>
+                            <p class="text-xs text-gray-500">{{ base_config.note }}</p>
                         </div>
                     </div>
 
                     <!-- 测试基本信息 -->
                     <div class="space-y-3 text-sm flex-grow">
                         <h3 class="text-lg mb-3">基本信息</h3>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">测试环境</span>
+                            <span class="font-medium text-gray-700">{{ base_config.current_env }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">测试账号</span>
+                            <span class="font-medium text-gray-700">{{ base_config.account }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">BaseURL</span>
+                            <span class="font-medium text-gray-700">{{ base_config.base_url }}</span>
+                        </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">开始时间:</span>
                             <span class="font-medium text-gray-700">{{ start_time }}</span>
@@ -289,7 +431,7 @@
                     </div>
 
                     <!-- 总计 -->
-                    <div class="mt-6 pt-4 border-t border-gray-100">
+                    <div class="mt-6 pt-4 border-t border-white/20">
                         <div class="flex items-baseline justify-between">
                             <h4 class="text-gray-500">总计</h4>
                             <div class="flex items-baseline space-x-1">
@@ -334,11 +476,11 @@
                                  <span class="legend-text">失败</span>
                                  <span class="legend-value">{{ failed_count }}</span>
                              </div>
-                             <!-- Error -->
-                             <div class="legend-item" @click="$store.reportData.filterCases('error')">
-                                 <span class="legend-icon bg-status-error"></span>
-                                 <span class="legend-text">错误</span>
-                                 <span class="legend-value">{{ error_count }}</span>
+                             <!-- Broken -->
+                             <div class="legend-item" @click="$store.reportData.filterCases('broken')">
+                                 <span class="legend-icon bg-status-broken"></span>
+                                 <span class="legend-text">阻塞</span>
+                                 <span class="legend-value">{{ broken_count }}</span>
                              </div>
                              <!-- Skipped -->
                              <div class="legend-item" @click="$store.reportData.filterCases('skipped')">
@@ -355,7 +497,7 @@
         <!-- 结果详情表格 - 全宽 -->
         <div class="mt-8 fade-in-down" style="animation-delay: 150ms;">
             <div class="neu-card p-0 overflow-hidden">
-                <div class="flex flex-col md:flex-row md:items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+                <div class="flex flex-col md:flex-row md:items-center justify-between px-6 pt-6 pb-4 border-b border-white/20">
                     <h2 class="mb-4 md:mb-0">测试结果详情</h2>
                     <div class="flex flex-wrap gap-2" x-data>
                          <button
@@ -382,12 +524,12 @@
                              失败
                          </button>
                          <button
-                             @click="$store.reportData.filterCases('error')"
-                             data-status="error"
-                             :class="$store.reportData.activeFilter === 'error' ? 'filter-pill filter-pill-active' : 'filter-pill'"
+                             @click="$store.reportData.filterCases('broken')"
+                             data-status="broken"
+                             :class="$store.reportData.activeFilter === 'broken' ? 'filter-pill filter-pill-active' : 'filter-pill'"
                              style="--status-color: var(--color-warning);"
                              class="focus-ring">
-                             错误
+                             阻塞
                          </button>
                          <button
                              @click="$store.reportData.filterCases('skipped')"
@@ -400,8 +542,8 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <div class="max-h-[60vh] overflow-y-auto">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <div class="max-h-[60vh] overflow-y-auto custom-scrollbar">
                         <table class="min-w-full">
                             <thead class="select-none">
                                 <tr>
@@ -417,7 +559,7 @@
                             <tbody x-data>
                                 {% for case in case_list %}
                                 <tr
-                                    x-show="$store.reportData.shouldShow('{{ case.result | lower }}')"
+                                    x-show="$store.reportData.shouldShow('{{ case.result }}')"
                                     x-transition:enter="transition ease-out duration-100"
                                     x-transition:enter-start="opacity-0"
                                     x-transition:enter-end="opacity-100"
@@ -438,19 +580,20 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ case.f_duration }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ case.time }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        {% set result_lower = case.result | lower %}
                                         <span class="status-badge"
                                               :class="{
-                                                  'bg-status-passed/10 text-status-passed': '{{ case.result | lower }}' === 'passed',
-                                                  'bg-status-failed/10 text-status-failed': '{{ case.result | lower }}' === 'failed',
-                                                  'bg-status-error/10 text-status-error': '{{ case.result | lower }}' === 'error',
-                                                  'bg-status-skipped/10 text-status-skipped': '{{ case.result | lower }}' === 'skipped'
+                                                  'bg-status-passed/10 text-status-passed': '{{ result_lower }}' === 'passed',
+                                                  'bg-status-failed/10 text-status-failed': '{{ result_lower }}' === 'failed',
+                                                  'bg-status-broken/10 text-status-broken': '{{ result_lower }}' === 'broken',
+                                                  'bg-status-skipped/10 text-status-skipped': '{{ result_lower }}' === 'skipped'
                                               }">
                                             <span class="status-dot"
                                                   :class="{
-                                                      'bg-status-passed': '{{ case.result | lower }}' === 'passed',
-                                                      'bg-status-failed': '{{ case.result | lower }}' === 'failed',
-                                                      'bg-status-error': '{{ case.result | lower }}' === 'error',
-                                                      'bg-status-skipped': '{{ case.result | lower }}' === 'skipped'
+                                                      'bg-status-passed': '{{ result_lower }}' === 'passed',
+                                                      'bg-status-failed': '{{ result_lower }}' === 'failed',
+                                                      'bg-status-broken': '{{ result_lower }}' === 'broken',
+                                                      'bg-status-skipped': '{{ result_lower }}' === 'skipped'
                                                   }"></span>
                                             {{ case.result | capitalize }}
                                         </span>
@@ -487,7 +630,7 @@
                     </div>
                 </div>
 
-                <div class="px-6 py-4 bg-white/50 border-t border-gray-100 flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-xs">
+                <div class="table-footer">
                     <span class="font-medium text-gray-600">总计: <span class="font-bold text-aomaker-purple">{{ total }}</span></span>
                     <span class="flex items-center text-[var(--color-success)]">
                         <span class="h-1.5 w-1.5 rounded-full bg-status-passed mr-1"></span>
@@ -498,8 +641,8 @@
                         失败: <span class="font-medium ml-0.5">{{ failed_count }}</span>
                     </span>
                     <span class="flex items-center text-[var(--color-warning)]">
-                        <span class="h-1.5 w-1.5 rounded-full bg-status-error mr-1"></span>
-                        错误: <span class="font-medium ml-0.5">{{ error_count }}</span>
+                        <span class="h-1.5 w-1.5 rounded-full bg-status-broken mr-1"></span>
+                        阻塞: <span class="font-medium ml-0.5">{{ broken_count }}</span>
                     </span>
                     <span class="flex items-center text-[var(--color-info)]">
                         <span class="h-1.5 w-1.5 rounded-full bg-status-skipped mr-1"></span>
@@ -510,7 +653,7 @@
         </div>
 
         <!-- 页脚 -->
-        <footer class="mt-10 text-center text-xs text-gray-400">
+        <footer class="mt-10 py-4 text-center text-xs text-gray-400 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
             <p>AoMaker 自动化测试报告 &copy; | 生成时间: {{ end_time }}</p>
         </footer>
     </div>
@@ -526,7 +669,7 @@
         <!-- 模态框遮罩 -->
         <div class="modal-overlay" @click="showModal = false"></div>
         <!-- 模态框内容 -->
-        <div class="modal-content">
+        <div class="modal-content custom-scrollbar">
             <div class="flex justify-between items-center mb-4">
                  <h3 class="text-lg font-semibold text-gray-800" x-text="'日志详情: ' + currentCaseId"></h3>
                  <button @click="showModal = false" class="modal-close-button focus-ring">
@@ -535,7 +678,7 @@
                      </svg>
                  </button>
             </div>
-            <pre class="log-pre max-h-[60vh]" x-text="currentLog"></pre>
+            <pre class="log-pre max-h-[60vh] custom-scrollbar" x-text="currentLog"></pre>
         </div>
     </div>
 </body>
