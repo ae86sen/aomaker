@@ -1,19 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Dashboard - Aomaker</title>
+    <title>测试监控Dashboard - Aomaker</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="icon" type="image/png" href="aomaker-icon.png">
+    <link rel="icon" href="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/aomaker_light.png" type="image/png">
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
+                        'aomaker-purple': { light: '#8B5CF6', DEFAULT: '#6366F1', dark: '#4F46E5' },
+                        'status-passed': '#5CBA95',
+                        'status-failed': '#E88A8A',
+                        'status-broken': '#E6B55C',
+                        'status-skipped': '#7A9FE2',
+                        'bg-gradient-start': '#F0F3FF',
+                        'bg-gradient-end': '#FAFAFD',
+                        'legend-bg': 'rgba(255, 255, 255, 0.2)',
+                        'legend-border': '#EAEAF5',
                         primary: {
                             50: '#f5f3ff',
                             100: '#ede9fe',
@@ -44,33 +52,147 @@
                         fadeIn: {
                           'from': { opacity: '0' },
                           'to': { opacity: '1' },
+                        },
+                        gradientAnimation: {
+                            '0%': { backgroundPosition: '0% 0%, 100% 100%, 0% 50%' },
+                            '25%': { backgroundPosition: '2% 5%, 95% 97%, 30% 60%' },
+                            '50%': { backgroundPosition: '0% 15%, 85% 100%, 60% 70%' },
+                            '75%': { backgroundPosition: '5% 2%, 97% 95%, 70% 40%' },
+                            '100%': { backgroundPosition: '0% 0%, 100% 100%, 0% 50%' },
+                        },
+                        glowPulse: {
+                            '0%, 100%': { opacity: '0.3' },
+                            '50%': { opacity: '0.7' },
                         }
                     },
                     animation: {
                         'fade-highlight': 'fadeHighlight 1s ease',
                         'fade-in': 'fadeIn 1s ease',
+                        'gradient': 'gradientAnimation 25s ease-in-out infinite alternate',
+                        'glow-pulse': 'glowPulse 2s ease-in-out infinite',
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        'lg': '0.75rem',
+                    },
+                    boxShadow: {
+                        'neu-outer': '4px 4px 8px rgba(0, 0, 0, 0.04), -4px -4px 8px rgba(255, 255, 255, 0.6)',
+                        'neu-inner': 'inset 2px 2px 4px rgba(0, 0, 0, 0.03), inset -2px -2px 4px rgba(255, 255, 255, 0.7)',
+                        'neu-card': 'var(--shadow-neu-outer), var(--shadow-neu-inner)',
+                        'neu-pill-active': 'inset 2px 2px 4px rgba(0, 0, 0, 0.1)',
+                        'pill-hover': '0 1px 4px rgba(0, 0, 0, 0.06)',
                     },
                 },
             },
         }
     </script>
+    <style type="text/tailwindcss">
+        :root {
+            --color-success: #5CBA95;
+            --color-error: #E88A8A;
+            --color-warning: #E6B55C;
+            --color-info: #7A9FE2;
+            --shadow-neu-outer: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            --shadow-neu-inner: inset 0 1px 2px rgba(255, 255, 255, 0.1);
+            --purple-glow-1: rgba(139, 92, 246, 0.2);
+            --purple-glow-2: rgba(99, 102, 241, 0.2);
+            --purple-fade-1: rgba(139, 92, 246, 0.02);
+            --purple-fade-2: rgba(99, 102, 241, 0.02);
+        }
+        
+        /* 基础样式 */
+        body {
+            background: 
+                radial-gradient(circle at 5% 5%, var(--purple-glow-1) 0%, rgba(139, 92, 246, 0.08) 15%, var(--purple-fade-1) 40%, transparent 70%),
+                radial-gradient(circle at 95% 95%, var(--purple-glow-2) 0%, rgba(99, 102, 241, 0.08) 15%, var(--purple-fade-2) 40%, transparent 70%),
+                linear-gradient(to bottom right, var(--color-from, #F0F3FF), var(--color-to, #FAFAFD));
+            @apply min-h-screen font-sans text-sm text-gray-600 antialiased;
+            background-attachment: fixed;
+            background-size: 200% 200%, 200% 200%, 400% 400%;
+            --color-from: #F0F3FF;
+            --color-to: #FAFAFD;
+            animation: gradientAnimation 25s ease-in-out infinite alternate;
+        }
+        
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 0%, 100% 100%, 0% 50%; }
+            25% { background-position: 2% 5%, 95% 97%, 30% 60%; }
+            50% { background-position: 0% 15%, 85% 100%, 60% 70%; }
+            75% { background-position: 5% 2%, 97% 95%, 70% 40%; }
+            100% { background-position: 0% 0%, 100% 100%, 0% 50%; }
+        }
+        
+        .neu-card {
+            @apply bg-white/20 rounded-xl p-6 border border-white/30 backdrop-blur-md;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+            transition: all 0.3s ease-out, transform 0.2s ease-out;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .neu-card:hover {
+            @apply bg-white/30 border-white/40;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 0 20px rgba(99, 102, 241, 0.15);
+            transform: translateY(-5px) scale(1.01);
+            z-index: 2;
+        }
+        
+        .neu-card:hover::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(225deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2), transparent 60%);
+            border-radius: inherit;
+            z-index: -1;
+            opacity: 0;
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+        
+        .custom-scrollbar {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(99, 102, 241, 0.2) transparent; /* Firefox */
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(99, 102, 241, 0.2);
+            border-radius: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(99, 102, 241, 0.4);
+        }
+    </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+<body class="min-h-screen transition-colors duration-300">
     <div class="min-h-screen flex flex-col">
-        <!-- Navbar -->
-        <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-10">
+        <!-- 导航栏 -->
+        <nav class="bg-white/20 backdrop-blur-md shadow-sm sticky top-0 z-10 border-b border-white/20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
-                        <img src="aomaker-logo.png" alt="Aomaker Logo" class="h-10 w-auto transform hover:scale-105 transition-transform">
+                        <img src="https://picgo2listen.oss-cn-beijing.aliyuncs.com/imgs/aomaker-logo.png" alt="Aomaker Logo" class="h-10 w-auto transform hover:scale-105 transition-transform">
                         <span class="ml-3 text-xl font-semibold text-gray-900 dark:text-white"></span>
                     </div>
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">
-                            <span id="testStatusBadge" class="hidden px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                                Idle
+                            <span id="testStatusBadge" class="hidden px-2 py-1 text-xs font-medium rounded-full bg-white/30 text-gray-800 backdrop-blur-sm">
+                                空闲
                             </span>
-                            <button id="darkModeToggle" class="p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none">
+                            <button id="darkModeToggle" class="hidden p-1 rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                                 </svg>
@@ -81,100 +203,92 @@
             </div>
         </nav>
 
-        <!-- Main Content -->
+        <!-- 主要内容 -->
         <main class="flex-grow">
-            <!-- Dashboard Overview -->
+            <!-- 仪表盘概览 -->
             <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                 <div class="px-4 py-4 sm:px-0">
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        <!-- Dashboard Card - Total Tests -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 bg-primary-100 dark:bg-primary-900 rounded-md p-3">
-                                        <svg class="h-6 w-6 text-primary-600 dark:text-primary-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-5 w-0 flex-1">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                                                Total Tests
-                                            </dt>
-                                            <dd>
-                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="totalTestsCount">-</div>
-                                            </dd>
-                                        </dl>
-                                    </div>
+                        <!-- 仪表盘卡片 - 测试总数 -->
+                        <div class="neu-card" style="animation-delay: 50ms">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-primary-100/50 backdrop-blur-sm rounded-md p-3">
+                                    <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            测试总数
+                                        </dt>
+                                        <dd>
+                                            <div class="text-lg font-medium text-gray-900" id="totalTestsCount">-</div>
+                                        </dd>
+                                    </dl>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dashboard Card - Active Workers -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-md p-3">
-                                        <svg class="h-6 w-6 text-green-600 dark:text-green-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-5 w-0 flex-1">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                                                Active Workers
-                                            </dt>
-                                            <dd>
-                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="activeWorkersCount">-</div>
-                                            </dd>
-                                        </dl>
-                                    </div>
+                        <!-- 仪表盘卡片 - 活跃工作进程 -->
+                        <div class="neu-card" style="animation-delay: 100ms">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-100/50 backdrop-blur-sm rounded-md p-3">
+                                    <svg class="h-6 w-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            活跃工作进程
+                                        </dt>
+                                        <dd>
+                                            <div class="text-lg font-medium text-gray-900" id="activeWorkersCount">-</div>
+                                        </dd>
+                                    </dl>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dashboard Card - Completed Tests -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-md p-3">
-                                        <svg class="h-6 w-6 text-blue-600 dark:text-blue-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-5 w-0 flex-1">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                                                Completed Tests
-                                            </dt>
-                                            <dd>
-                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="completedTestsCount">-</div>
-                                            </dd>
-                                        </dl>
-                                    </div>
+                        <!-- 仪表盘卡片 - 已完成测试 -->
+                        <div class="neu-card" style="animation-delay: 150ms">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-100/50 backdrop-blur-sm rounded-md p-3">
+                                    <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            已完成测试
+                                        </dt>
+                                        <dd>
+                                            <div class="text-lg font-medium text-gray-900" id="completedTestsCount">-</div>
+                                        </dd>
+                                    </dl>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dashboard Card - Overall Progress -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 bg-indigo-100 dark:bg-indigo-900 rounded-md p-3">
-                                        <svg class="h-6 w-6 text-indigo-600 dark:text-indigo-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-5 w-0 flex-1">
-                                        <dl>
-                                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                                                Overall Progress
-                                            </dt>
-                                            <dd>
-                                                <div class="text-lg font-medium text-gray-900 dark:text-white" id="overallProgressPercent">-</div>
-                                            </dd>
-                                        </dl>
-                                    </div>
+                        <!-- 仪表盘卡片 - 整体进度 -->
+                        <div class="neu-card" style="animation-delay: 200ms">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-indigo-100/50 backdrop-blur-sm rounded-md p-3">
+                                    <svg class="h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">
+                                            整体进度
+                                        </dt>
+                                        <dd>
+                                            <div class="text-lg font-medium text-gray-900" id="overallProgressPercent">-</div>
+                                        </dd>
+                                    </dl>
                                 </div>
                             </div>
                         </div>
@@ -185,66 +299,66 @@
                 <div class="mt-6 px-4 sm:px-0">
                     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                         <!-- Test Progress Section -->
-                        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                        <div class="neu-card p-0 overflow-hidden" style="animation-delay: 250ms">
+                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-white/20">
                                 <div class="flex items-center">
-                                    <i class="fas fa-tasks text-primary-600 dark:text-primary-400 mr-2"></i>
-                                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Test Progress</h3>
+                                    <i class="fas fa-tasks text-primary-600 mr-2"></i>
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900">测试进度</h3>
                                 </div>
                             </div>
-                            <div class="border-t border-gray-200 dark:border-gray-700">
-                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto" id="progressContainer">
+                            <div>
+                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto custom-scrollbar" id="progressContainer">
                                     <div id="progressEmptyState" class="flex flex-col items-center justify-center py-8">
-                                        <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                        <div class="text-primary-500 mb-4">
                                             <svg class="h-12 w-12 animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </div>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Waiting for tests to start...</p>
+                                        <p class="text-gray-500 text-sm">等待测试开始...</p>
                                     </div>
                                 </div>
-                                <div class="px-4 py-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                                    <span class="text-sm text-gray-500 dark:text-gray-400">Last updated: <span id="lastUpdatedTime">-</span></span>
+                                <div class="px-4 py-4 sm:px-6 border-t border-white/20 flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">最后更新: <span id="lastUpdatedTime">-</span></span>
                                     <button id="viewReportButton" class="hidden inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 transform hover:scale-105">
-                                        <i class="fas fa-file-alt mr-2"></i> View Report
+                                        <i class="fas fa-file-alt mr-2"></i> 查看报告
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Configuration Section -->
-                        <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                        <div class="neu-card p-0 overflow-hidden" style="animation-delay: 300ms">
+                            <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-white/20">
                                 <div class="flex items-center">
-                                    <i class="fas fa-cog text-primary-600 dark:text-primary-400 mr-2"></i>
-                                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Configuration</h3>
+                                    <i class="fas fa-cog text-primary-600 mr-2"></i>
+                                    <h3 class="text-lg leading-6 font-medium text-gray-900">配置信息</h3>
                                 </div>
-                                <button id="expandConfigButton" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-primary-700 dark:text-primary-200 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none">
+                                <button id="expandConfigButton" class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-primary-700 bg-primary-100/50 backdrop-blur-sm hover:bg-primary-200/60 focus:outline-none">
                                     <i class="fas fa-expand-alt"></i>
                                 </button>
                             </div>
-                            <div class="border-t border-gray-200 dark:border-gray-700">
-                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto">
+                            <div>
+                                <div class="px-4 py-5 sm:p-6 max-h-[400px] overflow-y-auto custom-scrollbar">
                                     <div id="configEmptyState" class="flex flex-col items-center justify-center py-8">
-                                        <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                        <div class="text-primary-500 mb-4">
                                             <svg class="h-12 w-12 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             </svg>
                                         </div>
-                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Loading configuration...</p>
+                                        <p class="text-gray-500 text-sm">加载配置信息...</p>
                                     </div>
                                     <div class="hidden" id="configContent">
-                                        <div class="rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="configTable">
-                                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                        <div class="rounded-md overflow-hidden border border-white/30">
+                                            <table class="min-w-full divide-y divide-white/20" id="configTable">
+                                                <thead class="bg-white/10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parameter</th>
-                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参数</th>
+                                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">值</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="configTableBody">
-                                                    <!-- Configuration data will be inserted here -->
+                                                <tbody class="bg-white/10 backdrop-blur-sm divide-y divide-white/20" id="configTableBody">
+                                                    <!-- 配置数据将在这里插入 -->
                                                 </tbody>
                                             </table>
                                         </div>
@@ -257,55 +371,54 @@
 
                 <!-- Logs Section -->
                 <div class="mt-6 px-4 sm:px-0">
-                    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-                        <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+                    <div class="neu-card p-0 overflow-hidden" style="animation-delay: 350ms">
+                        <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-white/20">
                             <div class="flex items-center">
-                                <i class="fas fa-terminal text-primary-600 dark:text-primary-400 mr-2"></i>
-                                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Live Logs</h3>
+                                <i class="fas fa-terminal text-primary-600 mr-2"></i>
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">实时日志</h3>
                             </div>
-                            <div class="flex space-x-2">
-                                <div class="relative w-full">
-                                    <input id="logSearchInput" type="text" class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="Search logs...">
+                            <div class="flex items-center space-x-2">
+                                <div class="relative flex-grow">
+                                    <input id="logSearchInput" type="text" class="block w-full pl-3 pr-10 py-2 border-gray-300 rounded-md shadow-sm bg-white/50 backdrop-blur-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="搜索日志...">
                                     <div class="absolute top-1/2 right-3 transform -translate-y-1/2 pointer-events-none">
                                         <svg class="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                         </svg>
                                     </div>
                                 </div>
-                                <button id="clearLogsButton" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                                    <i class="fas fa-eraser mr-1"></i> Clear
-                                </button>
-                                <div class="relative inline-block text-left">
-                                    <button id="logFilterButton" type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-3 py-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
-                                        <i class="fas fa-filter mr-1"></i>
-                                        Filter
-                                        <svg class="-mr-1 ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <div class="relative">
+                                    <button id="logFilterButton" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white/50 hover:bg-white/70 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 backdrop-blur-sm">
+                                        <i class="fas fa-filter mr-1"></i> 全部 
+                                        <svg class="-mr-1 ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                             <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                         </svg>
                                     </button>
-                                    <div id="logFilterDropdown" class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                    <div id="logFilterDropdown" class="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white/90 backdrop-blur-sm ring-1 ring-black ring-opacity-5 focus:outline-none z-10 hidden">
                                         <div class="py-1" role="menu" aria-orientation="vertical">
-                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="all">All Logs</a>
-                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="error">Errors Only</a>
-                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="warning">Warnings Only</a>
-                                            <a href="#" class="log-filter-option text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-filter="info">Info Only</a>
+                                            <a href="#" class="log-filter-option block px-4 py-2 text-sm text-gray-700 hover:bg-primary-100/50 hover:text-primary-900" data-filter="all" role="menuitem">全部</a>
+                                            <a href="#" class="log-filter-option block px-4 py-2 text-sm text-gray-700 hover:bg-primary-100/50 hover:text-primary-900" data-filter="info" role="menuitem">信息</a>
+                                            <a href="#" class="log-filter-option block px-4 py-2 text-sm text-gray-700 hover:bg-primary-100/50 hover:text-primary-900" data-filter="warning" role="menuitem">警告</a>
+                                            <a href="#" class="log-filter-option block px-4 py-2 text-sm text-gray-700 hover:bg-primary-100/50 hover:text-primary-900" data-filter="error" role="menuitem">错误</a>
                                         </div>
                                     </div>
                                 </div>
-                                <button id="downloadLogsButton" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-700 dark:text-primary-200 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none">
-                                    <i class="fas fa-download mr-1"></i> Export
+                                <button id="downloadLogsButton" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white/50 hover:bg-white/70 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 backdrop-blur-sm">
+                                    <i class="fas fa-download mr-1"></i> 下载
+                                </button>
+                                <button id="clearLogsButton" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none">
+                                    <i class="fas fa-eraser mr-1"></i> 清除
                                 </button>
                             </div>
                         </div>
-                        <div class="border-t border-gray-200 dark:border-gray-700">
-                            <div id="logContainer" class="p-4 h-[400px] overflow-y-auto bg-gray-50 dark:bg-gray-900 font-mono text-sm text-gray-800 dark:text-gray-200">
+                        <div>
+                            <div id="logContainer" class="p-4 h-[400px] overflow-y-auto bg-gray-50/30 backdrop-blur-sm font-mono text-sm text-gray-800 custom-scrollbar">
                                 <div id="logEmptyState" class="flex flex-col items-center justify-center h-full">
-                                    <div class="text-primary-500 dark:text-primary-400 mb-4">
+                                    <div class="text-primary-500 mb-4">
                                         <svg class="h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
-                                    <p class="text-gray-500 dark:text-gray-400">Waiting for logs...</p>
+                                    <p class="text-gray-500">等待日志输出...</p>
                                 </div>
                             </div>
                         </div>
@@ -314,41 +427,41 @@
             </div>
         </main>
 
-        <!-- Footer -->
-        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-10">
+        <!-- 页脚 -->
+        <footer class="bg-white/20 backdrop-blur-sm shadow-inner mt-10 border-t border-white/30">
             <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between items-center">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">© 2023 Aomaker. All rights reserved.</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Server Time: <span id="serverTime"></span></p>
+                    <p class="text-sm text-gray-600">© 2023 Aomaker. All rights reserved.</p>
+                    <p class="text-sm text-gray-600">服务器时间: <span id="serverTime"></span></p>
                 </div>
             </div>
         </footer>
     </div>
 
-    <!-- Config Modal -->
+    <!-- 配置模态框 -->
     <div id="configModal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 transition-opacity"></div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-xl transform transition-all max-w-5xl mx-auto my-16 max-h-[80vh] flex flex-col">
-            <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Configuration Details</h3>
+        <div class="absolute inset-0 bg-gray-500/40 backdrop-blur-sm transition-opacity"></div>
+        <div class="bg-white/80 backdrop-blur-md rounded-xl overflow-hidden shadow-xl transform transition-all max-w-5xl mx-auto my-16 max-h-[80vh] flex flex-col border border-white/30">
+            <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-white/30">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">配置详情</h3>
                 <button id="closeConfigModal" class="text-gray-400 hover:text-gray-500 focus:outline-none">
                     <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <div class="border-t border-gray-200 dark:border-gray-700 flex-grow overflow-auto">
+            <div class="border-t border-white/20 flex-grow overflow-auto custom-scrollbar">
                 <div class="px-4 py-5 sm:p-6">
-                    <div class="rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" id="configTableModal">
-                            <thead class="bg-gray-50 dark:bg-gray-900">
+                    <div class="rounded-md overflow-hidden border border-white/30">
+                        <table class="min-w-full divide-y divide-white/20" id="configTableModal">
+                            <thead class="bg-white/10 backdrop-blur-sm">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parameter</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参数</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">值</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="configTableBodyModal">
-                                <!-- Configuration data will be inserted here -->
+                            <tbody class="bg-white/10 backdrop-blur-sm divide-y divide-white/20" id="configTableBodyModal">
+                                <!-- 配置数据将在这里插入 -->
                             </tbody>
                         </table>
                     </div>
@@ -357,20 +470,20 @@
         </div>
     </div>
 
-    <!-- Notification -->
-    <div id="notification" class="fixed right-5 bottom-5 max-w-sm w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg pointer-events-auto border border-gray-200 dark:border-gray-700 hidden transform transition-all duration-300 scale-95 opacity-0">
+    <!-- 通知 -->
+    <div id="notification" class="fixed right-5 bottom-5 max-w-sm w-full bg-white/80 backdrop-blur-md rounded-xl shadow-lg pointer-events-auto border border-white/30 hidden transform transition-all duration-300 scale-95 opacity-0">
         <div class="p-4">
             <div class="flex items-start">
                 <div class="flex-shrink-0" id="notificationIcon">
-                    <!-- Icon will be dynamically inserted -->
+                    <!-- 图标将动态插入 -->
                 </div>
                 <div class="ml-3 w-0 flex-1 pt-0.5">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white" id="notificationTitle">Notification Title</p>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" id="notificationMessage">Notification message goes here.</p>
+                    <p class="text-sm font-medium text-gray-900" id="notificationTitle">通知标题</p>
+                    <p class="mt-1 text-sm text-gray-500" id="notificationMessage">通知消息内容。</p>
                 </div>
                 <div class="ml-4 flex-shrink-0 flex">
-                    <button id="closeNotification" class="bg-white dark:bg-gray-800 rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
-                        <span class="sr-only">Close</span>
+                    <button id="closeNotification" class="bg-transparent rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <span class="sr-only">关闭</span>
                         <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                         </svg>
@@ -438,15 +551,15 @@
 
                 const logEntry = document.createElement('div');
                 logEntry.textContent = message;
-                logEntry.className = 'log-entry py-1 border-b border-gray-100 dark:border-gray-800 whitespace-pre-wrap break-all transition-colors duration-300 animate-fade-highlight';
+                logEntry.className = 'log-entry py-1 border-b border-white/10 whitespace-pre-wrap break-all transition-colors duration-300 animate-fade-highlight';
 
                 // 根据日志类型添加颜色
                 if (message.toLowerCase().includes('error')) {
-                    logEntry.classList.add('text-error');
+                    logEntry.classList.add('text-status-failed');
                 } else if (message.toLowerCase().includes('warning')) {
-                    logEntry.classList.add('text-warning');
+                    logEntry.classList.add('text-status-broken');
                 } else if (message.toLowerCase().includes('info')) {
-                    logEntry.classList.add('text-info');
+                    logEntry.classList.add('text-status-skipped');
                 }
 
                 logContainer.appendChild(logEntry);
@@ -520,7 +633,7 @@
                     // Style the tables first
                     ['configTable', 'configTableModal'].forEach(tableId => {
                         const table = document.getElementById(tableId);
-                        table.className = 'min-w-full divide-y divide-gray-200 dark:divide-gray-700';
+                        table.className = 'min-w-full divide-y divide-white/20';
 
                         // Remove existing headers
                         const headerRow = table.querySelector('thead tr');
@@ -528,13 +641,13 @@
 
                         // Create new header cells
                         const paramHeader = document.createElement('th');
-                        paramHeader.className = 'text-left py-3 px-4 font-medium text-sm';
-                        paramHeader.textContent = 'PARAMETER';
+                        paramHeader.className = 'text-left py-3 px-4 font-medium text-xs uppercase tracking-wider text-gray-500';
+                        paramHeader.textContent = '参数';
                         paramHeader.style.width = '30%'; // Fixed width for parameter column
 
                         const valueHeader = document.createElement('th');
-                        valueHeader.className = 'text-left py-3 px-4 font-medium text-sm';
-                        valueHeader.textContent = 'VALUE';
+                        valueHeader.className = 'text-left py-3 px-4 font-medium text-xs uppercase tracking-wider text-gray-500';
+                        valueHeader.textContent = '值';
 
                         headerRow.appendChild(paramHeader);
                         headerRow.appendChild(valueHeader);
@@ -559,20 +672,20 @@
                         // Create rows for both tables
                         [configTableBody, configTableModal].forEach(tableBody => {
                             const row = document.createElement('tr');
-                            row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
+                            row.className = 'hover:bg-white/20 hover:backdrop-blur-md transition-colors duration-150';
 
                             const keyCell = document.createElement('td');
-                            keyCell.className = 'py-3 px-4 text-primary-500 font-medium border-b border-gray-200 dark:border-gray-700';
+                            keyCell.className = 'py-3 px-4 text-primary-500 font-medium border-b border-white/20';
                             keyCell.textContent = key;
 
                             const valueCell = document.createElement('td');
-                            valueCell.className = 'py-3 px-4 text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700';
+                            valueCell.className = 'py-3 px-4 text-gray-800 border-b border-white/20';
 
                             // Handle different value types
                             if (isJson) {
                                 // Create a pre element for formatted JSON
                                 const pre = document.createElement('pre');
-                                pre.className = 'text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all';
+                                pre.className = 'text-xs bg-white/10 backdrop-blur-sm p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-all border border-white/20 text-gray-700';
                                 pre.style.maxHeight = '200px'; // Limit height for very long values
                                 pre.textContent = formattedValue;
                                 valueCell.appendChild(pre);
@@ -584,21 +697,21 @@
 
                                 const expandBtn = document.createElement('button');
                                 expandBtn.className = 'text-xs text-primary-500 hover:text-primary-600 ml-1 mt-1';
-                                expandBtn.textContent = 'Show all';
+                                expandBtn.textContent = '显示全部';
 
                                 expandBtn.addEventListener('click', () => {
                                     const fullTextDiv = document.createElement('div');
-                                    fullTextDiv.className = 'whitespace-pre-wrap break-all text-xs bg-gray-50 dark:bg-gray-900 p-2 rounded mt-1';
+                                    fullTextDiv.className = 'whitespace-pre-wrap break-all text-xs bg-white/10 backdrop-blur-sm p-3 rounded-md mt-1 border border-white/20 text-gray-700';
                                     fullTextDiv.textContent = formattedValue;
 
                                     if (truncatedDiv.parentNode) {
                                         truncatedDiv.parentNode.replaceChild(fullTextDiv, truncatedDiv);
-                                        expandBtn.textContent = 'Collapse';
+                                        expandBtn.textContent = '收起';
 
                                         expandBtn.addEventListener('click', () => {
                                             if (fullTextDiv.parentNode) {
                                                 fullTextDiv.parentNode.replaceChild(truncatedDiv, fullTextDiv);
-                                                expandBtn.textContent = 'Show all';
+                                                expandBtn.textContent = '显示全部';
                                             }
                                         }, { once: true });
                                     }
@@ -648,7 +761,7 @@
             Object.entries(progressData).forEach(([workerName, progressInfo], index) => {
                 const progressBarFill = document.querySelector(`.h-full[data-worker='${workerName}']`);
                 const progressText = document.querySelector(`.flex.justify-between.text-xs[data-worker='${workerName}']`);
-                const progressContainer = document.querySelector(`.mb-4.p-3.rounded-lg[data-worker='${workerName}']`);
+                const progressContainer = document.querySelector(`.mb-4.p-3.rounded-xl[data-worker='${workerName}']`);
                 const workerIcon = document.querySelector(`i[data-worker='${workerName}']`);
                 const badgeElement = document.querySelector(`span[data-worker='${workerName}']`);
 
@@ -664,34 +777,57 @@
 
                     // 更新badge内容，始终优先使用已存储的target值
                     if (badgeElement) {
-                        const targetToShow = workerTargets[workerName] || progressInfo.target || badgeElement.textContent;
-                        if (targetToShow && targetToShow !== '未知') {
+                        // 获取最佳的target值
+                        let targetToShow = '';
+                        if (workerTargets[workerName]) {
+                            targetToShow = workerTargets[workerName]; // 首选：全局存储的target
+                        } else if (progressInfo.target && progressInfo.target.trim() !== '') {
+                            targetToShow = progressInfo.target; // 次选：当前数据中的target
+                        } else if (badgeElement.textContent && badgeElement.textContent.trim() !== '' && 
+                                 badgeElement.textContent !== '未知') {
+                            targetToShow = badgeElement.textContent; // 第三选择：当前元素中非空、非"未知"内容
+                        }
+                        
+                        // 如果是第一个worker且没有target信息，添加一个默认标签
+                        if (targetToShow === '' && Object.keys(previousData).length > 0 && 
+                            Object.keys(previousData)[0] === workerName) {
+                            targetToShow = '主进程';
+                            workerTargets[workerName] = targetToShow; // 保存以便后续使用
+                        }
+                        
+                        // 只在有实际内容时更新标签内容
+                        if (targetToShow) {
                             badgeElement.textContent = targetToShow;
+                            // 确保标签可见
+                            badgeElement.classList.remove('hidden');
+                        } else {
+                            // 如果没有内容，考虑隐藏标签
+                            badgeElement.classList.add('hidden');
                         }
                     }
 
                     if (progressInfo.completed === progressInfo.total) {
                         // 更新进度条填充样式
                         progressBarFill.classList.remove('bg-primary-500');
-                        progressBarFill.classList.add('bg-success');
+                        progressBarFill.classList.add('bg-status-passed');
 
-                        // 更新容器背景色
-                        progressContainer.classList.remove('bg-white', 'dark:bg-gray-800');
-                        progressContainer.classList.add('bg-green-50', 'dark:bg-green-900/20');
+                        // 更新容器背景色 - 保持柔和的风格
+                        progressContainer.classList.remove('bg-white/10');
+                        progressContainer.classList.add('bg-white/15');
 
                         // 修改图标为完成图标
                         if (workerIcon) {
                             workerIcon.classList.remove('fa-cog', 'fa-spin');
                             workerIcon.classList.add('fa-check-circle');
                             workerIcon.classList.remove('text-primary-500');
-                            workerIcon.classList.add('text-success');
+                            workerIcon.classList.add('text-status-passed');
                         }
                     } else {
                         // 确保进行中的任务保持齿轮旋转效果
                         if (workerIcon) {
                             workerIcon.classList.remove('fa-check-circle');
                             workerIcon.classList.add('fa-cog', 'fa-spin');
-                            workerIcon.classList.remove('text-success');
+                            workerIcon.classList.remove('text-status-passed');
                             workerIcon.classList.add('text-primary-500');
                         }
                     }
@@ -836,23 +972,35 @@
             // 处理其他工作进程的进度条
             for (const [workerName, progressInfo] of Object.entries(data)) {
                 // 检查是否已经存在此worker的进度条
-                const existingWorkerProgress = document.querySelector(`.mb-4.p-3.rounded-lg[data-worker='${workerName}']`);
+                const existingWorkerProgress = document.querySelector(`.mb-4.p-3.rounded-xl[data-worker='${workerName}']`);
 
                 // 如果有target信息，保存到全局对象中
-                if (progressInfo.target) {
+                if (progressInfo.target && progressInfo.target.trim() !== '') {
                     workerTargets[workerName] = progressInfo.target;
                 }
 
                 if (!existingWorkerProgress) {
                     const progress = (progressInfo.completed / progressInfo.total) * 100 || 0; // 防止NaN
                     const workerProgress = document.createElement('div');
-                    // 使用已保存的target或当前的target
-                    const target = workerTargets[workerName] || progressInfo.target || '未知';
+                    
+                    // 处理target信息，修改默认显示
+                    let target = '';
+                    if (workerTargets[workerName]) {
+                        target = workerTargets[workerName]; // 首选：全局存储的target
+                    } else if (progressInfo.target && progressInfo.target.trim() !== '') {
+                        target = progressInfo.target; // 次选：当前数据中的target
+                    } 
+                    
+                    // 如果是第一个worker且没有target信息，添加一个默认标签
+                    if (target === '' && Object.keys(data).length > 0 && Object.keys(data)[0] === workerName) {
+                        target = '主进程';
+                        workerTargets[workerName] = target; // 保存以便后续使用
+                    }
 
                     // 根据完成状态设置不同的背景色
                     workerProgress.className = progressInfo.completed === progressInfo.total ?
-                        'mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 transition-all duration-300' :
-                        'mb-4 p-3 rounded-lg bg-white dark:bg-gray-800 transition-all duration-300';
+                        'mb-4 p-3 rounded-xl bg-white/10 backdrop-blur-md shadow-sm border border-white/30 transition-all duration-300 hover:bg-white/20 hover:shadow-md' :
+                        'mb-4 p-3 rounded-xl bg-white/10 backdrop-blur-md shadow-sm border border-white/30 transition-all duration-300 hover:bg-white/20 hover:shadow-md';
 
                     workerProgress.setAttribute('data-worker', workerName);
 
@@ -864,23 +1012,28 @@
                                      'fas fa-check-circle mr-2' :
                                      'fas fa-cog fa-spin mr-2';
                     const iconColor = progressInfo.completed === progressInfo.total ?
-                                     'text-success' :
+                                     'text-status-passed' :
                                      'text-primary-500';
 
-                    workerNameElement.innerHTML = `<i class="${iconClass} ${iconColor}" data-worker="${workerName}"></i> Worker: ${workerName} <span class="ml-2 px-2 py-1 text-xs rounded-md bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300" data-worker="${workerName}">${target}</span>`;
+                    // 只有当target不为空时才显示标签
+                    const targetSpan = target ? 
+                        `<span class="ml-2 px-2 py-1 text-xs rounded-md bg-white/20 backdrop-blur-sm text-gray-700 border border-white/20" data-worker="${workerName}">${target}</span>` : 
+                        '';
+                        
+                    workerNameElement.innerHTML = `<i class="${iconClass} ${iconColor}" data-worker="${workerName}"></i> Worker: ${workerName} ${targetSpan}`;
 
                     const progressBar = document.createElement('div');
-                    progressBar.className = 'h-2 w-full bg-gray-200 dark:bg-gray-700 rounded overflow-hidden mb-1';
+                    progressBar.className = 'h-2 w-full bg-white/20 backdrop-blur-sm rounded-full overflow-hidden mb-1';
 
                     const progressFill = document.createElement('div');
                     progressFill.className = progressInfo.completed === progressInfo.total ?
-                        'h-full bg-success rounded transition-all duration-300' :
-                        'h-full bg-primary-500 rounded transition-all duration-300';
+                        'h-full bg-status-passed rounded-full transition-all duration-300' :
+                        'h-full bg-primary-500 rounded-full transition-all duration-300';
                     progressFill.setAttribute('data-worker', workerName);
                     progressFill.style.width = `${progress}%`;
 
                     const progressText = document.createElement('div');
-                    progressText.className = 'flex justify-between text-xs text-gray-600 dark:text-gray-400';
+                    progressText.className = 'flex justify-between text-xs text-gray-600';
                     progressText.setAttribute('data-worker', workerName);
                     progressText.innerHTML = `<span>${Math.round(progress)}%</span> <span>${progressInfo.completed}/${progressInfo.total}</span>`;
 
@@ -938,7 +1091,7 @@
                     const filterText = this.textContent;
                     document.getElementById('logFilterButton').innerHTML = `<i class="fas fa-filter mr-1"></i> ${filterText} <svg class="-mr-1 ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
 
-                    showNotification('Filter Applied', `Showing ${filterText.toLowerCase()} in the log view.`, 'info');
+                    showNotification('已应用过滤器', `显示${filterText.toLowerCase()}日志`, 'info');
                 });
             });
 
@@ -946,8 +1099,8 @@
             document.getElementById('clearLogsButton').addEventListener('click', function() {
                 const logContainer = document.getElementById('logContainer');
                 logContainer.innerHTML = '';
-                logContainer.appendChild(createEmptyState('Logs cleared. Waiting for new logs...', 'fas fa-terminal'));
-                showNotification('Logs Cleared', 'All log entries have been cleared.', 'info');
+                logContainer.appendChild(createEmptyState('日志已清除，等待新日志...', 'fas fa-terminal'));
+                showNotification('日志已清除', '所有日志条目已被清除', 'info');
             });
 
             // Download logs button
@@ -960,7 +1113,7 @@
                 });
 
                 if (logText.trim() === '') {
-                    showNotification('No Logs', 'There are no logs to export.', 'warning');
+                    showNotification('没有日志', '没有可导出的日志', 'warning');
                     return;
                 }
 
@@ -976,7 +1129,7 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                showNotification('Logs Exported', 'Log file has been downloaded successfully.', 'success');
+                showNotification('日志已导出', '日志文件已成功下载', 'success');
             });
 
             // Log search functionality
@@ -1034,8 +1187,8 @@
             if (visibleCount === 0 && !logEmptyState) {
                 const logContainer = document.getElementById('logContainer');
                 const noResultsMsg = currentLogSearch
-                    ? `No logs matching "${currentLogSearch}" found.`
-                    : 'No logs matching the selected filter.';
+                    ? `未找到匹配"${currentLogSearch}"的日志`
+                    : '没有符合所选过滤器的日志';
                 logContainer.appendChild(createEmptyState(noResultsMsg, 'fas fa-search'));
             } else if (logEmptyState && visibleCount > 0) {
                 logEmptyState.remove();
@@ -1083,14 +1236,16 @@
             }, 300);
         }
 
-        // 添加页面加载时的动画效果
+        // 页面加载时的动画效果
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                document.querySelectorAll('.container').forEach(container => {
-                    container.style.opacity = '1';
-                    container.style.transform = 'translateY(0)';
-                });
-            }, 100);
+            // 为所有neu-card添加淡入动画
+            document.querySelectorAll('.neu-card').forEach((card, index) => {
+                card.classList.add('opacity-0', 'translate-y-5');
+                setTimeout(() => {
+                    card.classList.add('transition-all', 'duration-500', 'ease-out');
+                    card.classList.remove('opacity-0', 'translate-y-5');
+                }, 100 + index * 50); // 错开每个卡片的动画时间
+            });
 
             // 初始化所有事件监听器
             initEventListeners();
@@ -1101,18 +1256,18 @@
             document.getElementById('lastUpdatedTime').textContent = "--";
         });
 
-        // Helper function to create empty state elements
+        // 创建状态空白元素的辅助函数
         function createEmptyState(message, iconClass) {
             const emptyState = document.createElement('div');
             emptyState.id = 'logEmptyState';
             emptyState.className = 'flex flex-col items-center justify-center h-full p-8';
 
             const icon = document.createElement('i');
-            icon.className = iconClass + ' text-5xl text-primary-500 dark:text-primary-400 mb-4';
+            icon.className = iconClass + ' text-5xl text-primary-500 mb-4';
 
             const text = document.createElement('p');
             text.textContent = message;
-            text.className = 'text-gray-600 dark:text-gray-400';
+            text.className = 'text-gray-600';
 
             emptyState.appendChild(icon);
             emptyState.appendChild(text);
@@ -1133,10 +1288,14 @@
                 document.getElementById('completedTestsCount').textContent = totalInfo.completed || "-";
 
                 // 活动工作者 = 那些进度未完成的工作者
-                const activeWorkers = Object.entries(data).filter(([name, info]) =>
-                    name !== 'Total' && info.completed < info.total && info.total > 0
-                ).length;
-                document.getElementById('activeWorkersCount').textContent = activeWorkers || "-";
+                // 原始计算方式现在可能有问题，直接计算非Total的键的数量
+                const activeWorkers = Object.keys(data).filter(name => name !== 'Total').length;
+                
+                // 确保总是显示正确的数字
+                document.getElementById('activeWorkersCount').textContent = activeWorkers > 0 ? activeWorkers : "-";
+
+                // 打印活跃工作者信息便于调试
+                console.log("活跃工作者数量:", activeWorkers, "工作者名称:", Object.keys(data).filter(name => name !== 'Total'));
 
                 // 计算整体进度百分比
                 if (totalInfo.total > 0) {
