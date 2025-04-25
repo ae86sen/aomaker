@@ -14,7 +14,6 @@ from aomaker.storage import config, cache
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, aomaker_logger
 from aomaker._constants import Allure
-from aomaker.exceptions import LoginError
 from aomaker.path import REPORT_DIR, PYTEST_INI_DIR
 from aomaker.report import gen_aomaker_reports
 from aomaker import pytest_plugins
@@ -202,11 +201,7 @@ class ProcessesRunner(Runner):
             logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
             task_func = functools.partial(main_task, pytest_plugin_names=pytest_plugin_names)
             pool.map(task_func, make_args_group(task_args, extra_args))
-            # pool.map(main_task, make_args_group(task_args, extra_args))
 
-    # def _generate_reports(self):
-    #     self.allure_env_prop()
-    #     gen_aomaker_reports()
 
     @fixture_session
     def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, process_count=None,

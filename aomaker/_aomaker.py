@@ -1,9 +1,7 @@
 # --coding:utf-8--
-import json
 import os
 from typing import List, Dict, Text
 from functools import wraps
-from dataclasses import dataclass as dc, field
 
 import yaml
 import click
@@ -73,30 +71,6 @@ def genson(data):
     builder.add_object(data)
     to_schema = builder.to_schema()
     return to_schema
-
-
-def dataclass(cls):
-    @property
-    def all_fields(self):
-        return self.__dict__
-
-    cls.all_fields = all_fields
-
-    for field_name, field_type in cls.__annotations__.items():
-        if field_name not in cls.__dict__:
-            # 跳过必须字段
-            continue
-        if field_type is list:
-            default_value = getattr(cls, field_name, [])
-            if default_value is not None:
-                setattr(cls, field_name, field(default_factory=lambda: list(default_value)))
-        elif field_type is dict:
-            default_value = getattr(cls, field_name, {})
-            if default_value is not None:
-                setattr(cls, field_name, field(default_factory=lambda: dict(default_value)))
-    return dc(cls)
-
-
 
 
 def _extract_by_jsonpath(source: Text, jsonpath_expr: Text, index: int):
