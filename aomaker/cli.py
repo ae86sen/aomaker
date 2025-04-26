@@ -11,11 +11,10 @@ from pathlib import Path
 import click
 import uvicorn
 from ruamel.yaml import YAML
-from emoji import emojize
 from click_help_colors import HelpColorsGroup, version_option
 from rich.console import Console
 from rich.theme import Theme
-from tabulate import tabulate
+from rich.table import Table
 
 from aomaker import __version__, __image__
 from aomaker._constants import Conf
@@ -30,6 +29,7 @@ from aomaker.models import DistStrategyYaml
 from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
+from aomaker._printer import print_message
 
 SUBCOMMAND_RUN_NAME = "run"
 yaml = YAML()
@@ -119,7 +119,7 @@ def create(project_name):
     PROJECT_NAME: Name of the project to create.
     """
     create_scaffold(project_name)
-    click.echo(emojize(":beer_mug: 项目脚手架创建完成！"))
+    print_message(":beer_mug: 项目脚手架创建完成！", style="bold green")
 
 
 @gen.command(name="models")
@@ -148,13 +148,13 @@ def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class,
             yaml_data = load_yaml(AOMAKER_YAML_PATH)
             openapi_config = yaml_data.get('openapi', {})
     except Exception as e:
-        click.echo(f"❌ 读取配置文件失败: {e}")
+        print_message(f"❌ 读取配置文件失败: {e}", style="bold red")
         sys.exit(1)
     
     # 命令行参数优先级高于配置文件
     final_spec = spec or openapi_config.get('spec')
     if not final_spec:
-        click.echo("❌  错误：必须在命令行参数或配置文件中提供spec参数")
+        print_message("❌  错误：必须在命令行参数或配置文件中提供spec参数", style="bold red")
         sys.exit(1)
     final_output = output or openapi_config.get('output')
     final_class_name_strategy = class_name_strategy or openapi_config.get('class_name_strategy')
@@ -185,13 +185,13 @@ def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class,
                 except:
                     doc = yaml.safe_load(response.text)
         except Exception as e:
-            click.echo(f"获取或解析URL失败: {e}", err=True)
+            print_message(f"获取或解析URL失败: {e}", style="bold red")
             return
     else:
         spec_path = Path(final_spec)
 
         if not spec_path.exists():
-            click.echo(f"文件不存在: {final_spec}", err=True)
+            print_message(f"文件不存在: {final_spec}", style="bold red")
             return
 
         file_suffix = spec_path.suffix.lower()
@@ -208,7 +208,7 @@ def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class,
                     except json.JSONDecodeError:
                         doc = yaml.safe_load(content)
         except Exception as e:
-            click.echo(f"读取或解析文件失败: {e}", err=True)
+            print_message(f"读取或解析文件失败: {e}", style="bold red")
             return
 
     output_path = Path(final_output)
@@ -266,19 +266,34 @@ def query_stats(package, showindex):
     if package:
         conditions['package'] = package
 
-    showindex_value = "always" if showindex else "default"
-
     results = stats.get(conditions=conditions)
-    click.echo(f"Total APIs: {len(results)}")
-    headers = ["Package", "ApiName", ]
-    click.echo(tabulate(results, headers=headers, tablefmt="heavy_grid", showindex=showindex_value))
+    print_message(f"Total APIs: {len(results)}", style="bold green")
+
+    console = Console()
+    table = Table(show_header=True, header_style="bold magenta", title="API Statistics", show_edge=True, border_style="green")
+
+    if showindex:
+        table.add_column("Index", style="dim", width=6)
+    table.add_column("Package", style="cyan", no_wrap=True)
+    table.add_column("ApiName", style="green")
+
+    for index, item in enumerate(results):
+        row_data = []
+        if showindex:
+            row_data.append(str(index))
+        package_name = str(item.get('package', 'N/A'))
+        api_name = str(item.get('api_name', 'N/A'))
+        row_data.extend([package_name, api_name])
+        table.add_row(*row_data)
+
+    console.print(table)
 
 
 @gen.command(name="stats")
 @click.option("--api-dir", default="apis", type=click.Path(exists=True), show_default=True, help="Specify the api dir.")
 def gen_stats(api_dir):
     _generate_apis(api_dir)
-    click.echo(emojize(":beer_mug: 接口信息统计完毕！"))
+    print_message(":beer_mug: 接口信息统计完毕！", style="bold green")
 
 
 @service.command(help="Start a web service.")
@@ -301,8 +316,8 @@ def start(web, port):
     docs_url = f"http://127.0.0.1:{port}/api/docs"
     if web:
         Timer(2, open_web, args=[docs_url]).start()
-    click.echo(f"🚀 启动Mock服务器在端口 {port}")
-    click.echo(f"📚 API文档地址: {docs_url}")
+    print_message(f"🚀 启动Mock服务器在端口 {port}")
+    print_message(f"📚 API文档地址: {docs_url}")
     uvicorn.run(app, host="127.0.0.1", port=port)
 
 def open_web(url):
@@ -351,21 +366,21 @@ def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen,
     if env:
         set_conf_file(env)
     if log_level != "info":
-        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
+        print_message(f":wrench:切换日志等级：{log_level}")
         AoMakerLogger.change_level(log_level)
     login_obj = _handle_login(no_login)
     from aomaker.runner import run as runner_run, processes_run, threads_run
     if mp:
-        click.echo("🚀<AoMaker> 多进程模式准备启动...")
+        print_message("🚀多进程模式准备启动...")
         processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
                       is_gen_allure=no_gen, process_count=processes)
         ctx.exit()
     elif mt:
-        click.echo("🚀<AoMaker> 多线程模式准备启动...")
+        print_message("🚀多线程模式准备启动...")
         threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
                     is_gen_allure=no_gen)
         ctx.exit()
-    click.echo("🚀<AoMaker> 单进程模式准备启动...")
+    print_message("🚀单进程模式准备启动...")
     runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
     ctx.exit()
 
@@ -386,13 +401,13 @@ def set_conf_file(env):
             doc = yaml.load(f)
         doc['env'] = env
         if not doc.get(env):
-            click.echo(emojize(f'	:confounded_face: 测试环境-{env}还未在配置文件中配置！'))
+            print_message(f'	:confounded_face: 测试环境-{env}还未在配置文件中配置！', style="bold red")
             sys.exit(1)
         with open(conf_path, 'w') as f:
             yaml.dump(doc, f)
-        click.echo(emojize(f':rocket:<AoMaker> 当前测试环境: {env}'))
+        print_message(f':globe_with_meridians: 当前测试环境: {env}')
     else:
-        click.echo(emojize(f':confounded_face: 配置文件{conf_path}不存在'))
+        print_message(f':confounded_face: 配置文件{conf_path}不存在', style="bold red")
         sys.exit(1)
 
 
@@ -400,30 +415,30 @@ def _handle_dist_mode(d_mark, d_file, d_suite):
     if d_mark:
         params = [f"-m {mark}" for mark in d_mark]
         mode_msg = "dist-mark"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
     if d_file:
         params = {"path": d_file}
         mode_msg = "dist-file"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
     if d_suite:
         params = d_suite
         mode_msg = "dist-suite"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
     params = _handle_dist_strategy_yaml()
     mode_msg = "dist-mark(dist_strategy.yaml策略)"
-    click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+    print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
     return params
 
 
 def _handle_dist_strategy_yaml() -> List[Text]:
     if not os.path.exists(DIST_STRATEGY_PATH):
-        click.echo(emojize(f':confounded_face: aomaker并行执行策略文件{DIST_STRATEGY_PATH}不存在！'))
+        print_message(f':confounded_face: aomaker并行执行策略文件{DIST_STRATEGY_PATH}不存在！', style="bold red")
         sys.exit(1)
     yaml_data = load_yaml(DIST_STRATEGY_PATH)
     content = DistStrategyYaml(**yaml_data)

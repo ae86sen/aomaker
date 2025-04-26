@@ -3,13 +3,15 @@ import os
 import shutil
 import importlib
 import functools
+import subprocess
+from typing import Union, List, Text
 from multiprocessing import Pool
 from functools import singledispatchmethod
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 import pytest
 
-from aomaker._printer import printer
+from aomaker._printer import printer, print_message
 from aomaker.storage import config, cache
 from aomaker.fixture import SetUpSession, TearDownSession, BaseLogin
 from aomaker.log import logger, aomaker_logger
@@ -33,7 +35,6 @@ def fixture_session(func):
     """全局夹具装饰器"""
 
     def wrapper(*args, **kwargs):
-        # Login登录类对象
         login = kwargs.get('login')
         _init(func, login)
         r = func(*args, **kwargs)
@@ -44,7 +45,7 @@ def fixture_session(func):
     return wrapper
 
 
-@printer("init_env")
+@printer("开始初始化环境...", "环境初始化完成，所有全局配置已加载到config表")
 def _init(func, login):
     method_of_class_name = func.__qualname__.split('.')[0]
     config.set("run_mode", RUN_MODE[method_of_class_name])
@@ -59,7 +60,7 @@ class Runner:
     def __init__(self, is_processes=False):
         self.pytest_args = ["-s",
                             f"--alluredir={allure_json_dir}",
-                            "--show-capture=no",  # 控制台不显示pytest的捕获日志
+                            "--show-capture=no",
                             "--log-format=%(asctime)s %(message)s",
                             "--log-date-format=%Y-%m-%d %H:%M:%S"
                             ]
@@ -68,14 +69,13 @@ class Runner:
 
     @fixture_session
     def run(self, args: list, login: BaseLogin = None, is_gen_allure=True, **kwargs):
-        # 配置allure报告中显示日志
-        # AoMakerLogger().allure_handler('debug')
         args.extend(self.pytest_args)
         pytest_opts = _get_pytest_ini()
-        logger.info(f"<AoMaker> 单进程启动")
-        logger.info(f"<AoMaker> pytest的执行参数：{args}")
+        print_message(f":rocket: 单进程启动", style="cyan")
+        print_message(f":gear: pytest的执行参数：{args}", style="cyan")
         if pytest_opts:
-            logger.info(f"<AoMaker> pytest.ini配置参数：{pytest_opts}")
+            print_message(f":gear: pytest.ini配置参数：{pytest_opts}", style="cyan")
+
         _progress_init(args)
         pytest.main(args, plugins=self.pytest_plugins)
         if is_gen_allure:
@@ -88,13 +88,12 @@ class Runner:
         :param path: 测试套件所在目录
         :return: 测试套件路径列表
         """
-        path_list = [path for path in os.listdir(path) if "__" not in path]
+        path_list = [p for p in os.listdir(path) if "__" not in p]
         testsuite = []
         for p in path_list:
             testsuite_path = os.path.join(path, p)
             if os.path.isdir(testsuite_path):
                 testsuite.append(testsuite_path)
-
         return testsuite
 
     @staticmethod
@@ -104,7 +103,7 @@ class Runner:
         :param path: 测试文件所在目录
         :return: 测试文件路径列表
         """
-        path_list = [path for path in os.listdir(path) if "__" not in path]
+        path_list = [p for p in os.listdir(path) if "__" not in p]
         testfile_path_list = []
         for p in path_list:
             testfile_path = os.path.join(path, p)
@@ -124,22 +123,42 @@ class Runner:
     @make_task_args.register(str)
     def _(self, arg: str) -> list:
         """dist_mode:suite"""
-        path_list = self.make_testsuite_path(arg)
-        return path_list
+        return self.make_testsuite_path(arg)
 
     @make_task_args.register(dict)
     def _(self, arg: dict) -> list:
         """dist_mode:file"""
-        path_list = self.make_testfile_path(arg["path"])
-        return path_list
+        return self.make_testfile_path(arg["path"])
 
     @staticmethod
-    def gen_allure(is_clear=True):
-        cmd = f'allure generate ./{Allure.JSON_DIR} -o ./{Allure.HTML_DIR}'
+    def gen_allure(is_clear=True) -> bool:
+        """生成 Allure 报告"""
+        cmd = f'allure generate "{Allure.JSON_DIR}" -o "{Allure.HTML_DIR}"'
         if is_clear:
-            cmd = cmd + ' -c'
-        os.system(cmd)
-        rewrite_summary()
+            cmd += ' -c'
+
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            rewrite_summary()
+            return True
+        else:
+            error_lines = [
+                f"[bold red]❌ 测试报告收集失败![/bold red]",
+                f"   命令: {cmd}",
+                f"   返回码: {result.returncode}",
+            ]
+            if result.stderr:
+                stderr_formatted = result.stderr.strip()
+                error_lines.append(f"   [red]标准错误:[/red]\n      {stderr_formatted}")
+            error_lines.extend([
+                "   请检查:",
+                "     1. 是否已正确安装 Allure Commandline (https://allurereport.org/)",
+                "     2. allure 命令是否已添加到系统 PATH 环境变量中"
+            ])
+
+            for line in error_lines:
+                print_message(line, style="red")
+            return False
 
     @staticmethod
     def allure_env_prop():
@@ -148,15 +167,16 @@ class Runner:
             content = ""
             for k, v in conf.items():
                 content += f"{k}={v}\n"
+            os.makedirs(allure_json_dir, exist_ok=True)
             with open(os.path.join(allure_json_dir, "environment.properties"), mode='w', encoding='utf-8') as f:
                 f.write(content)
-    
-    @printer("gen_rep")
+
+    @printer("测试结束, AoMaker开始收集报告...", "AoMaker已完成测试报告(reports/aomaker-report.html)!")
     def gen_reports(self):
         self.allure_env_prop()
-        self.gen_allure()
-        gen_aomaker_reports()
-
+        is_gen_allure_success = self.gen_allure()
+        if is_gen_allure_success:
+            gen_aomaker_reports()
 
     @staticmethod
     def clean_allure_json(allure_json_path: str):
@@ -197,14 +217,13 @@ class ProcessesRunner(Runner):
         return min(process_count, max_process)
 
     def _execute_tasks(self, process_count, task_args, extra_args, pytest_plugin_names):
+        logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
         with Pool(process_count) as pool:
-            logger.info(f"<AoMaker> 多进程任务启动，进程数：{process_count}")
             task_func = functools.partial(main_task, pytest_plugin_names=pytest_plugin_names)
             pool.map(task_func, make_args_group(task_args, extra_args))
 
-
     @fixture_session
-    def run(self, task_args, login: BaseLogin = None, extra_args=None, is_gen_allure=True, process_count=None,
+    def run(self, task_args: Union[List, Text], login: BaseLogin = None, extra_args=None, is_gen_allure=True, process_count=None,
             **kwargs):
         """
         多进程启动pytest任务
@@ -231,7 +250,7 @@ class ProcessesRunner(Runner):
 
 class ThreadsRunner(Runner):
     @fixture_session
-    def run(self, task_args: list or str, login: BaseLogin = None, extra_args=None, is_gen_allure=True, **kwargs):
+    def run(self, task_args: Union[List, Text], login: BaseLogin = None, extra_args=None, is_gen_allure=True, **kwargs):
         """
         多线程启动pytest任务
         :param task_args:
