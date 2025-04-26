@@ -157,7 +157,7 @@ class Runner:
             ])
 
             for line in error_lines:
-                print_message(line, style="red")
+                print_message(line, style="red", prefix="")
             return False
 
     @staticmethod
@@ -175,8 +175,10 @@ class Runner:
     def gen_reports(self):
         self.allure_env_prop()
         is_gen_allure_success = self.gen_allure()
-        if is_gen_allure_success:
-            gen_aomaker_reports()
+        if is_gen_allure_success == False:
+            return 1
+        gen_aomaker_reports()
+            
 
     @staticmethod
     def clean_allure_json(allure_json_path: str):

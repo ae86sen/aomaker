@@ -1,8 +1,9 @@
 import sys
 from pathlib import Path
+from rich.panel import Panel
 
-from aomaker._log import logger
-from aomaker._constants import PROJECT_ROOT_FILE, DataBase
+from aomaker._printer import printer, print_message, console
+from aomaker._constants import PROJECT_ROOT_FILE
 
 
 class ExtraArgument:
@@ -25,33 +26,37 @@ def init_parser_scaffold(subparsers):
     return sub_parser_scaffold
 
 
+@printer(start_msg="开始创建脚手架", end_msg="项目脚手架创建完成！")
 def create_scaffold(project_name):
     """ Create scaffold with specified project name.
     """
     if Path(project_name).is_dir():
-        logger.error(
-            f"项目目录：{project_name} 已存在, 请重新设置一个目录名称."
+        print_message(
+            f"项目目录：{project_name} 已存在, 请重新设置一个目录名称.",
+            style="bold red"
         )
         return 1
 
     elif Path(project_name).is_file():
-        logger.error(
-            f"项目目录：{project_name} 存在同名文件，请重新设置一个目录名称"
+        print_message(
+            f"项目目录：{project_name} 存在同名文件，请重新设置一个目录名称",
+            style="bold red"
         )
         return 1
+
+    creation_steps = []
 
     def create_folder(path):
         Path(path).mkdir(parents=True, exist_ok=True)
         msg = f"创建目录: {path}"
-        logger.info(msg)
+        creation_steps.append(msg)
 
     def create_file(path, file_content=""):
         with open(path, "w", encoding="utf-8") as f:
             f.write(file_content)
         msg = f"创建文件: {path}"
-        logger.info(msg)
+        creation_steps.append(msg)
 
-    logger.info("---------------------开始创建脚手架---------------------")
     create_folder(project_name)
     create_file(Path(project_name) / PROJECT_ROOT_FILE)
     create_file(Path(project_name) / "__init__.py")
@@ -945,7 +950,10 @@ class Login(BaseLogin):
     create_folder(Path(project_name) / "logs")
     db_dir_path = Path(project_name) / "database"
     create_folder(db_dir_path)
-    logger.info("---------------------脚手架创建完成---------------------")
+
+    panel_content = "\n".join(creation_steps)
+    panel = Panel(panel_content, title="[bold cyan]脚手架创建详情[/bold cyan]", border_style="blue", expand=False)
+    console.print(panel)
 
     return 0
 

@@ -119,8 +119,7 @@ def create(project_name):
     PROJECT_NAME: Name of the project to create.
     """
     create_scaffold(project_name)
-    print_message(":beer_mug: 项目脚手架创建完成！", style="bold green")
-
+    
 
 @gen.command(name="models")
 @click.option("--spec", "-s",
