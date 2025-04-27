@@ -904,7 +904,7 @@ filterwarnings =
     create_file(Path(project_name) / "pytest.ini", pytest_ini_content)
     login_content = """from typing import Union
 
-from aomaker.fixture import BaseLogin
+from aomaker.session import BaseLogin
 from aomaker.core.http_client import HTTPClient
 
 from apis.mock.apis import LoginAPI

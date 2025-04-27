@@ -10,29 +10,26 @@ from pathlib import Path
 
 import click
 import uvicorn
-from ruamel.yaml import YAML
 from click_help_colors import HelpColorsGroup, version_option
 from rich.console import Console
 from rich.theme import Theme
 from rich.table import Table
 
 from aomaker import __version__, __image__
-from aomaker._constants import Conf
-from aomaker.log import logger, AoMakerLogger
-from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH, DIST_STRATEGY_PATH
+from aomaker.log import AoMakerLogger
+from aomaker.path import AOMAKER_YAML_PATH, DIST_STRATEGY_PATH
 from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
-
 from aomaker.utils.utils import load_yaml
 from aomaker.models import DistStrategyYaml
 from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
 from aomaker.maker.parser import OpenAPIParser
 from aomaker.maker.generator import Generator
 from aomaker._printer import print_message
+from aomaker.runner import run_tests, RunConfig
 
 SUBCOMMAND_RUN_NAME = "run"
-yaml = YAML()
 
 
 class OptionHandler:
@@ -97,17 +94,44 @@ def mock():
               help="Distribute each test package under the test suite to a different worker.")
 @click.option("--dist-file", "d_file", help="Distribute each test file under the test package to a different worker.")
 @click.option("--dist-mark", "d_mark", help="Distribute each test mark to a different worker.", type=QUOTED_STR)
-@click.option("--no_login", help="Don't login and make headers.", is_flag=True, flag_value=False, default=True)
+@click.option("--skip_login", help="Skip login and no headers.", is_flag=True, default=False)
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
 @click.option("-p", "--processes", default=None, type=int,
               help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.pass_context
-def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, processes, **custom_kwargs):
+def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, skip_login, no_gen, processes, **custom_kwargs):
     pytest_args = ctx.args
     extra_custom_kwargs = ctx.obj or {}
     all_custom_kwargs = {**custom_kwargs, **extra_custom_kwargs}
-    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
-         **all_custom_kwargs)
+    if len(sys.argv) == 2:
+        ctx.exit(ctx.get_help())
+    # 执行自定义参数
+    cli_hook.ctx = ctx
+    cli_hook.custom_kwargs = all_custom_kwargs
+
+    if log_level != "info":
+        print_message(f":wrench:切换日志等级：{log_level}")
+        AoMakerLogger.change_level(log_level)
+
+    login_obj = _handle_login(skip_login)
+
+    task_args = None
+    run_mode = "main"
+    if mp or mt:
+        run_mode = "mp" if mp else "mt"
+        task_args = _handle_dist_mode(d_mark, d_file, d_suite)
+    
+    run_config = RunConfig(
+        env=env,
+        run_mode=run_mode,
+        task_args=task_args,
+        pytest_args=pytest_args,
+        login_obj=login_obj,
+        report_enabled=no_gen,
+        processes=processes
+        )
+
+    run_tests(run_config)
 
 
 @main.command()
@@ -119,7 +143,7 @@ def create(project_name):
     PROJECT_NAME: Name of the project to create.
     """
     create_scaffold(project_name)
-    
+
 
 @gen.command(name="models")
 @click.option("--spec", "-s",
@@ -355,37 +379,8 @@ def _generate_apis(api_dir: str):
             stats.set(package=package_name, api_name=interface)
 
 
-def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
-         **custom_kwargs):
-    if len(sys.argv) == 2:
-        ctx.exit(ctx.get_help())
-    # 执行自定义参数
-    cli_hook.ctx = ctx
-    cli_hook.custom_kwargs = custom_kwargs
-    if env:
-        set_conf_file(env)
-    if log_level != "info":
-        print_message(f":wrench:切换日志等级：{log_level}")
-        AoMakerLogger.change_level(log_level)
-    login_obj = _handle_login(no_login)
-    from aomaker.runner import run as runner_run, processes_run, threads_run
-    if mp:
-        print_message("🚀多进程模式准备启动...")
-        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                      is_gen_allure=no_gen, process_count=processes)
-        ctx.exit()
-    elif mt:
-        print_message("🚀多线程模式准备启动...")
-        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                    is_gen_allure=no_gen)
-        ctx.exit()
-    print_message("🚀单进程模式准备启动...")
-    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
-    ctx.exit()
-
-
-def _handle_login(is_login: bool):
-    if is_login is False:
+def _handle_login(skip_login: bool):
+    if skip_login is True:
         return
     sys.path.append(os.getcwd())
     exec('from login import Login')
@@ -393,25 +388,10 @@ def _handle_login(is_login: bool):
     return login_obj
 
 
-def set_conf_file(env):
-    conf_path = os.path.join(CONF_DIR, Conf.CONF_NAME)
-    if os.path.exists(conf_path):
-        with open(conf_path) as f:
-            doc = yaml.load(f)
-        doc['env'] = env
-        if not doc.get(env):
-            print_message(f'	:confounded_face: 测试环境-{env}还未在配置文件中配置！', style="bold red")
-            sys.exit(1)
-        with open(conf_path, 'w') as f:
-            yaml.dump(doc, f)
-        print_message(f':globe_with_meridians: 当前测试环境: {env}')
-    else:
-        print_message(f':confounded_face: 配置文件{conf_path}不存在', style="bold red")
-        sys.exit(1)
-
-
 def _handle_dist_mode(d_mark, d_file, d_suite):
     if d_mark:
+        if isinstance(d_mark, str):
+            d_mark = d_mark.split(" ")
         params = [f"-m {mark}" for mark in d_mark]
         mode_msg = "dist-mark"
         print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
@@ -472,47 +452,43 @@ def main_run(env: str = None,
              d_suite: str = None,
              d_file: str = None,
              d_mark: str = None,
-             no_login: bool = True,
+             skip_login: bool = False,
              no_gen: bool = True,
              pytest_args: List[str] = None,
+             processes: int = None,
              **custom_kwargs):
     print(__image__)
+    cli_hook.custom_kwargs = custom_kwargs
     cli_hook()
+    if cli_hook.custom_kwargs:
+        cli_hook.run()
 
-    from click.testing import CliRunner
-    runner = CliRunner()
-    args = []
+    if pytest_args is None:
+        pytest_args = []
 
-    if env:
-        args.extend(["--env", env])
-    if log_level:
-        args.extend(["--log_level", log_level])
-    if mp:
-        args.append("--mp")
-    if mt:
-        args.append("--mt")
-    if d_suite:
-        args.extend(["--dist-suite", d_suite])
-    if d_file:
-        args.extend(["--dist-file", d_file])
-    if d_mark:
-        args.extend(["--dist-mark", d_mark])
-    if not no_login:
-        args.append("--no_login")
-    if not no_gen:
-        args.append("--no_gen")
+    if log_level != "info":
+        print_message(f":wrench:切换日志等级：{log_level}")
+        AoMakerLogger.change_level(log_level)
 
-    if pytest_args:
-        args.append("--")
-        args.extend(pytest_args)
+    login_obj = _handle_login(skip_login)
 
-    result = runner.invoke(run, args=args, standalone_mode=False, obj=custom_kwargs)
-    if result.exit_code != 0:
-        from aomaker.storage import cache, config
-        cache.clear()
-        cache.close()
-        config.close()
-        raise result.exception
+    task_args = None
+    run_mode = "main"
+    if mp or mt:
+        run_mode = "mp" if mp else "mt"
+        task_args = _handle_dist_mode(d_mark, d_file, d_suite)
+
+    run_config = RunConfig(
+        env=env,
+        run_mode=run_mode,
+        task_args=task_args,
+        pytest_args=pytest_args,
+        login_obj=login_obj,
+        report_enabled=no_gen,
+        processes=processes
+        )
+    
+    run_tests(run_config)
 
 
 if __name__ == '__main__':

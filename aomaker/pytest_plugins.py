@@ -27,7 +27,7 @@ def pytest_runtest_teardown(item, nextitem):
     progress = (completed / total) * 100
     progress_name = f"_progress.{cache.worker}"
     progress_info = {"total": total, "completed": completed}
-    execute = cache.update if cache.get(progress_name) else cache.set
-    execute(progress_name,progress_info)
+    # execute = cache.update if cache.get(progress_name) else cache.set
+    cache.upsert(progress_name,progress_info)
     print(f"Test Progress: {completed}/{total} cases completed ({progress:.2f}%)")
 

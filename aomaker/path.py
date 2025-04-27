@@ -18,6 +18,8 @@ LOG_DIR = os.path.join(BASEDIR, "logs")
 LOG_FILE_path = os.path.join(LOG_DIR, Log.LOG_NAME)
 # 测试报告的路
 REPORT_DIR = os.path.join(BASEDIR, "reports")
+# allure json目录
+ALLURE_JSON_DIR = os.path.join(REPORT_DIR, "json")
 # 测试用例模块所在的目录
 CASE_DIR = os.path.join(BASEDIR, "testcases")
 # DB目录
