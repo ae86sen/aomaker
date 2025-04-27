@@ -36,7 +36,8 @@ class SQLiteDB:
         """
         if db_path is None:
             db_path = get_db_path()
-        self.connection = sqlite3.connect(db_path, check_same_thread=False)
+        self.connection = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
+        self.connection.execute("PRAGMA journal_mode=WAL")
         self.cursor = self.connection.cursor()
 
     def close(self):

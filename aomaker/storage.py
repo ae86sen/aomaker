@@ -139,6 +139,11 @@ class Cache(SQLiteDB):
         condition = {"worker": self.worker, "var_name": var_name}
         self.update_data(self.table, key_value, where=condition)
 
+    def upsert(self, var_name: str, value):
+        key_value = {"worker": self.worker, "var_name": var_name, "value": json.dumps(value)}
+        conflict_target = "var_name, worker"
+        self.upsert_data(self.table, key_value, conflict_target)
+
     def get(self, var_name: str, select_field="value"):
         worker = self.worker
         sql = f"SELECT {select_field} FROM {self.table} WHERE var_name = ?"
