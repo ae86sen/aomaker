@@ -87,7 +87,7 @@ class JsonSchemaParser:
         self.schema_registry: Dict[str, DataModel] = {}
         self.imports: Set[Import] = set()
         self.current_tags: List[str] = list()
-        self.max_recursion_depth = 10
+        self.max_recursion_depth = 15
         self.current_recursion_path: List[str] = []
 
     def parse_schema(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
