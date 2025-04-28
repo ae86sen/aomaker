@@ -1,6 +1,7 @@
 # --coding:utf-8--
 import os
 from configparser import NoOptionError
+import fnmatch
 
 from aomaker.path import PYTEST_INI_DIR
 from aomaker.utils.utils import HandleIni
@@ -11,10 +12,10 @@ def _get_pytest_ini() -> list:
     try:
         pytest_opts = conf.get('pytest', 'addopts')
     except NoOptionError:
-        pytest_opts = []
-    if pytest_opts:
-        pytest_opts = pytest_opts.split()
-    return pytest_opts
+        return []
+    if not pytest_opts:
+        return []
+    return pytest_opts.split()
 
 
 def make_testsuite_path(path: str) -> list:
@@ -42,7 +43,7 @@ def make_testfile_path(path: str) -> list:
     testfile_path_list = []
     for p in path_list:
         testfile_path = os.path.join(path, p)
-        if os.path.isfile(testfile_path):
+        if os.path.isfile(testfile_path) and (fnmatch.fnmatch(p, "test_*.py") or fnmatch.fnmatch(p, "*_test.py")):
             testfile_path_list.append(testfile_path)
     return testfile_path_list
 
