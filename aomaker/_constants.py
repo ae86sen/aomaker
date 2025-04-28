@@ -1,19 +1,26 @@
 # --coding:utf-8--
 
+PROJECT_ROOT_FILE = ".aomaker"
+
+
 # database
 class DataBase:
+    DB_DIR_NAME = "database"
     DB_NAME = "aomaker.db"
     CONFIG_TABLE = 'config'
     CACHE_TABLE = 'cache'
     SCHEMA_TABLE = 'schema'
+    STATS_TABLE = 'statistics'
     CACHE_VAR_NAME = 'var_name'
     CACHE_RESPONSE = 'response'
     CACHE_WORKER = 'worker'
     CACHE_API_INFO = 'api_info'
-    CONFIG_KEY = 'key'
+    CONFIG_KEY = 'conf_name'
     CONFIG_VALUE = 'value'
     SCHEMA_API_NAME = 'api_name'
     SCHEMA_SCHEMA = 'schema'
+    STATS_PACKAGE = 'package'
+    STATS_API_NAME = 'api_name'
 
 
 # log

@@ -19,7 +19,6 @@ class Hook:
         global IS_LOADED
         if IS_LOADED is True:
             return
-        print("🚀<AoMaker> 加载hooks...")
         sys.path.append(BASEDIR)
         try:
             module_obj = import_module(self.HOOK_MODULE_NAME)

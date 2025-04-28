@@ -1,0 +1,26 @@
+{# templates/models.py.jinja #}
+from __future__ import annotations
+
+{% for import in imports %}
+{{ import }}
+{% endfor %}
+
+__ALL__ = {{ get_all_model_class_name(referenced_models) }}
+
+
+{% for model in referenced_models %}
+    {% if model.is_enum %}
+class {{ model.name }}(Enum):
+        {% for field in model.fields %}
+        {{ field.name }} = {{ field.default }}
+        {% endfor %}
+    {% else %}
+@define(kw_only=True)
+class {{ model.name }}:
+        {% for field in model.fields %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %} =field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+

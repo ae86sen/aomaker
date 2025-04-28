@@ -3,7 +3,7 @@
 from jsonschema import validate, ValidationError
 
 from aomaker.log import logger
-from aomaker.cache import Schema
+from aomaker.storage import Schema
 from aomaker.exceptions import SchemaNotFound
 
 

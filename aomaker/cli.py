@@ -1,29 +1,30 @@
 # --coding:utf-8--
 import os
+import ast
 import sys
-from typing import List, Text
+from typing import List
+import webbrowser
+from threading import Timer
+from pathlib import Path
 
 import click
-from ruamel.yaml import YAML
-from emoji import emojize
+import uvicorn
 from click_help_colors import HelpColorsGroup, version_option
+from rich.console import Console
+from rich.table import Table
 
 from aomaker import __version__, __image__
-from aomaker._constants import Conf
-from aomaker.log import logger, AoMakerLogger
-from aomaker.path import CONF_DIR, AOMAKER_YAML_PATH
+from aomaker.log import AoMakerLogger
 from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
-from aomaker.make import main_make
-from aomaker.make_testcase import main_case, main_make_case
-from aomaker.extension.har_parse import main_har2yaml
-from aomaker.extension.recording import filter_expression, main_record
-from aomaker.utils.utils import load_yaml
-from aomaker.models import AomakerYaml
+from aomaker.maker.config import NAMING_STRATEGIES
+from aomaker._printer import print_message
+from aomaker.runner import run_tests, RunConfig
+from aomaker.maker.cli_handlers import handle_gen_models
+from aomaker.config_handlers import handle_dist_strategy_yaml
 
 SUBCOMMAND_RUN_NAME = "run"
-yaml = YAML()
 
 
 class OptionHandler:
@@ -55,6 +56,28 @@ def main(ctx):
     cli_hook()
 
 
+@main.group()
+def show():
+    """Show various statistics."""
+    pass
+
+
+@main.group()
+def gen():
+    """Generate various statistics or attrs models."""
+    pass
+
+@main.group()
+def service():
+    """Aomaker Service."""
+    pass
+
+
+@main.group()
+def mock():
+    """Aomaker mock server."""
+    pass
+
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.option("-e", "--env", help="Switch test environment.")
 @click.option("--log_level", default="info",
@@ -62,19 +85,48 @@ def main(ctx):
               help="Set running log level.")
 @click.option("--mp", "--multi-process", help="Enable multi-process running mode.", is_flag=True)
 @click.option("--mt", "--multi-thread", help="Enable multi-thread running mode.", is_flag=True)
-@click.option("-p", "--processes", default=None, type=int,
-              help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.option("--dist-suite", "d_suite",
               help="Distribute each test package under the test suite to a different worker.")
 @click.option("--dist-file", "d_file", help="Distribute each test file under the test package to a different worker.")
 @click.option("--dist-mark", "d_mark", help="Distribute each test mark to a different worker.", type=QUOTED_STR)
-@click.option("--no_login", help="Don't login and make headers.", is_flag=True, flag_value=False, default=True)
+@click.option("--skip_login", help="Skip login and no headers.", is_flag=True, default=False)
 @click.option("--no_gen", help="Don't generate allure reports.", is_flag=True, flag_value=False, default=True)
+@click.option("-p", "--processes", default=None, type=int,
+              help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.pass_context
-def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, processes, **custom_kwargs):
+def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, skip_login, no_gen, processes, **custom_kwargs):
     pytest_args = ctx.args
-    _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
-         **custom_kwargs)
+    extra_custom_kwargs = ctx.obj or {}
+    all_custom_kwargs = {**custom_kwargs, **extra_custom_kwargs}
+    if len(sys.argv) == 2:
+        ctx.exit(ctx.get_help())
+    # 执行自定义参数
+    cli_hook.ctx = ctx
+    cli_hook.custom_kwargs = all_custom_kwargs
+
+    if log_level != "info":
+        print_message(f":wrench:切换日志等级：{log_level}")
+        AoMakerLogger.change_level(log_level)
+
+    login_obj = _handle_login(skip_login)
+
+    task_args = None
+    run_mode = "main"
+    if mp or mt:
+        run_mode = "mp" if mp else "mt"
+        task_args = _handle_dist_mode(d_mark, d_file, d_suite)
+    
+    run_config = RunConfig(
+        env=env,
+        run_mode=run_mode,
+        task_args=task_args,
+        pytest_args=pytest_args,
+        login_obj=login_obj,
+        report_enabled=no_gen,
+        processes=processes
+        )
+
+    run_tests(run_config)
 
 
 @main.command()
@@ -86,139 +138,133 @@ def create(project_name):
     PROJECT_NAME: Name of the project to create.
     """
     create_scaffold(project_name)
-    click.echo(emojize(":beer_mug: 项目脚手架创建完成！"))
 
 
-@main.command()
-@click.option("-t", "--template", help="Set template of swagger.Default template: restful.",
-              type=click.Choice(["qingcloud", "restful"]), default="restful")
-@click.argument("file_path", )
-def make(file_path, template):
-    """Make Api object by YAML/Swagger(Json)
-
-    Arguments:\n
-    FILE_PATH: Specify YAML/Swagger file path.The file suffix must be '.yaml','.yml' or '.json'.
+@gen.command(name="models")
+@click.option("--spec", "-s",
+              help="OpenAPI规范文件路径（JSON/YAML/URL）")
+@click.option("--output", "-o", help="代码输出目录")
+@click.option("--class-name-strategy", "-c",
+              type=click.Choice(list(NAMING_STRATEGIES.keys()), case_sensitive=False),
+              default="operation_id",
+              show_default=True,
+              help="API Object Class name生成策略（operation_id/summary/tags）")
+@click.option("--custom-strategy", "-cs", required=False,
+              help="自定义命名策略的Python模块路径 (例如: 'mypackage.naming.custom_function')")
+@click.option("--base-api-class", "-B", default="aomaker.core.api_object.BaseAPIObject",
+              show_default=True,
+              help="API基类完整路径（module.ClassName格式）")
+@click.option("--base-api-class-alias", "-A",
+              help="基类在生成代码中的别名")
+def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class, base_api_class_alias):
     """
-    main_make(file_path, template)
-    click.echo(emojize(":beer_mug: Api Object渲染完成！"))
-
-
-@main.command()
-@click.argument("file_path")
-def case(file_path):
-    """Make testcases by YAML.
-
-    Arguments:\n
-    FILE_PATH: YAML file path.
+    Generate Attrs models from an OpenAPI specification.
     """
-    main_case(file_path)
-    click.echo(emojize(":beer_mug: 用例脚本编写完成！"))
+    handle_gen_models(spec, output, class_name_strategy, custom_strategy, base_api_class, base_api_class_alias)
+
+@show.command(name="stats")
+@click.option("--package", help="Package name to filter by.")
+@click.option("--showindex", is_flag=True, default=False, help="Enable to show index.")
+def query_stats(package, showindex):
+    """Query API statistics with optional filtering."""
+    from aomaker.storage import stats
+    conditions = {}
+
+    if package:
+        conditions['package'] = package
+
+    results = stats.get(conditions=conditions)
+    print_message(f"Total APIs: {len(results)}", style="bold green")
+
+    console = Console()
+    table = Table(show_header=True, header_style="bold magenta", title="API Statistics", show_edge=True, border_style="green")
+
+    if showindex:
+        table.add_column("Index", style="dim", width=6)
+    table.add_column("Package", style="cyan", no_wrap=True)
+    table.add_column("ApiName", style="green")
+
+    for index, item in enumerate(results):
+        row_data = []
+        if showindex:
+            row_data.append(str(index))
+        package_name = str(item.get('package', 'N/A'))
+        api_name = str(item.get('api_name', 'N/A'))
+        row_data.extend([package_name, api_name])
+        table.add_row(*row_data)
+
+    console.print(table)
 
 
-@main.command()
-@click.argument("file_path")
-def mcase(file_path):
-    """A combined command of 'make' and 'case'.
-
-    Arguments:\n
-    FILE_PATH: YAML file path.
-    """
-    main_make_case(file_path)
-    click.echo(emojize(":beer_mug: 测试用例生产完成！"))
+@gen.command(name="stats")
+@click.option("--api-dir", default="apis", type=click.Path(exists=True), show_default=True, help="Specify the api dir.")
+def gen_stats(api_dir):
+    _generate_apis(api_dir)
+    print_message(":beer_mug: 接口信息统计完毕！", style="bold green")
 
 
-@main.command()
-@click.argument("har_path")
-@click.argument("yaml_path")
-@click.option("--filter_str", help="Specify filter keyword, only url include filter string will be converted.")
-@click.option("--exclude_str", help="Specify exclude keyword, url that includes exclude string will be ignored, "
-                                    "multiple keywords can be joined with '|'")
-@click.option("--save_response", is_flag=True, help="Save response.")
-@click.option("--save_headers", is_flag=True, help="Save headers.")
-def har2y(har_path, yaml_path, filter_str, exclude_str, save_response, save_headers):
-    """Convert HAR(HTTP Archive) to YAML testcases for AoMaker.
-
-    Arguments:\n
-    HAR_PATH: HAR file path.
-    FILE_PATH: YAML file path.
-    """
-
-    class Args:
-        def __init__(self):
-            self.har_path = har_path
-            self.yaml_path = yaml_path
-            self.filter_str = filter_str
-            self.exclude_str = exclude_str
-            self.save_response = save_response
-            self.save_headers = save_headers
-
-    main_har2yaml(Args())
-    click.echo(emojize(":beer_mug: har转换yaml完成！"))
+@service.command(help="Start a web service.")
+@click.option('--web', is_flag=True, help="Open the web interface in a browser.")
+@click.option('--port', default=8888, help="Specify the port number to run the server on. Default is 8888.")
+def start(web, port):
+    from aomaker.service import app
+    progress_url = f"http://127.0.0.1:{port}/statics/progress.html"
+    if web:
+        Timer(2, open_web, args=[progress_url]).start()
+    uvicorn.run(app, host="127.0.0.1", port=port)
 
 
-@main.command()
-@click.argument("file_name")
-@click.option("-f", "--filter_str", help=f"""Specify filter keyword.\n{filter_expression}""")
-@click.option("-p", "--port", type=int, default=8082, help='Specify proxy service port.default port:8082.')
-@click.option("--flow_detail", type=int, default=0, help="""
-    The display detail level for flows in mitmdump: 0 (almost quiet) to 4 (very verbose).\n
-    0(default): shortened request URL, response status code, WebSocket and TCP message notifications.\n
-    1: full request URL with response status code.\n
-    2: 1 + HTTP headers.\n
-    3: 2 + truncated response content, content of WebSocket and TCP messages.\n
-    4: 3 + nothing is truncated.\n""")
-@click.option("--save_response", is_flag=True, help="Save response.")
-@click.option("--save_headers", is_flag=True, help="Save headers.")
-def record(file_name, filter_str, port, flow_detail, save_response, save_headers):
-    """Record flows: parse command line options and run commands.
+@mock.command(help="Start the mock server.")
+@click.option('--web', is_flag=True, help="Open the API documentation in a browser.")
+@click.option('--port', default=9999, help="Specify the port number to run the mock server on. Default is 9999.")
+def start(web, port):
+    """Start the mock server."""
+    from aomaker.mock.mock_server import app
+    docs_url = f"http://127.0.0.1:{port}/api/docs"
+    if web:
+        Timer(2, open_web, args=[docs_url]).start()
+    print_message(f"🚀 启动Mock服务器在端口 {port}")
+    print_message(f"📚 API文档地址: {docs_url}")
+    uvicorn.run(app, host="127.0.0.1", port=port)
 
-    Arguments:\n
-    FILE_NAME: Specify YAML file name.
-    """
+def open_web(url):
+    webbrowser.open(url)
 
-    class Args:
-        def __init__(self):
-            self.file_name = file_name
-            self.filter_str = filter_str
-            self.port = port
-            self.level = flow_detail
-            self.save_response = save_response
-            self.save_headers = save_headers
+def _parse_all_from_ast(filepath: Path):
+    with filepath.open(encoding='utf-8') as f:
+        tree = ast.parse(f.read())
 
-    main_record(Args())
-
-
-def _run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, no_login, no_gen, pytest_args, processes,
-         **custom_kwargs):
-    if len(sys.argv) == 2:
-        ctx.exit(ctx.get_help())
-    # 执行自定义参数
-    cli_hook.ctx = ctx
-    cli_hook.custom_kwargs = custom_kwargs
-    if env:
-        set_conf_file(env)
-    if log_level != "info":
-        click.echo(emojize(f":rocket:<AoMaker>切换日志等级：{log_level}"))
-        AoMakerLogger.change_level(log_level)
-    login_obj = _handle_login(no_login)
-    from aomaker.runner import run as runner_run, processes_run, threads_run
-    if mp:
-        click.echo("🚀<AoMaker> 多进程模式准备启动...")
-        processes_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                      is_gen_allure=no_gen, process_count=processes)
-        ctx.exit()
-    elif mt:
-        click.echo("🚀<AoMaker> 多线程模式准备启动...")
-        threads_run(_handle_dist_mode(d_mark, d_file, d_suite), login=login_obj, extra_args=pytest_args,
-                    is_gen_allure=no_gen)
-        ctx.exit()
-    click.echo("🚀<AoMaker> 单进程模式准备启动...")
-    runner_run(pytest_args, login=login_obj, is_gen_allure=no_gen)
-    ctx.exit()
+    # AST解析逻辑保持不变
+    all_items = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            if node.targets[0].id == '__ALL__':
+                if isinstance(node.value, (ast.List, ast.Tuple)):
+                    for element in node.value.elts:
+                        if isinstance(element, (ast.Str, ast.Constant)):
+                            all_items.append(element.s if isinstance(element, ast.Str) else element.value)
+    return all_items
 
 
-def _handle_login(is_login: bool):
-    if is_login is False:
+def _generate_apis(api_dir: str):
+    from aomaker.storage import stats
+    root_dir = Path(api_dir)
+
+    for apis_path in root_dir.rglob('apis.py'):
+        try:
+            package_path = apis_path.parent.relative_to(root_dir)
+        except ValueError:
+            continue
+
+        package_name = '.'.join(package_path.parts) if package_path.parts else ''
+        interfaces = _parse_all_from_ast(apis_path)
+
+        for interface in interfaces:
+            stats.set(package=package_name, api_name=interface)
+
+
+def _handle_login(skip_login: bool):
+    if skip_login is True:
         return
     sys.path.append(os.getcwd())
     exec('from login import Login')
@@ -226,65 +272,32 @@ def _handle_login(is_login: bool):
     return login_obj
 
 
-def set_conf_file(env):
-    conf_path = os.path.join(CONF_DIR, Conf.CONF_NAME)
-    if os.path.exists(conf_path):
-        with open(conf_path) as f:
-            doc = yaml.load(f)
-        doc['env'] = env
-        if not doc.get(env):
-            click.echo(emojize(f'	:confounded_face: 测试环境-{env}还未在配置文件中配置！'))
-            sys.exit(1)
-        with open(conf_path, 'w') as f:
-            yaml.dump(doc, f)
-        click.echo(emojize(f':rocket:<AoMaker> 当前测试环境: {env}'))
-    else:
-        click.echo(emojize(f':confounded_face: 配置文件{conf_path}不存在'))
-        sys.exit(1)
-
-
 def _handle_dist_mode(d_mark, d_file, d_suite):
     if d_mark:
+        if isinstance(d_mark, str):
+            d_mark = d_mark.split(" ")
         params = [f"-m {mark}" for mark in d_mark]
         mode_msg = "dist-mark"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
     if d_file:
         params = {"path": d_file}
         mode_msg = "dist-file"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
     if d_suite:
         params = d_suite
         mode_msg = "dist-suite"
-        click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+        print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
-    params = _handle_aomaker_yaml()
-    mode_msg = "dist-mark(aomaker.yaml策略)"
-    click.echo(f"🚀<AoMaker> 分配模式: {mode_msg}")
+    params = handle_dist_strategy_yaml()
+    mode_msg = "dist-mark(dist_strategy.yaml策略)"
+    print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
     return params
 
-
-def _handle_aomaker_yaml() -> List[Text]:
-    if not os.path.exists(AOMAKER_YAML_PATH):
-        click.echo(emojize(f':confounded_face: aomaker策略文件{AOMAKER_YAML_PATH}不存在！'))
-        sys.exit(1)
-    yaml_data = load_yaml(AOMAKER_YAML_PATH)
-    content = AomakerYaml(**yaml_data)
-    targets = content.target
-    marks = content.marks
-    d_mark = []
-    for target in targets:
-        if "." in target:
-            target, strategy = target.split(".", 1)
-            marks_li = marks[target][strategy]
-        else:
-            marks_li = marks[target]
-        d_mark.extend([f"-m {mark}" for mark in marks_li])
-    return d_mark
 
 
 def main_arun_alias():
@@ -298,22 +311,6 @@ def main_arun_alias():
     main()
 
 
-def main_make_alias():
-    """ command alias
-        amake = aomaker make
-    """
-    sys.argv.insert(1, "make")
-    main()
-
-
-def main_record_alias():
-    """ command alias
-        arec = aomaker record
-    """
-    sys.argv.insert(1, "record")
-    main()
-
-
 def main_run(env: str = None,
              log_level: str = "info",
              mp: bool = False,
@@ -321,51 +318,43 @@ def main_run(env: str = None,
              d_suite: str = None,
              d_file: str = None,
              d_mark: str = None,
-             no_login: bool = True,
+             skip_login: bool = False,
              no_gen: bool = True,
              pytest_args: List[str] = None,
+             processes: int = None,
              **custom_kwargs):
     print(__image__)
+    cli_hook.custom_kwargs = custom_kwargs
     cli_hook()
+    if cli_hook.custom_kwargs:
+        cli_hook.run()
 
-    from click.testing import CliRunner
-    runner = CliRunner()
-    args = []
+    if pytest_args is None:
+        pytest_args = []
 
-    if env:
-        args.extend(["--env", env])
-    if log_level:
-        args.extend(["--log_level", log_level])
-    if mp:
-        args.append("--mp")
-    if mt:
-        args.append("--mt")
-    if d_suite:
-        args.extend(["--dist-suite", d_suite])
-    if d_file:
-        args.extend(["--dist-file", d_file])
-    if d_mark:
-        args.extend(["--dist-mark", d_mark])
-    if not no_login:
-        args.append("--no_login")
-    if not no_gen:
-        args.append("--no_gen")
-    args.extend(pytest_args or [])
+    if log_level != "info":
+        print_message(f":wrench:切换日志等级：{log_level}")
+        AoMakerLogger.change_level(log_level)
 
-    for key, value in custom_kwargs.items():
-        if isinstance(value, bool):
-            if value:
-                args.append(f"--{key}")
-        else:
-            args.extend([f"--{key}", str(value)])
+    login_obj = _handle_login(skip_login)
 
-    result = runner.invoke(run, args=args, standalone_mode=False)
-    if result.exit_code != 0:
-        from aomaker.cache import cache, config
-        cache.clear()
-        cache.close()
-        config.close()
-        raise result.exception
+    task_args = None
+    run_mode = "main"
+    if mp or mt:
+        run_mode = "mp" if mp else "mt"
+        task_args = _handle_dist_mode(d_mark, d_file, d_suite)
+
+    run_config = RunConfig(
+        env=env,
+        run_mode=run_mode,
+        task_args=task_args,
+        pytest_args=pytest_args,
+        login_obj=login_obj,
+        report_enabled=no_gen,
+        processes=processes
+        )
+    
+    run_tests(run_config)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,51 @@
+{% for import in imports %}
+{{ import }}
+{% endfor %}
+__ALL__ = {{ get_all_api_class_name(endpoints) }}
+
+{% for endpoint in endpoints %}
+@define(kw_only=True)
+@router.{{ endpoint.method }}("{{ endpoint.path }}")
+class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.name %}[{{ endpoint.response.name }}]{% endif %}):
+    """{{ endpoint.description }}"""
+    {% if endpoint.path_parameters %}
+    @define
+    class PathParams:
+        {% for field in endpoint.path_parameters %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+    {% endif %}
+
+    {% if endpoint.query_parameters %}
+    @define
+    class QueryParams:
+        {% for field in endpoint.query_parameters %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+    {% endif %}
+
+    {% if endpoint.request_body is datamodel %}
+    @define
+    class RequestBodyModel:
+        {% for field in endpoint.request_body.fields %}
+        {{ field.name }}: {{ render_optional_hint(field) }}{% if field.required %}=field({{ get_field_metadata(field) }}){% else %}= field({{ get_attrs_field(field) }}){% endif %}
+
+        {% endfor %}
+
+    request_body: RequestBodyModel
+    {% elif endpoint.request_body is datatype %}
+    request_body: {{ endpoint.request_body.type }} = field()
+    {% endif %}
+    {% if endpoint.path_parameters %}
+    path_params: PathParams
+    {% endif %}
+    {% if endpoint.query_parameters %}
+    query_params: QueryParams = field(factory=QueryParams)
+    {% endif %}
+    {% if endpoint.response %}
+    response: Optional[{{ endpoint.response.name }}] = field(default={{ endpoint.response.name }})
+    {% endif %}
+    endpoint_id: Optional[str] = field(default="{{ endpoint.endpoint_id }}")
+{% endfor %}
