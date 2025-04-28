@@ -1,12 +1,15 @@
 import os
 import sys
+from typing import List, Text
 import yaml
 from ruamel.yaml import YAML
 
-from aomaker.path import CONF_DIR
+from aomaker.models import DistStrategyYaml
+from aomaker.path import CONF_DIR, DIST_STRATEGY_PATH
 from aomaker.exceptions import FileNotFound, ConfKeyError
 from aomaker._printer import print_message
 from aomaker._constants import Conf
+from aomaker.utils.utils import load_yaml
 
 ruamel_yaml = YAML()
 
@@ -59,3 +62,22 @@ def set_conf_file(env: str):
     else:
         print_message(f':confounded_face: 配置文件{conf_path}不存在', style="bold red")
         sys.exit(1)
+
+
+def handle_dist_strategy_yaml() -> List[Text]:
+    if not os.path.exists(DIST_STRATEGY_PATH):
+        print_message(f':confounded_face: aomaker并行执行策略文件{DIST_STRATEGY_PATH}不存在！', style="bold red")
+        sys.exit(1)
+    yaml_data = load_yaml(DIST_STRATEGY_PATH)
+    content = DistStrategyYaml(**yaml_data)
+    targets = content.target
+    marks = content.marks
+    d_mark = []
+    for target in targets:
+        if "." in target:
+            target, strategy = target.split(".", 1)
+            marks_li = marks[target][strategy]
+        else:
+            marks_li = marks[target]
+        d_mark.extend([f"-m {mark}" for mark in marks_li])
+    return d_mark

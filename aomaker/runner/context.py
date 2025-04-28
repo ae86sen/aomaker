@@ -5,7 +5,7 @@ from aomaker.session import Session
 from aomaker.hook_manager import cli_hook, session_hook
 from aomaker._printer import printer
 from aomaker.storage import config, cache
-from aomaker.config import set_conf_file
+from aomaker.config_handlers import set_conf_file
 
 from .models import RunConfig
 from .reporting import clean_allure_json, gen_reports

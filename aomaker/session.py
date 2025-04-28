@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 
 from aomaker.storage import cache, config
-from aomaker.config import EnvVars
+from aomaker.config_handlers import EnvVars
 
 
 class BaseLogin(metaclass=ABCMeta):

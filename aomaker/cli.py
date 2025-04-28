@@ -2,8 +2,7 @@
 import os
 import ast
 import sys
-import json
-from typing import List, Text
+from typing import List
 import webbrowser
 from threading import Timer
 from pathlib import Path
@@ -12,22 +11,18 @@ import click
 import uvicorn
 from click_help_colors import HelpColorsGroup, version_option
 from rich.console import Console
-from rich.theme import Theme
 from rich.table import Table
 
 from aomaker import __version__, __image__
 from aomaker.log import AoMakerLogger
-from aomaker.path import AOMAKER_YAML_PATH, DIST_STRATEGY_PATH
 from aomaker.hook_manager import cli_hook
 from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
-from aomaker.utils.utils import load_yaml
-from aomaker.models import DistStrategyYaml
-from aomaker.maker.config import OpenAPIConfig, NAMING_STRATEGIES
-from aomaker.maker.parser import OpenAPIParser
-from aomaker.maker.generator import Generator
+from aomaker.maker.config import NAMING_STRATEGIES
 from aomaker._printer import print_message
 from aomaker.runner import run_tests, RunConfig
+from aomaker.maker.cli_handlers import handle_gen_models
+from aomaker.config_handlers import handle_dist_strategy_yaml
 
 SUBCOMMAND_RUN_NAME = "run"
 
@@ -165,118 +160,7 @@ def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class,
     """
     Generate Attrs models from an OpenAPI specification.
     """
-    openapi_config = {}
-    try:
-        if Path(AOMAKER_YAML_PATH).exists():
-            yaml_data = load_yaml(AOMAKER_YAML_PATH)
-            openapi_config = yaml_data.get('openapi', {})
-    except Exception as e:
-        print_message(f"❌ 读取配置文件失败: {e}", style="bold red")
-        sys.exit(1)
-    
-    # 命令行参数优先级高于配置文件
-    final_spec = spec or openapi_config.get('spec')
-    if not final_spec:
-        print_message("❌  错误：必须在命令行参数或配置文件中提供spec参数", style="bold red")
-        sys.exit(1)
-    final_output = output or openapi_config.get('output')
-    final_class_name_strategy = class_name_strategy or openapi_config.get('class_name_strategy')
-    final_custom_strategy = custom_strategy or openapi_config.get('custom_strategy','')
-    final_base_api_class = base_api_class or openapi_config.get('base_api_class')
-    final_base_api_class_alias = base_api_class_alias or openapi_config.get('base_api_class_alias')
-
-    naming_strategy = NAMING_STRATEGIES["operation_id"]
-    if final_class_name_strategy in NAMING_STRATEGIES:
-        naming_strategy = NAMING_STRATEGIES[final_class_name_strategy]
-    
-    import yaml
-    
-    if final_spec.startswith(('http://', 'https://')):
-        import requests
-        try:
-            response = requests.get(final_spec)
-            response.raise_for_status()
-            content_type = response.headers.get('Content-Type', '')
-
-            if 'json' in content_type:
-                doc = response.json()
-            elif 'yaml' in content_type or 'yml' in content_type:
-                doc = yaml.safe_load(response.text)
-            else:
-                try:
-                    doc = response.json()
-                except:
-                    doc = yaml.safe_load(response.text)
-        except Exception as e:
-            print_message(f"获取或解析URL失败: {e}", style="bold red")
-            return
-    else:
-        spec_path = Path(final_spec)
-
-        if not spec_path.exists():
-            print_message(f"文件不存在: {final_spec}", style="bold red")
-            return
-
-        file_suffix = spec_path.suffix.lower()
-        try:
-            with spec_path.open('r', encoding='utf-8') as f:
-                if file_suffix == '.json':
-                    doc = json.load(f)
-                elif file_suffix in ['.yaml', '.yml']:
-                    doc = yaml.safe_load(f)
-                else:
-                    content = f.read()
-                    try:
-                        doc = json.loads(content)
-                    except json.JSONDecodeError:
-                        doc = yaml.safe_load(content)
-        except Exception as e:
-            print_message(f"读取或解析文件失败: {e}", style="bold red")
-            return
-
-    output_path = Path(final_output)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    config = OpenAPIConfig(
-        class_name_strategy=naming_strategy,
-        base_api_class=final_base_api_class,
-        base_api_class_alias=final_base_api_class_alias,
-        custom_strategy=final_custom_strategy
-    )
-
-    custom_theme = Theme({
-        "primary": "#7B61FF",
-        "secondary": "#00C7BE",
-        "success": "#34D399",
-        "warning": "#FBBF24",
-        "error": "#EF4444",
-        "highlight": "#F472B6",
-        "muted": "#94A3B8",
-        "accent": "#38BDF8",
-        "gradient_start": "#8B5CF6",
-        "gradient_end": "#EC4899"
-    })
-
-    console = Console(theme=custom_theme)
-    console.print(
-        "[bold gradient(75)][gradient_start]⚡[/][gradient_end]AOMaker OpenAPI Processor[/]",
-        justify="center"
-    )
-
-    with console.status("[primary]🚀 Initializing...[/]", spinner="dots") as status:
-        status.update("[gradient(75)]🔨 OpenAPI数据解析中...[/]")
-        parser = OpenAPIParser(doc, config=config, console=console)
-        api_groups = parser.parse()
-
-        status.update("[gradient(75)]⚡ Generating code[/]")
-        generator = Generator(output_dir=final_output, config=config, console=console)
-        generator.generate(api_groups)
-
-    console.print(
-        "[success on black]  🍺 [bold]All API Objects generation completed![/]  ",
-        style="blink bold", justify="center"
-    )
-
+    handle_gen_models(spec, output, class_name_strategy, custom_strategy, base_api_class, base_api_class_alias)
 
 @show.command(name="stats")
 @click.option("--package", help="Package name to filter by.")
@@ -409,29 +293,11 @@ def _handle_dist_mode(d_mark, d_file, d_suite):
         print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
         return params
 
-    params = _handle_dist_strategy_yaml()
+    params = handle_dist_strategy_yaml()
     mode_msg = "dist-mark(dist_strategy.yaml策略)"
     print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
     return params
 
-
-def _handle_dist_strategy_yaml() -> List[Text]:
-    if not os.path.exists(DIST_STRATEGY_PATH):
-        print_message(f':confounded_face: aomaker并行执行策略文件{DIST_STRATEGY_PATH}不存在！', style="bold red")
-        sys.exit(1)
-    yaml_data = load_yaml(DIST_STRATEGY_PATH)
-    content = DistStrategyYaml(**yaml_data)
-    targets = content.target
-    marks = content.marks
-    d_mark = []
-    for target in targets:
-        if "." in target:
-            target, strategy = target.split(".", 1)
-            marks_li = marks[target][strategy]
-        else:
-            marks_li = marks[target]
-        d_mark.extend([f"-m {mark}" for mark in marks_li])
-    return d_mark
 
 
 def main_arun_alias():
