@@ -20,7 +20,7 @@ from aomaker.param_types import QUOTED_STR
 from aomaker.scaffold import create_scaffold
 from aomaker.maker.config import NAMING_STRATEGIES
 from aomaker._printer import print_message
-from aomaker.runner import run_tests, RunConfig
+
 from aomaker.maker.cli_handlers import handle_gen_models
 from aomaker.config_handlers import handle_dist_strategy_yaml
 
@@ -95,6 +95,7 @@ def mock():
               help="Number of processes to run concurrently. Defaults to the number of CPU cores available on the system.")
 @click.pass_context
 def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, skip_login, no_gen, processes, **custom_kwargs):
+    from aomaker.runner import run_tests, RunConfig
     pytest_args = ctx.args
     extra_custom_kwargs = ctx.obj or {}
     all_custom_kwargs = {**custom_kwargs, **extra_custom_kwargs}
@@ -343,7 +344,7 @@ def main_run(env: str = None,
     if mp or mt:
         run_mode = "mp" if mp else "mt"
         task_args = _handle_dist_mode(d_mark, d_file, d_suite)
-
+    from aomaker.runner import run_tests, RunConfig
     run_config = RunConfig(
         env=env,
         run_mode=run_mode,
