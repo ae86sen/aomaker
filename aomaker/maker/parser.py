@@ -64,10 +64,10 @@ class OpenAPIParser(JsonSchemaParser):
                         f"[muted]({idx}/{total_paths})[/]"
                     )
                 operation = Operation.model_validate(op_data)
-                self.current_tags = operation.tags
+                self.current_tags = operation.tags or ['default']
                 endpoint = self.parse_endpoint(path, method, operation)
 
-                for tag in operation.tags or ['default']:
+                for tag in self.current_tags:
                     if tag not in self.api_groups:
                         self.api_groups[tag] = APIGroup(tag=tag)
                     self.api_groups[tag].add_endpoint(endpoint)
@@ -77,12 +77,13 @@ class OpenAPIParser(JsonSchemaParser):
 
     def parse_endpoint(self, path: str, method: str, operation: Operation) -> Endpoint:
         class_name = self.config.class_name_strategy(path, method, operation)
+        endpoint_tags = operation.tags or ['default']
         endpoint = Endpoint(
             class_name=class_name,
             endpoint_id=operation.operationId or f"{path}_{method}",
             path=path,
             method=method,
-            tags=operation.tags,
+            tags=endpoint_tags,
             description=operation.description
         )
 

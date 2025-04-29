@@ -573,7 +573,7 @@ class TokenResponseData(GenericDataResponse):
 
 import pytest
 
-from ..apis.mock.apis import (
+from apis.mock.apis import (
     GetUserAPI, 
     GetUsersAPI,
     CreateUserAPI,
