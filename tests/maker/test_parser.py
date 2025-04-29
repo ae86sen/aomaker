@@ -98,6 +98,42 @@ DOC_WITH_NON_HTTP_METHODS = {
     }
 }
 
+# 新增一个测试文档，包含无标签接口且引用模型
+DOC_NO_TAGS_WITH_MODEL = {
+    "openapi": "3.0.0",
+    "info": {"title": "No Tags With Model API", "version": "1.0.0"},
+    "components": {
+        "schemas": {
+            "SimpleData": {
+                "type": "object",
+                "properties": {
+                    "value": {"type": "string"}
+                },
+                "required": ["value"]
+            }
+        }
+    },
+    "paths": {
+        "/data": {
+            "get": {
+                "summary": "Get data",
+                "operationId": "getDataNoTags",
+                # 没有 tags 字段
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/SimpleData"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 def create_parser(doc):
     mock_console = MagicMock()
     return OpenAPIParser(doc, console=mock_console)
@@ -196,9 +232,10 @@ def test_parse_empty_paths():
 
 def test_parse_single_endpoint_no_tags():
     """
-    Purpose: Verify an endpoint without tags is added to the 'default' APIGroup.
+    Purpose: Verify an endpoint without tags is added to the 'default' APIGroup,
+             and the Endpoint object itself has tags set to ['default'].
     Input: OpenAPI dict with one path/method, no tags.
-    Expected: One APIGroup ('default') with one Endpoint.
+    Expected: One APIGroup ('default') with one Endpoint having tags=['default'].
     """
     parser = create_parser(DOC_SINGLE_ENDPOINT_NO_TAGS)
     api_groups = parser.parse()
@@ -211,7 +248,7 @@ def test_parse_single_endpoint_no_tags():
     assert endpoint.path == '/items'
     assert endpoint.method == 'get'
     assert endpoint.endpoint_id == 'getItems'
-    assert endpoint.tags == []
+    assert endpoint.tags == ['default'], "Endpoint tags should default to ['default']"
 
 def test_parse_multiple_endpoints_single_tag():
     """
@@ -1196,4 +1233,52 @@ def test_response_array_of_ref():
     assert Import(from_='typing', import_='List') in endpoint.imports
     assert Import(from_='.models', import_='Item') in endpoint.imports
     assert Import(from_='typing', import_='Optional') in endpoint.imports
+
+def test_parse_endpoint_no_tags_collects_models():
+    """
+    Purpose: Verify endpoint without tags referencing a model is correctly processed.
+             Ensures the model is associated with the 'default' tag and collected.
+    Input: OpenAPI dict with an endpoint lacking tags but referencing a component schema.
+    Expected:
+        - One APIGroup ('default') is created.
+        - The endpoint is added to the 'default' group.
+        - The referenced model ('SimpleData') is parsed.
+        - The 'SimpleData' model is correctly collected into the 'default' APIGroup's models.
+        - The collected model should have ['default'] as its tag.
+    """
+    parser = create_parser(DOC_NO_TAGS_WITH_MODEL)
+    # 需要先手动调用 _register_component_schemas 来模拟组件模型的预注册
+    # 因为 parser.parse() 内部依赖模型已存在于 model_registry
+    parser._register_component_schemas()
+
+    api_groups = parser.parse()
+
+    # 1. 验证分组
+    assert len(api_groups) == 1, "Should create one 'default' group"
+    group = api_groups[0]
+    assert group.tag == 'default', "Group tag should be 'default'"
+
+    # 2. 验证端点
+    assert len(group.endpoints) == 1, "Should have one endpoint in the group"
+    endpoint = group.endpoints[0]
+    assert endpoint.endpoint_id == 'getDataNoTags'
+    assert endpoint.tags == ['default'], "Endpoint tags should default to ['default']" # parser内部会补充默认值
+
+    # 3. 验证端点引用的响应模型
+    assert endpoint.response is not None, "Endpoint should have a response model reference"
+    assert isinstance(endpoint.response, DataModel)
+    assert endpoint.response.name == 'SimpleData', "Endpoint response should reference SimpleData model"
+
+    # 4. 验证模型被正确收集到分组中
+    assert 'SimpleData' in group.models, "SimpleData model should be collected in the default group"
+    collected_model = group.models['SimpleData']
+    assert isinstance(collected_model, DataModel)
+    assert collected_model.name == 'SimpleData'
+
+    # 5. 验证收集到的模型具有正确的标签
+    # 在应用修复后，这里应该包含 'default'
+    # parser.parse() -> endpoint.parse() -> schema_parser.parse() 会设置 current_tags
+    # 然后 model_registry 注册的模型会带有正确的 tags
+    # APIGroup.collect_models 会根据模型的 tags 收集
+    assert collected_model.tags == ['default'], f"Collected model tags should be ['default'], but got {collected_model.tags}"
 
