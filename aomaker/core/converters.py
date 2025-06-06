@@ -1,6 +1,6 @@
 # --coding:utf-8--
 from __future__ import annotations
-from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any
+from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any, Union, get_args, Dict
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum
@@ -53,6 +53,44 @@ def time_structure_hook(value, _type):
         return time.fromisoformat(value)
     else:
         raise ValueError(f"无法将 {value} 转换为 time")
+    
+    
+def _register_union_structure_hooks():
+    """注册Union类型的structure hook来处理复杂的Union类型"""
+    def structure_union_hook(obj, union_type):
+        """智能处理Union类型的转换"""
+        union_args = get_args(union_type)
+        if not union_args:
+            return obj
+        
+        # 如果对象已经是Union中的某个类型，直接返回
+        for arg_type in union_args:
+            if isinstance(obj, arg_type):
+                return obj
+        
+        # 如果是dict，尝试转换为最具体的attrs类
+        if isinstance(obj, dict):
+            for arg_type in union_args:
+                if (hasattr(arg_type, '__attrs_attrs__') and 
+                    arg_type not in (dict, Dict)):
+                    try:
+                        return cattrs_converter.structure(obj, arg_type)
+                    except Exception:
+                        continue
+            return obj
+        
+        return obj
+    
+    def is_union_type(tp):
+        """检查是否是Union类型"""
+        return (hasattr(tp, '__origin__') and 
+                tp.__origin__ is Union)
+    
+    cattrs_converter.register_structure_hook_func(
+        is_union_type,
+        structure_union_hook
+    )
+
 
 
 # 注册结构化钩子
@@ -62,7 +100,7 @@ cattrs_converter.register_structure_hook(time, time_structure_hook)
 cattrs_converter.register_structure_hook(UUID, lambda value, _: UUID(value))
 cattrs_converter.register_structure_hook(Decimal, lambda value, _: Decimal(str(value)))
 cattrs_converter.register_structure_hook(Enum, lambda value, cls: cls(value))
-
+_register_union_structure_hooks()
 # ===== 反结构化钩子（将对象转换为可序列化数据）=====
 
 # 注册反结构化钩子
