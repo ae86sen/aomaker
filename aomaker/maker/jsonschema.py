@@ -143,6 +143,7 @@ class JsonSchemaParser:
         required_fields = schema_obj.required or []
         is_add_optional_import = False
         for prop_name, prop_schema in schema_obj.properties.items():
+            original_prop_name = prop_name  # 保存原始字段名用于 required 检查
             prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
             if is_python_keyword(prop_name):
                 alias = prop_name
@@ -184,7 +185,7 @@ class JsonSchemaParser:
             field = DataModelField(
                 name=prop_name,
                 data_type=prop_type,
-                required=prop_name in required_fields,
+                required=original_prop_name in required_fields,  # 使用原始字段名检查 required
                 default=prop_schema.default,
                 description=prop_schema.description,
                 alias=alias,
@@ -500,8 +501,8 @@ class JsonSchemaParser:
         for value in schema_obj.enum:
             field_name = normalize_enum_name(value)
             if is_python_keyword(field_name=field_name):
-                alias = f"{field_name}_"
-                field_name = alias
+                alias = field_name  # 原始名称作为 alias
+                field_name = f"{field_name}_"  # 修改后的名称作为字段名
             else:
                 alias = None
             fields.append(DataModelField(

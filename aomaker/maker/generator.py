@@ -243,8 +243,8 @@ class TemplateRenderUtils:
         if metadata := cls.render_field_metadata(field):
             params.append(metadata)
 
-        if field.alias:
-            params.append(f"alias='{field.alias}'")
+        # if field.alias:
+        #     params.append(f"alias='{field.alias}'")
 
         return ", ".join(params)
 

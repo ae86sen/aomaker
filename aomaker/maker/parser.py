@@ -8,7 +8,7 @@ from rich.console import Console
 from aomaker.maker.models import DataModelField, Operation, Reference, Response, RequestBody, Import, MediaType, \
     MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject, DataModel
 from aomaker.log import logger
-from aomaker.maker.jsonschema import JsonSchemaParser
+from aomaker.maker.jsonschema import JsonSchemaParser, is_python_keyword
 from aomaker.maker.config import OpenAPIConfig
 from aomaker.maker.compat import SwaggerAdapter
 
@@ -159,12 +159,20 @@ class OpenAPIParser(JsonSchemaParser):
             else:
                 raise ValueError(f"参数未定义 schema_obj 或 content: {param_obj.name}")
 
+            # 处理 Python 关键字
+            param_name = param_obj.name
+            alias = None
+            if is_python_keyword(param_name):
+                alias = param_name
+                param_name = f"{param_name}_"
+
             field_ = DataModelField(
-                name=param_obj.name,
+                name=param_name,
                 data_type=data_type,
                 required=param_obj.required,
                 default=default,
                 description=description,
+                alias=alias,
             )
             parsed[location].append(field_)
 
