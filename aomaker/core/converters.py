@@ -1,11 +1,13 @@
 # --coding:utf-8--
 from __future__ import annotations
-from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any, Union, get_args, Dict
+from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any, get_args, Union, Dict
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID
+import keyword
 
+import cattrs
 from attrs import has, define, field
 from cattrs import Converter as CattrsConverter
 
@@ -25,6 +27,66 @@ REQUEST_BUILDERS = {
 T = TypeVar('T')
 
 cattrs_converter = CattrsConverter()
+
+# ===== Python关键字alias自动处理 =====
+
+def _get_keyword_alias_fields(cls):
+    """检测attrs类中需要重命名为Python关键字的字段"""
+    if not has(cls):
+        return {}
+    
+    keyword_aliases = {}
+    for attr in cls.__attrs_attrs__:
+        # 策略1：检查字段是否有alias且alias是Python关键字
+        if hasattr(attr, 'alias') and attr.alias and keyword.iskeyword(attr.alias):
+            keyword_aliases[attr.name] = attr.alias
+        # 策略2：检查字段名是否以_结尾，且去掉_后是Python关键字
+        elif attr.name.endswith('_') and keyword.iskeyword(attr.name[:-1]):
+            keyword_aliases[attr.name] = attr.name[:-1]
+    return keyword_aliases
+
+def _auto_configure_keyword_alias_renaming(cls):
+    """自动为使用Python关键字alias的attrs类配置cattrs重命名规则"""
+    keyword_aliases = _get_keyword_alias_fields(cls)
+    
+    if not keyword_aliases:
+        return  # 没有关键字alias，无需配置
+    
+    # 准备cattrs.override参数
+    overrides = {}
+    for field_name, alias in keyword_aliases.items():
+        overrides[field_name] = cattrs.override(rename=alias)
+    
+    # 配置unstructure（对象 -> 字典）
+    cattrs_converter.register_unstructure_hook(
+        cls,
+        cattrs.gen.make_dict_unstructure_fn(
+            cls,
+            cattrs_converter,
+            **overrides
+        )
+    )
+    
+    # 配置structure（字典 -> 对象）
+    cattrs_converter.register_structure_hook(
+        cls,
+        cattrs.gen.make_dict_structure_fn(
+            cls,
+            cattrs_converter,
+            **overrides
+        )
+    )
+
+def _ensure_keyword_alias_configured(cls):
+    """确保指定类型的关键字alias重命名已配置"""
+    if cls is None:
+        return
+    
+    # 如果是attrs类且还没有配置过重命名规则
+    if has(cls) and not hasattr(cls, '_aomaker_keyword_alias_configured'):
+        _auto_configure_keyword_alias_renaming(cls)
+        # 标记已配置，避免重复配置
+        cls._aomaker_keyword_alias_configured = True
 
 
 # ===== 结构化钩子（将原始数据转换为对象）=====
@@ -144,10 +206,13 @@ class RequestConverter:
 
     def unstructure(self, data: Any) -> Any:
         """结构化数据 -> 原始数据"""
+        if data is not None:
+            _ensure_keyword_alias_configured(type(data))
         return self._converter.unstructure(data)
 
     def structure(self, data: Any, type_: Type[T]) -> Any:
         """原始数据 -> 结构化数据"""
+        _ensure_keyword_alias_configured(type_)
         return self._converter.structure(data, type_)
 
     def get_request_builder(self) -> RequestBuilder:
@@ -178,12 +243,20 @@ class RequestConverter:
         return prepared_data
 
     def prepare(self) -> PreparedRequest:
+        params = self.prepare_params()
+        request_body = self.prepare_request_body()
+        
+        if params is not None:
+            _ensure_keyword_alias_configured(type(params))
+        if request_body is not None:
+            _ensure_keyword_alias_configured(type(request_body))
+            
         request_data = {
             "method": self.endpoint_config.method.value,
             "url": self.prepare_url(),
             "headers": self.prepare_headers(),
-            "params": self.prepare_params(),  # 结构化对象
-            "request_body": self.prepare_request_body(),  # 结构化对象
+            "params": params,  # 结构化对象
+            "request_body": request_body,  # 结构化对象
             "files": self.prepare_files() if self.content_type == ContentType.MULTIPART else None,
         }
 
