@@ -103,11 +103,15 @@ class OpenAPIParser(JsonSchemaParser):
                 if request_body_datatype.reference:
                     endpoint.request_body = self.model_registry.get(request_body_datatype.type)
                 elif request_body_datatype.is_inline is True:
-                    endpoint.request_body = DataModel(
-                        name="RequestBody",
-                        fields=request_body_datatype.fields,
-                        imports=request_body_datatype.imports
-                    )
+                    # 检查是否为空模型，如果是空模型则跳过
+                    if not request_body_datatype.fields:
+                        logger.debug(f"跳过生成空的请求体模型: {endpoint.class_name}RequestBody")
+                    else:
+                        endpoint.request_body = DataModel(
+                            name="RequestBody",
+                            fields=request_body_datatype.fields,
+                            imports=request_body_datatype.imports
+                        )
                 else:
                     endpoint.request_body = request_body_datatype
 
@@ -198,10 +202,6 @@ class OpenAPIParser(JsonSchemaParser):
             # 3. 解析类型
             body_type = self.parse_schema(content.schema_, context_name)
 
-            # 4. 如果是对象类型，确保模型已生成
-            if body_type.is_custom_type and body_type.type not in self.model_registry.models:
-                raise ValueError(f"未注册的自定义类型: {body_type.type}")
-
             return body_type
 
     def parse_response(
@@ -237,9 +237,6 @@ class OpenAPIParser(JsonSchemaParser):
             except Exception as e:
                  logger.error(f"解析响应 schema 时出错 for {class_name}, content type {content_type}: {e}")
                  continue
-
-            if response_type.is_custom_type and response_type.type not in self.model_registry.models:
-                raise ValueError(f"内部解析错误：自定义类型 '{response_type.type}' 在解析响应 for '{class_name}' 后未注册。")
 
             return response_type
 

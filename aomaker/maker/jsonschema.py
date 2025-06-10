@@ -125,11 +125,11 @@ class JsonSchemaParser:
             if schema_obj.enum:
                 return self._parse_enum(schema_obj, context)
 
+            if schema_obj.type == 'object' or schema_obj.properties:
+                return self._parse_object_type(schema_obj, context)
+
             if schema_obj.is_array:
                 return self._parse_array_type(schema_obj, context)
-
-            if schema_obj.properties:
-                return self._parse_object_type(schema_obj, context)
 
             return self._parse_basic_datatype(schema_obj)
         finally:
@@ -138,62 +138,67 @@ class JsonSchemaParser:
     def _parse_object_type(self, schema_obj: JsonSchemaObject, context: str) -> DataType:
         """深度解析对象类型"""
         model_name = context
-
-        fields = []
-        required_fields = schema_obj.required or []
         is_add_optional_import = False
-        for prop_name, prop_schema in schema_obj.properties.items():
-            original_prop_name = prop_name  # 保存原始字段名用于 required 检查
-            prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
-            if is_python_keyword(prop_name):
-                alias = prop_name
-                prop_name = f"{prop_name}_"
-            else:
-                alias = None
 
-            # 从 schema 中提取约束条件
-            field_constraints = {}
+        # 如果没有属性，则视为空模型
+        if not schema_obj.properties:
+            fields = []
+            required_fields = []
+        else:
+            fields = []
+            required_fields = schema_obj.required or []
+            for prop_name, prop_schema in schema_obj.properties.items():
+                original_prop_name = prop_name  # 保存原始字段名用于 required 检查
+                prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
+                if is_python_keyword(prop_name):
+                    alias = prop_name
+                    prop_name = f"{prop_name}_"
+                else:
+                    alias = None
 
-            # 提取字符串类约束
-            if prop_schema.min_length is not None:
-                field_constraints['min_length'] = prop_schema.min_length
-            if prop_schema.max_length is not None:
-                field_constraints['max_length'] = prop_schema.max_length
-            if prop_schema.pattern is not None:
-                field_constraints['pattern'] = prop_schema.pattern
+                # 从 schema 中提取约束条件
+                field_constraints = {}
 
-            # 提取数值类约束
-            if prop_schema.minimum is not None:
-                field_constraints['minimum'] = prop_schema.minimum
-            if prop_schema.maximum is not None:
-                field_constraints['maximum'] = prop_schema.maximum
-            if prop_schema.exclusive_minimum is not None:
-                field_constraints['exclusive_minimum'] = prop_schema.exclusive_minimum
-            if prop_schema.exclusive_maximum is not None:
-                field_constraints['exclusive_maximum'] = prop_schema.exclusive_maximum
-            if prop_schema.multiple_of is not None:
-                field_constraints['multiple_of'] = prop_schema.multiple_of
+                # 提取字符串类约束
+                if prop_schema.min_length is not None:
+                    field_constraints['min_length'] = prop_schema.min_length
+                if prop_schema.max_length is not None:
+                    field_constraints['max_length'] = prop_schema.max_length
+                if prop_schema.pattern is not None:
+                    field_constraints['pattern'] = prop_schema.pattern
 
-            # 提取数组类约束
-            if prop_schema.min_items is not None:
-                field_constraints['min_items'] = prop_schema.min_items
-            if prop_schema.max_items is not None:
-                field_constraints['max_items'] = prop_schema.max_items
-            if prop_schema.unique_items is not None:
-                field_constraints['unique_items'] = prop_schema.unique_items
+                # 提取数值类约束
+                if prop_schema.minimum is not None:
+                    field_constraints['minimum'] = prop_schema.minimum
+                if prop_schema.maximum is not None:
+                    field_constraints['maximum'] = prop_schema.maximum
+                if prop_schema.exclusive_minimum is not None:
+                    field_constraints['exclusive_minimum'] = prop_schema.exclusive_minimum
+                if prop_schema.exclusive_maximum is not None:
+                    field_constraints['exclusive_maximum'] = prop_schema.exclusive_maximum
+                if prop_schema.multiple_of is not None:
+                    field_constraints['multiple_of'] = prop_schema.multiple_of
 
-            field = DataModelField(
-                name=prop_name,
-                data_type=prop_type,
-                required=original_prop_name in required_fields,  # 使用原始字段名检查 required
-                default=prop_schema.default,
-                description=prop_schema.description,
-                alias=alias,
-                **field_constraints
-            )
-            fields.append(field)
-            if field.required:
-                is_add_optional_import = True
+                # 提取数组类约束
+                if prop_schema.min_items is not None:
+                    field_constraints['min_items'] = prop_schema.min_items
+                if prop_schema.max_items is not None:
+                    field_constraints['max_items'] = prop_schema.max_items
+                if prop_schema.unique_items is not None:
+                    field_constraints['unique_items'] = prop_schema.unique_items
+
+                field = DataModelField(
+                    name=prop_name,
+                    data_type=prop_type,
+                    required=original_prop_name in required_fields,  # 使用原始字段名检查 required
+                    default=prop_schema.default,
+                    description=prop_schema.description,
+                    alias=alias,
+                    **field_constraints
+                )
+                fields.append(field)
+                if not field.required:
+                    is_add_optional_import = True
 
         fields.sort(key=lambda field_: not field_.required)
         imports_from_fields = self._collect_imports_from_fields(fields)
@@ -209,6 +214,11 @@ class JsonSchemaParser:
                 fields=fields,
                 imports=imports_from_fields
             )
+
+        # 检查是否为空模型，如果是空模型则不注册，返回None类型
+        if not fields:
+            logger.debug(f"跳过注册空模型: {model_name}")
+            return self._parse_basic_datatype(schema_obj)
 
         data_model = DataModel(
             name=model_name,
