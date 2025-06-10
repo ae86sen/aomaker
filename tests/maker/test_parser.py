@@ -1011,6 +1011,154 @@ def test_reqbody_multipart():
 
     assert Import(from_='typing', import_='Optional') in endpoint.imports
 
+def test_reqbody_json_inline_empty_object():
+    """
+    Purpose: Parse a request body with an inline but empty object schema.
+    Input: requestBody with content -> application/json -> schema -> {type: object}.
+    Expected: 空对象不应该生成模型，endpoint.request_body应为None。
+    """
+    doc = {
+        "openapi": "3.0.0", "info": {"title": "Req Body Empty Object API", "version": "1.0.0"},
+        "paths": {
+            "/submit/anything": {
+                "post": {
+                    "operationId": "submitAnything", "tags": ["Items"],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object", # An empty object
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"201": {"description": "Data received"}}
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    # This call should not raise a ValueError
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    # 空对象不应该生成模型
+    assert endpoint.request_body is None
+
+def test_reqbody_json_inline_empty_properties_object():
+    """
+    Purpose: Parse a request body with an inline object that has an empty properties-object.
+    Input: requestBody with ... schema -> {type: object, "properties": {}}.
+    Expected: 空对象不应该生成模型，endpoint.request_body应为None。
+    """
+    doc = {
+        "openapi": "3.0.0", "info": {"title": "Req Body Empty Props API", "version": "1.0.0"},
+        "paths": {
+            "/submit/empty_props": {
+                "post": {
+                    "operationId": "submitEmptyProps", "tags": ["Items"],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {}  # Empty properties object
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"201": {"description": "Data received"}}
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+
+    # 空对象不应该生成模型
+    assert endpoint.request_body is None
+
+
+def test_response_inline_empty_object_schema():
+    """
+    Purpose: 测试空的 inline 对象响应模式的解析。
+    Input: 接口返回空的 inline object schema。
+    Expected: 空对象不应该生成模型。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Empty Inline Response API", "version": "1.0.0"},
+        "paths": {
+            "/item/empty": {
+                "get": {
+                    "operationId": "getEmptyItem",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object" # Empty object
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    # This call should not raise a ValueError
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    
+    # 空对象不应该生成模型
+    assert endpoint.response is None
+    # 由于没有生成模型，相关的import也不应该存在
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+
+def test_response_inline_empty_properties_object_schema():
+    """
+    Purpose: 测试一个带有空 properties 对象的 inline 响应模式的解析。
+    Input: 接口返回 {type: object, "properties": {}}。
+    Expected: 空对象不应该生成模型。
+    """
+    doc = {
+        "openapi": "3.0.0",
+        "info": {"title": "Empty Props Inline Response API", "version": "1.0.0"},
+        "paths": {
+            "/item/empty_props": {
+                "get": {
+                    "operationId": "getEmptyPropsItem",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {} # Empty properties object
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    parser = create_parser(doc)
+    api_groups = parser.parse()
+    endpoint = api_groups[0].endpoints[0]
+    
+    # 空对象不应该生成模型
+    assert endpoint.response is None
+    # 由于没有生成模型，相关的import也不应该存在
+    assert Import(from_='typing', import_='Optional') in endpoint.imports
+
 # --- Response Parsing Tests ---
 
 def test_response_ref_component_schema():

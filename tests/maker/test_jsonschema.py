@@ -346,7 +346,7 @@ def test_parse_inline_object(parser: JsonSchemaParser):
     assert field.name == "param"
     assert field.data_type.type == "str"
     assert field.required
-    assert data_type.imports == {Import(from_="typing", import_="Optional")} # 根据当前代码行为断言
+    assert data_type.imports == set() # No optional fields, so no Optional import needed
 
 # --- Tests for JsonSchemaParser Array Parsing ---
 
