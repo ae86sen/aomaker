@@ -150,11 +150,10 @@ class JsonSchemaParser:
             for prop_name, prop_schema in schema_obj.properties.items():
                 original_prop_name = prop_name  # 保存原始字段名用于 required 检查
                 prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
-                if is_python_keyword(prop_name):
-                    alias = prop_name
-                    prop_name = f"{prop_name}_"
-                else:
-                    alias = None
+                
+                # 规范化字段名，处理连字符等非法字符
+                normalized_prop_name, alias = normalize_field_name(prop_name)
+                prop_name = normalized_prop_name
 
                 # 从 schema 中提取约束条件
                 field_constraints = {}
@@ -701,6 +700,41 @@ def normalize_class_name(name: str) -> str:
 
     logger.debug(f"类名规范化完成: {original_name} -> {name}")
     return name
+
+
+def normalize_field_name(field_name: str) -> Tuple[str, Optional[str]]:
+    """
+    规范化字段名为合法的Python标识符
+    
+    Args:
+        field_name: 原始字段名
+        
+    Returns:
+        Tuple[str, Optional[str]]: (规范化后的字段名, 原始字段名作为alias或None)
+    """
+    original_name = field_name
+    
+    # 如果字段名包含连字符、空格或其他非法字符，需要处理
+    if not field_name.isidentifier() or is_python_keyword(field_name):
+        # 将连字符、空格等替换为下划线
+        normalized = re.sub(r'[^\w]', '_', field_name)
+        
+        # 如果以数字开头，添加下划线前缀
+        if normalized and normalized[0].isdigit():
+            normalized = f'_{normalized}'
+        
+        # 如果是Python关键字，添加下划线后缀
+        if is_python_keyword(normalized):
+            normalized = f'{normalized}_'
+            
+        # 如果处理后为空或只有下划线，使用默认名称
+        if not normalized or normalized.strip('_') == '':
+            normalized = 'field_'
+            
+        return normalized, original_name
+    else:
+        # 字段名已经是合法的Python标识符，不需要alias
+        return field_name, None
 
 
 def is_python_keyword(field_name: str) -> bool:

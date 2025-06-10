@@ -181,6 +181,10 @@ class TemplateRenderUtils:
             
             metadata_parts.append(f'"description": {formatted_desc}')
         
+        # 处理原始字段名（用于序列化）
+        if field.alias:
+            metadata_parts.append(f'"original_name": "{field.alias}"')
+        
         # 处理jsonschema约束
         
         # 类型和格式（特殊处理UUID）

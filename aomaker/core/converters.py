@@ -31,30 +31,33 @@ cattrs_converter = CattrsConverter()
 # ===== Python关键字alias自动处理 =====
 
 def _get_keyword_alias_fields(cls):
-    """检测attrs类中需要重命名为Python关键字的字段"""
+    """检测attrs类中需要重命名的字段（包括Python关键字和非法字符字段名）"""
     if not has(cls):
         return {}
     
-    keyword_aliases = {}
+    field_aliases = {}
     for attr in cls.__attrs_attrs__:
         # 策略1：检查字段是否有alias且alias是Python关键字
         if hasattr(attr, 'alias') and attr.alias and keyword.iskeyword(attr.alias):
-            keyword_aliases[attr.name] = attr.alias
+            field_aliases[attr.name] = attr.alias
         # 策略2：检查字段名是否以_结尾，且去掉_后是Python关键字
         elif attr.name.endswith('_') and keyword.iskeyword(attr.name[:-1]):
-            keyword_aliases[attr.name] = attr.name[:-1]
-    return keyword_aliases
+            field_aliases[attr.name] = attr.name[:-1]
+        # 策略3：检查metadata中是否有original_name（用于处理连字符等非法字符）
+        elif hasattr(attr, 'metadata') and attr.metadata and 'original_name' in attr.metadata:
+            field_aliases[attr.name] = attr.metadata['original_name']
+    return field_aliases
 
-def _auto_configure_keyword_alias_renaming(cls):
-    """自动为使用Python关键字alias的attrs类配置cattrs重命名规则"""
-    keyword_aliases = _get_keyword_alias_fields(cls)
+def _auto_configure_field_alias_renaming(cls):
+    """自动为使用字段别名的attrs类配置cattrs重命名规则（包括Python关键字和非法字符字段名）"""
+    field_aliases = _get_keyword_alias_fields(cls)
     
-    if not keyword_aliases:
-        return  # 没有关键字alias，无需配置
+    if not field_aliases:
+        return  # 没有字段别名，无需配置
     
     # 准备cattrs.override参数
     overrides = {}
-    for field_name, alias in keyword_aliases.items():
+    for field_name, alias in field_aliases.items():
         overrides[field_name] = cattrs.override(rename=alias)
     
     # 配置unstructure（对象 -> 字典）
@@ -77,16 +80,16 @@ def _auto_configure_keyword_alias_renaming(cls):
         )
     )
 
-def _ensure_keyword_alias_configured(cls):
-    """确保指定类型的关键字alias重命名已配置"""
+def _ensure_field_alias_configured(cls):
+    """确保指定类型的字段别名重命名已配置（包括Python关键字和非法字符字段名）"""
     if cls is None:
         return
     
     # 如果是attrs类且还没有配置过重命名规则
-    if has(cls) and not hasattr(cls, '_aomaker_keyword_alias_configured'):
-        _auto_configure_keyword_alias_renaming(cls)
+    if has(cls) and not hasattr(cls, '_aomaker_field_alias_configured'):
+        _auto_configure_field_alias_renaming(cls)
         # 标记已配置，避免重复配置
-        cls._aomaker_keyword_alias_configured = True
+        cls._aomaker_field_alias_configured = True
 
 
 # ===== 结构化钩子（将原始数据转换为对象）=====
@@ -207,12 +210,12 @@ class RequestConverter:
     def unstructure(self, data: Any) -> Any:
         """结构化数据 -> 原始数据"""
         if data is not None:
-            _ensure_keyword_alias_configured(type(data))
+            _ensure_field_alias_configured(type(data))
         return self._converter.unstructure(data)
 
     def structure(self, data: Any, type_: Type[T]) -> Any:
         """原始数据 -> 结构化数据"""
-        _ensure_keyword_alias_configured(type_)
+        _ensure_field_alias_configured(type_)
         return self._converter.structure(data, type_)
 
     def get_request_builder(self) -> RequestBuilder:
@@ -247,9 +250,9 @@ class RequestConverter:
         request_body = self.prepare_request_body()
         
         if params is not None:
-            _ensure_keyword_alias_configured(type(params))
+            _ensure_field_alias_configured(type(params))
         if request_body is not None:
-            _ensure_keyword_alias_configured(type(request_body))
+            _ensure_field_alias_configured(type(request_body))
             
         request_data = {
             "method": self.endpoint_config.method.value,
