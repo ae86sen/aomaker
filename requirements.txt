@@ -4,7 +4,7 @@ jsonpath==0.82.2
 loguru==0.7.2
 PyMySQL
 pytest==7.4.2
-PyYAML==6.0
+PyYAML==6.0.2
 requests==2.31.0
 allure-pytest==2.8.24
 colorlog==6.7.0
