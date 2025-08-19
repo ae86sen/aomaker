@@ -1,7 +1,7 @@
 # --coding:utf-8--
 from __future__ import annotations
 from enum import Enum
-from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable, Union, Iterator
+from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable, Union, Iterator, Tuple
 
 from attrs import define, field
 
@@ -42,7 +42,7 @@ class FormURLEncodedRequest(BaseHTTPRequest):
 
 @define
 class MultipartFormDataRequest(BaseHTTPRequest):
-    files: Optional[Dict[str, Any]] = field(factory=dict)
+    files: Optional[Union[Dict[str, Any], List[Tuple[str, Any]]]] = field(factory=dict)
     data: Optional[Dict[str, str]] = field(factory=dict)
 
 
@@ -65,7 +65,7 @@ class PreparedRequest:
     headers: dict
     params: Optional[dict] = field(default=None)
     request_body: Optional[Union[dict, str]] = field(default=None)
-    files: Optional[dict] = field(default=None)
+    files: Optional[Union[Dict[str, Any], List[Tuple[str, Any]]]] = field(default=None)
 
 
 ParametersT = TypeVar("ParametersT", bound=type)

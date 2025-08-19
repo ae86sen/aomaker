@@ -999,17 +999,23 @@ def test_reqbody_multipart():
     assert endpoint.request_body is not None
     assert isinstance(endpoint.request_body, DataModel)
     assert endpoint.request_body.name == "RequestBody"
-    assert len(endpoint.request_body.fields) == 2
+    assert len(endpoint.request_body.fields) == 1
+    assert len(endpoint.file_fields) == 1 
 
     fields_dict = {f.name: f for f in endpoint.request_body.fields}
+    file_fields_dict = {f.name: f for f in endpoint.file_fields}
     assert "description" in fields_dict
     assert fields_dict["description"].data_type.type == "str"
     assert fields_dict["description"].required is False
-    assert "file" in fields_dict
-    assert fields_dict["file"].required is True
-    assert fields_dict["file"].data_type.type == "bytes"
+    assert "file" in file_fields_dict
+    assert file_fields_dict["file"].required is True
 
     assert Import(from_='typing', import_='Optional') in endpoint.imports
+    assert Import(from_='typing', import_='Union') in endpoint.imports
+    assert Import(from_='typing', import_='List') in endpoint.imports
+    assert Import(from_='typing', import_='Tuple') in endpoint.imports
+    assert Import(from_='typing', import_='Dict') in endpoint.imports
+    assert Import(from_='typing', import_='Any') in endpoint.imports
 
 def test_reqbody_json_inline_empty_object():
     """

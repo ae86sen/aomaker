@@ -8,7 +8,7 @@ from rich.console import Console
 
 from .parser import APIGroup, Endpoint
 from .config import OpenAPIConfig
-from .models import Import, DataModelField, DataModel, DataType
+from .models import Import, DataModelField, DataModel, DataType, FileField
 
 
 class ImportManager:
@@ -284,6 +284,36 @@ class TemplateRenderUtils:
     def is_datatype(cls, value):
         return isinstance(value, DataType)
 
+    @classmethod
+    def create_files_field_for_metadata(cls, file_fields: List[FileField]) -> DataModelField:
+        """将FileField列表转换为一个用于生成metadata的DataModelField"""
+        if not file_fields:
+            return DataModelField(
+                name="files",
+                data_type=DataType(type="Dict[str, Any]"),
+                description=None
+            )
+        
+        # 收集所有有描述的字段
+        descriptions = []
+        for f in file_fields:
+            if f.description and f.description.strip():
+                descriptions.append(f"{f.name}: {f.description.strip()}")
+        
+        # 生成综合描述
+        if not descriptions:
+            combined_desc = None
+        elif len(descriptions) == 1:
+            combined_desc = descriptions[0]
+        else:
+            combined_desc = "File fields:\n" + "\n".join(f"  - {desc}" for desc in descriptions)
+        
+        return DataModelField(
+            name="files",
+            data_type=DataType(type="Dict[str, Any]"),
+            description=combined_desc
+        )
+
 
 class Generator:
     def __init__(self, output_dir: str, config: OpenAPIConfig, console: Console = None):
@@ -305,6 +335,7 @@ class Generator:
             'get_base_class': self.render_utils.get_base_class,
             'get_all_api_class_name': self.render_utils.get_all_api_class_name,
             'get_all_model_class_name': self.render_utils.get_all_model_class_name,
+            'create_files_field_for_metadata': self.render_utils.create_files_field_for_metadata,
         })
         self.env.tests['datamodel'] = self.render_utils.is_datamodel
         self.env.tests['datatype'] = self.render_utils.is_datatype

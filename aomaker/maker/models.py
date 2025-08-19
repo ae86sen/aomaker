@@ -36,6 +36,8 @@ class DataType(BaseModel):
     is_custom_type: bool = False
     is_forward_ref: bool = False
     is_inline: bool = False
+    is_file: bool = False
+    file_fields: List["FileField"] = Field(default_factory=list)
     imports: Set[Import] = Field(default_factory=set)
     fields: List["DataModelField"] = Field(default_factory=list)
 
@@ -79,8 +81,16 @@ class DataModelField(BaseModel):
     max_items: Optional[int] = None
     unique_items: Optional[bool] = None
 
+class FileField(BaseModel):
+    """文件字段定义"""
+    name: str
+    description: Optional[str] = None
+    required: bool = True
+    content_type: Optional[str] = None  # MIME类型
 
+    
 DataType.model_rebuild()
+FileField.model_rebuild()
 DataModelField.model_rebuild()
 
 
@@ -88,6 +98,7 @@ class DataModel(BaseModel):
     """数据模型"""
     name: str
     fields: List[DataModelField]
+    file_fields: List[FileField] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     is_enum: bool = False
     is_inline: bool = False  # 是否内联在接口类中
@@ -132,6 +143,7 @@ class MediaType(BaseModel):
     )
     example: Any = None
     examples: Union[str, Reference, Example, None] = None
+    encoding: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 class Parameter(BaseModel):
@@ -178,9 +190,15 @@ class Endpoint(BaseModel):
     path_parameters: List[DataModelField] = field(default_factory=list)
     query_parameters: List[DataModelField] = field(default_factory=list)
     header_parameters: List[DataModelField] = field(default_factory=list)
+    file_fields: List[FileField] = field(default_factory=list)
     request_body: Optional[DataModel] = None
     response: Optional[DataModel] = None
     imports: Set[Import] = field(default_factory=set)
+
+    @property
+    def has_required_file(self) -> bool:
+        """检查是否存在必须上传的文件"""
+        return any(f.required for f in self.file_fields)
 
 
 class APIGroup(BaseModel):

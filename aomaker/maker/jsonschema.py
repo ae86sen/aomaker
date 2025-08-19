@@ -5,7 +5,7 @@ import keyword
 
 from typing import Optional, List, Dict, Set, Tuple, Literal, Any
 
-from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference
+from aomaker.maker.models import DataModel, Import, DataType, DataModelField, JsonSchemaObject, Reference, FileField
 from aomaker.log import logger
 
 TypeMap = {
@@ -139,15 +139,34 @@ class JsonSchemaParser:
         """深度解析对象类型"""
         model_name = context
         is_add_optional_import = False
+        
+        file_fields = []
+        fields = []
 
         # 如果没有属性，则视为空模型
         if not schema_obj.properties:
-            fields = []
             required_fields = []
         else:
-            fields = []
             required_fields = schema_obj.required or []
             for prop_name, prop_schema in schema_obj.properties.items():
+                # 检查是否为文件字段
+                if _is_file_field(prop_schema):
+                    content_type = None
+                    # 尝试从 encoding 获取 content_type
+                    if hasattr(self, 'current_media_type') and self.current_media_type and self.current_media_type.encoding:
+                        encoding_info = self.current_media_type.encoding.get(prop_name)
+                        if encoding_info:
+                            content_type = encoding_info.get('contentType')
+
+                    file_field = FileField(
+                        name=prop_name,
+                        description=prop_schema.description,
+                        required=prop_name in required_fields,
+                        content_type=content_type
+                    )
+                    file_fields.append(file_field)
+                    continue  # 跳过文件字段，不加入常规字段
+
                 original_prop_name = prop_name  # 保存原始字段名用于 required 检查
                 prop_type = self.parse_schema(prop_schema, f"{model_name}_{prop_name}")
                 
@@ -210,18 +229,21 @@ class JsonSchemaParser:
                 type=model_name,
                 is_custom_type=False,
                 is_inline=True,
+                is_file=True if file_fields else False,
                 fields=fields,
-                imports=imports_from_fields
+                imports=imports_from_fields,
+                file_fields=file_fields
             )
 
         # 检查是否为空模型，如果是空模型则不注册，返回None类型
-        if not fields:
+        if not fields and not file_fields:
             logger.debug(f"跳过注册空模型: {model_name}")
             return self._parse_basic_datatype(schema_obj)
 
         data_model = DataModel(
             name=model_name,
             fields=fields,
+            file_fields=file_fields,
             description=schema_obj.description,
             tags=self.current_tags,
             imports=imports_from_fields,
@@ -232,6 +254,8 @@ class JsonSchemaParser:
         return DataType(
             type=model_name,
             is_custom_type=True,
+            is_file=True if file_fields else False,
+            file_fields=file_fields,
             imports={Import(from_='.models', import_=model_name)}
         )
 
@@ -329,25 +353,34 @@ class JsonSchemaParser:
                     type="Any",
                     imports={Import(from_='typing', import_='Any')},
                 )
-            else:
-                logger.debug(f"找到引用schema，开始解析: {ref}")
-                self.parse_schema(ref_schema, normalized_name)
+            
+            logger.debug(f"找到引用schema，开始解析: {ref}")
+            # 捕获并返回从 schema 解析得到的完整的 DataType
+            parsed_datatype = self.parse_schema(ref_schema, normalized_name)
+            parsed_datatype.reference = Reference(ref=ref)  # 补充引用信息
+            return parsed_datatype
         else:
-            logger.debug(f"模型 {normalized_name} 已注册，更新标签")
+            logger.debug(f"模型 {normalized_name} 已注册，从注册表构建DataType")
             model = self.model_registry.get(normalized_name)
             if model:
                 self._update_model_tags_recursive(model)
-
-        # 返回使用规范化名称的DataType
-        logger.debug(f"引用处理完成，返回类型: {normalized_name}")
-        datatype = DataType(
-            type=normalized_name,
-            is_custom_type=True,
-            imports={Import(from_='.models', import_=normalized_name)},
-            reference=Reference(ref=ref)
-        )
-
-        return datatype
+                # 从已注册的模型信息重建 DataType
+                return DataType(
+                    type=model.name,
+                    is_custom_type=True,
+                    is_file=True if model.file_fields else False,
+                    file_fields=model.file_fields,
+                    imports={Import(from_='.models', import_=model.name)},
+                    reference=Reference(ref=ref)
+                )
+            else:
+                logger.warning(f"模型 {normalized_name} 在注册表中但获取失败，返回基础DataType")
+                return DataType(
+                    type=normalized_name,
+                    is_custom_type=True,
+                    imports={Import(from_='.models', import_=normalized_name)},
+                    reference=Reference(ref=ref)
+                )
 
     def _parse_union_type(
             self,
@@ -739,3 +772,12 @@ def normalize_field_name(field_name: str) -> Tuple[str, Optional[str]]:
 
 def is_python_keyword(field_name: str) -> bool:
     return field_name in keyword.kwlist
+
+
+def _is_file_field(schema: JsonSchemaObject) -> bool:
+    """判断字段是否为文件字段 (单个或数组)"""
+    if schema.type == "string" and schema.format == "binary":
+        return True
+    if schema.type == "array" and isinstance(schema.items, JsonSchemaObject):
+        return schema.items.type == "string" and schema.items.format == "binary"
+    return False

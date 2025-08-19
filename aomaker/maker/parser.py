@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 from rich.console import Console
 
 from aomaker.maker.models import DataModelField, Operation, Reference, Response, RequestBody, Import, MediaType, \
-    MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject, DataModel
+    MediaTypeEnum, Parameter, APIGroup, Endpoint, DataType, JsonSchemaObject, DataModel, FileField
 from aomaker.log import logger
 from aomaker.maker.jsonschema import JsonSchemaParser, is_python_keyword
 from aomaker.maker.config import OpenAPIConfig
@@ -41,6 +41,7 @@ class OpenAPIParser(JsonSchemaParser):
         self.api_groups: Dict[str, APIGroup] = {}
         self.config: OpenAPIConfig = config or OpenAPIConfig()
         self.console = console or Console()
+        self.current_media_type: Optional[MediaType] = None
 
     def _register_component_schemas(self):
         """预注册所有组件模式"""
@@ -100,20 +101,27 @@ class OpenAPIParser(JsonSchemaParser):
 
             request_body_datatype = self.parse_request_body(operation.requestBody, endpoint.class_name)
             if request_body_datatype is not None:
+                model = None
                 if request_body_datatype.reference:
-                    endpoint.request_body = self.model_registry.get(request_body_datatype.type)
+                    model = self.model_registry.get(request_body_datatype.type)
+                    endpoint.request_body = model
                 elif request_body_datatype.is_inline is True:
                     # 检查是否为空模型，如果是空模型则跳过
-                    if not request_body_datatype.fields:
+                    if not request_body_datatype.fields and not request_body_datatype.file_fields:
                         logger.debug(f"跳过生成空的请求体模型: {endpoint.class_name}RequestBody")
                     else:
-                        endpoint.request_body = DataModel(
+                        model = DataModel(
                             name="RequestBody",
                             fields=request_body_datatype.fields,
+                            file_fields=request_body_datatype.file_fields,
                             imports=request_body_datatype.imports
                         )
+                        endpoint.request_body = model
                 else:
                     endpoint.request_body = request_body_datatype
+                
+                if model and model.file_fields:
+                    endpoint.file_fields.extend(model.file_fields)
 
                 if endpoint.request_body is not None:
                     for imp in endpoint.request_body.imports:
@@ -136,6 +144,12 @@ class OpenAPIParser(JsonSchemaParser):
                     endpoint.response = self.model_registry.get(type_name)
                     endpoint.imports.add(Import(from_='.models', import_=type_name))
 
+        if endpoint.file_fields:
+            endpoint.imports.add(Import(from_='typing', import_='Dict'))
+            endpoint.imports.add(Import(from_='typing', import_='Any'))
+            endpoint.imports.add(Import(from_='typing', import_='Union'))
+            endpoint.imports.add(Import(from_='typing', import_='List'))
+            endpoint.imports.add(Import(from_='typing', import_='Tuple'))
         endpoint.imports.add(Import(from_='typing', import_='Optional'))
         return endpoint
 
@@ -200,7 +214,9 @@ class OpenAPIParser(JsonSchemaParser):
             # 2. 生成上下文名称
             context_name = f"{endpoint_name}RequestBody"
             # 3. 解析类型
+            self.current_media_type = content
             body_type = self.parse_schema(content.schema_, context_name)
+            self.current_media_type = None  # Reset
 
             return body_type
 
@@ -292,7 +308,7 @@ class OpenAPIParser(JsonSchemaParser):
 
 
 if __name__ == '__main__':
-    with open("../../api.json", 'r', encoding='utf-8') as f:
+    with open("../../test_json/aomaker-openapi.json", 'r', encoding='utf-8') as f:
         doc = json.load(f)
     parser = OpenAPIParser(doc)
     api_groups = parser.parse()

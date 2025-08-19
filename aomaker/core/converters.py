@@ -13,7 +13,7 @@ from cattrs import Converter as CattrsConverter
 
 if TYPE_CHECKING:
     from .api_object import BaseAPIObject
-from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT
+from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT, MultipartFormDataRequest
 from .request_builder import JSONRequestBuilder, FormURLEncodedRequestBuilder, MultipartFormDataRequestBuilder, \
     RequestBuilder,TextPlainRequestBuilder
 
@@ -193,6 +193,19 @@ cattrs_converter.register_unstructure_hook(
     Enum,
     lambda enum_obj: enum_obj.value if enum_obj else None
 )
+
+
+def multipart_unstructure_hook(req: MultipartFormDataRequest) -> dict:
+    return {
+        "method": req.method,
+        "url": req.url,
+        "headers": cattrs_converter.unstructure(req.headers),
+        "params": cattrs_converter.unstructure(req.params),
+        "data": cattrs_converter.unstructure(req.data),
+        "files": req.files,  # 不让 cattrs 误判为 Mapping，直接透传
+    }
+
+cattrs_converter.register_unstructure_hook(MultipartFormDataRequest, multipart_unstructure_hook)
 
 
 @define

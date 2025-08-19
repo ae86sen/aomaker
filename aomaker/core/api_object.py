@@ -24,6 +24,7 @@ class BaseAPIObject(Generic[ResponseT]):
     query_params: Optional[ParametersT] = field(default=None)
     request_body: Optional[RequestBodyT] = field(default=None)
     response: Optional[Type[ResponseT]] = field(default=None)
+    files: Optional[Dict[str, Any]] = field(default=None)
 
     endpoint_id: Optional[str] = field(default=None)
     endpoint_config: EndpointConfig = field(default=None)

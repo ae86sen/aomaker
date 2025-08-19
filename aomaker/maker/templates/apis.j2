@@ -38,6 +38,16 @@ class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.na
     {% elif endpoint.request_body is datatype %}
     request_body: {{ endpoint.request_body.type }} = field()
     {% endif %}
+    
+    {% if endpoint.file_fields %}
+    {% set files_field = create_files_field_for_metadata(endpoint.file_fields) %}
+    {% set files_metadata = get_field_metadata(files_field) %}
+    {% if endpoint.has_required_file %}
+    files: Union[Dict[str, Any], List[Tuple[str, Any]]] = field({% if files_metadata %}{{ files_metadata }}{% endif %})
+    {% else %}
+    files: Optional[Union[Dict[str, Any], List[Tuple[str, Any]]] = field(default=None{% if files_metadata %}, {{ files_metadata }}{% endif %})
+    {% endif %}
+    {% endif %}
     {% if endpoint.path_parameters %}
     path_params: PathParams
     {% endif %}

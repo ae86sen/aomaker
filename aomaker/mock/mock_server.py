@@ -2,7 +2,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Query, Path, Body, HTTPException, Depends, Request, Header
+from fastapi import FastAPI, Query, Path, Body, HTTPException, Depends, Request, Header, File, UploadFile, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uvicorn
 import jwt
@@ -403,7 +403,86 @@ async def upload_avatar(
     return FileUploadDataResponse(ret_code=0, message="头像上传成功", data=response_data)
 
 
-# 7. PUT请求，更新用户详情
+# 7. POST请求，真实文件上传接口（multipart/form-data）
+@app.post("/api/files/upload", response_model=FileUploadDataResponse, tags=["systems"],
+          summary="上传文件",
+          description="真实的文件上传接口，支持multipart/form-data格式，可以上传实际文件")
+async def upload_file(
+        file: UploadFile = File(..., description="要上传的文件"),
+        description: Optional[str] = Form(None, description="文件描述"),
+        category: str = Form("general", description="文件分类")
+):
+    """
+    真实的文件上传接口，用于测试multipart/form-data请求
+    """
+    # 读取文件内容（模拟处理）
+    file_content = await file.read()
+    file_size = len(file_content)
+    
+    # 生成文件ID
+    file_id = f"file_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+    
+    # 模拟文件存储（实际项目中可能存储到文件系统或云存储）
+    upload_time = datetime.now()
+    
+    response_data = FileUploadResponse(
+        file_id=file_id,
+        file_name=file.filename or "unknown",
+        file_size=file_size,
+        file_type=file.content_type or "application/octet-stream",
+        upload_time=upload_time,
+        download_url=f"https://example.com/files/{file_id}"
+    )
+    
+    return FileUploadDataResponse(
+        ret_code=0, 
+        message=f"文件上传成功，分类：{category}，描述：{description or '无'}", 
+        data=response_data
+    )
+
+
+# 8. POST请求，批量文件上传接口
+@app.post("/api/files/batch-upload", response_model=Dict[str, Any], tags=["systems"],
+          summary="批量上传文件",
+          description="批量上传多个文件，支持multipart/form-data格式")
+async def batch_upload_files(
+        files: List[UploadFile] = File(..., description="要上传的文件列表"),
+        project: str = Form(..., description="项目名称"),
+        version: str = Form("1.0.0", description="版本号")
+):
+    """
+    批量文件上传接口，用于测试更复杂的multipart/form-data场景
+    """
+    uploaded_files = []
+    
+    for file in files:
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        file_id = f"batch_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+        
+        file_info = {
+            "file_id": file_id,
+            "file_name": file.filename or "unknown",
+            "file_size": file_size,
+            "file_type": file.content_type or "application/octet-stream",
+            "upload_time": datetime.now().isoformat()
+        }
+        uploaded_files.append(file_info)
+    
+    return {
+        "ret_code": 0,
+        "message": f"批量上传成功，项目：{project}，版本：{version}",
+        "data": {
+            "project": project,
+            "version": version,
+            "total_files": len(uploaded_files),
+            "uploaded_files": uploaded_files
+        }
+    }
+
+
+# 9. PUT请求，更新用户详情
 @app.put("/api/user_details/{user_id}", response_model=UserDetailResponse, tags=["users"],
          summary="更新用户详细信息",
          description="根据用户ID更新用户的详细信息")
@@ -431,7 +510,7 @@ async def update_user_detail(
     return UserDetailResponse(ret_code=0, message="用户详情更新成功", data=user_detail)
 
 
-# 8. 带嵌套模型的GET请求
+# 10. 带嵌套模型的GET请求
 @app.get("/api/product_details/{product_id}", response_model=ProductDetailResponse, tags=["products"],
          summary="获取产品详细信息",
          description="根据产品ID获取产品的详细信息，包括销售数据、评论等")
@@ -443,7 +522,7 @@ async def get_product_detail(product_id: int = Path(..., description="产品ID")
     raise HTTPException(status_code=404, detail="产品详情不存在")
 
 
-# 9. 带嵌套模型的POST请求
+# 11. 带嵌套模型的POST请求
 @app.post("/api/product_details", response_model=ProductDetailResponse, tags=["products"],
           summary="创建产品详细信息",
           description="创建一个新的产品详细信息")
@@ -480,11 +559,13 @@ from fastapi import Request, Response
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         auth_whitelist = [
-            "/api/login/token",  # 登录接口
-            "/",                 # 根路径
-            "/api/docs",         # Swagger文档
-            "/api/redoc",        # ReDoc文档
-            "/api/aomaker-openapi.json",  # OpenAPI规范
+            "/api/login/token",        # 登录接口
+            "/",                       # 根路径
+            "/api/docs",               # Swagger文档
+            "/api/redoc",              # ReDoc文档
+            "/api/aomaker-openapi.json", # OpenAPI规范
+            "/api/files/upload",       # 文件上传接口（用于测试）
+            "/api/files/batch-upload", # 批量文件上传接口（用于测试）
         ]
         
         # 检查请求路径是否在白名单中
