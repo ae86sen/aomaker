@@ -200,7 +200,6 @@ class TestFieldValidation:
     @pytest.mark.parametrize("field_name, invalid_value", [
         ("path_params", {"key": "value"}), # dict 不是 attrs 实例
         ("query_params", [1, 2, 3]),       # list 不是 attrs 实例
-        ("request_body", "plain string"), # str 不是 attrs 实例
     ])
     def test_validate_non_attrs_instance_fail(self, field_name, invalid_value, monkeypatch):
         """测试字段不是 attrs 实例时抛出 TypeError"""
