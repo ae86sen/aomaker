@@ -26,7 +26,7 @@ class {{ endpoint.class_name }}({{ get_base_class() }}{% if endpoint.response.na
         {% endfor %}
     {% endif %}
 
-    {% if endpoint.request_body is datamodel %}
+    {% if endpoint.request_body is datamodel and endpoint.request_body.fields|length > 0 %}
     @define
     class RequestBodyModel:
         {% for field in endpoint.request_body.fields %}

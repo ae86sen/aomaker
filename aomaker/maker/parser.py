@@ -204,22 +204,32 @@ class OpenAPIParser(JsonSchemaParser):
             request_body: RequestBody,
             endpoint_name: str
     ) -> Optional[DataType]:
-        """解析请求体，返回类型并触发模型生成"""
+        """解析请求体，返回类型并触发模型生成
+        """
         for content_type in SUPPORTED_CONTENT_TYPES:
-            # 1. 获取JSON Schema
             content = request_body.content.get(content_type)
             if not content or not content.schema_:
                 continue
 
-            # 2. 生成上下文名称
             context_name = f"{endpoint_name}RequestBody"
-            # 3. 解析类型
             self.current_media_type = content
-            body_type = self.parse_schema(content.schema_, context_name)
-            self.current_media_type = None  # Reset
+
+            schema_obj = content.schema_
+            try:
+                if isinstance(schema_obj, Reference):
+                    real_schema = self.resolver.get_ref_schema(schema_obj.ref)
+                    if real_schema is None:
+                        logger.warning(f"requestBody 引用的 schema 未找到: {schema_obj.ref} in {endpoint_name}")
+                        self.current_media_type = None
+                        continue
+                    body_type = self.parse_schema(real_schema, context_name)
+                else:
+                    body_type = self.parse_schema(schema_obj, context_name)
+            finally:
+                self.current_media_type = None
 
             return body_type
-
+        
     def parse_response(
             self,
             responses: Dict[Union[str, int], Union[Reference, Response]],
