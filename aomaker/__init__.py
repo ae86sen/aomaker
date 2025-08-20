@@ -1,6 +1,6 @@
 from emoji import emojize
 
-__version__ = "3.0.1"
+__version__ = "3.0.2"
 __description__ = "Docs as code, Definitions as tests."
 __image__ = emojize(fr"""
  █████╗  ██████╗ ███╗   ███╗ █████╗ ██╗  ██╗███████╗██████╗ 
