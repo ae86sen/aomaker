@@ -2,6 +2,7 @@
 import os
 import ast
 import sys
+import importlib
 from typing import List
 import webbrowser
 from threading import Timer
@@ -67,6 +68,7 @@ def gen():
     """Generate various statistics or attrs models."""
     pass
 
+
 @main.group()
 def service():
     """Aomaker Service."""
@@ -77,6 +79,7 @@ def service():
 def mock():
     """Aomaker mock server."""
     pass
+
 
 @main.command(help="Run testcases.", context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.option("-e", "--env", help="Switch test environment.")
@@ -116,7 +119,7 @@ def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, skip_login, no_gen
     if mp or mt:
         run_mode = "mp" if mp else "mt"
         task_args = _handle_dist_mode(d_mark, d_file, d_suite)
-    
+
     run_config = RunConfig(
         env=env,
         run_mode=run_mode,
@@ -125,7 +128,7 @@ def run(ctx, env, log_level, mp, mt, d_suite, d_file, d_mark, skip_login, no_gen
         login_obj=login_obj,
         report_enabled=no_gen,
         processes=processes
-        )
+    )
 
     run_tests(run_config)
 
@@ -157,11 +160,12 @@ def create(project_name):
               help="API基类完整路径（module.ClassName格式）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
-def gen_models(spec, output, class_name_strategy,custom_strategy,base_api_class, base_api_class_alias):
+def gen_models(spec, output, class_name_strategy, custom_strategy, base_api_class, base_api_class_alias):
     """
     Generate Attrs models from an OpenAPI specification.
     """
     handle_gen_models(spec, output, class_name_strategy, custom_strategy, base_api_class, base_api_class_alias)
+
 
 @show.command(name="stats")
 @click.option("--package", help="Package name to filter by.")
@@ -178,7 +182,8 @@ def query_stats(package, showindex):
     print_message(f"Total APIs: {len(results)}", style="bold green")
 
     console = Console()
-    table = Table(show_header=True, header_style="bold magenta", title="API Statistics", show_edge=True, border_style="green")
+    table = Table(show_header=True, header_style="bold magenta", title="API Statistics", show_edge=True,
+                  border_style="green")
 
     if showindex:
         table.add_column("Index", style="dim", width=6)
@@ -228,8 +233,10 @@ def start(web, port):
     print_message(f"📚 API文档地址: {docs_url}")
     uvicorn.run(app, host="127.0.0.1", port=port)
 
+
 def open_web(url):
     webbrowser.open(url)
+
 
 def _parse_all_from_ast(filepath: Path):
     with filepath.open(encoding='utf-8') as f:
@@ -264,13 +271,27 @@ def _generate_apis(api_dir: str):
             stats.set(package=package_name, api_name=interface)
 
 
+
 def _handle_login(skip_login: bool):
-    if skip_login is True:
+    if skip_login:
         return
-    sys.path.append(os.getcwd())
-    exec('from login import Login')
-    login_obj = locals()['Login']()
-    return login_obj
+
+    try:
+        login_module = importlib.import_module('login')
+        login_class = getattr(login_module, 'Login', None)
+
+        if login_class and callable(login_class):
+            return login_class()
+        else:
+            print_message("⚠️ 警告: 在 login.py 中未找到可调用的 Login 类, 跳过登录", style="bold yellow")
+            return
+
+    except ImportError:
+        print_message("⚠️ 警告: 未找到 login.py 文件, 跳过登录", style="bold yellow")
+        return
+    except Exception as e:
+        print_message(f"❌ 处理登录时发生未知异常: {e}", style="bold red")
+        return
 
 
 def _handle_dist_mode(d_mark, d_file, d_suite):
@@ -298,7 +319,6 @@ def _handle_dist_mode(d_mark, d_file, d_suite):
     mode_msg = "dist-mark(dist_strategy.yaml策略)"
     print_message(f":hammer_and_wrench: 分配模式: {mode_msg}")
     return params
-
 
 
 def main_arun_alias():
@@ -353,8 +373,8 @@ def main_run(env: str = None,
         login_obj=login_obj,
         report_enabled=no_gen,
         processes=processes
-        )
-    
+    )
+
     run_tests(run_config)
 
 
