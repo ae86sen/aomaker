@@ -26,3 +26,4 @@ fastapi==0.110.0
 uvicorn==0.28.0
 wsproto==1.2.0
 PyJWT==2.10.1
+python-multipart==0.0.20
