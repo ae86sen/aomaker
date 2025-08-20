@@ -32,12 +32,12 @@ class BaseHTTPRequest:
 
 @define
 class JSONRequest(BaseHTTPRequest):
-    json: Optional[Dict[str, Any]] = field(factory=dict)
+    json: Optional[Union[str,Dict[str, Any], List[Any]]] = field(factory=dict)
 
 
 @define
 class FormURLEncodedRequest(BaseHTTPRequest):
-    data: Optional[Dict[str, str]] = field(factory=dict)
+    data: Optional[Union[str, Dict[str, Any], List[Any]]] = field(factory=dict)
 
 
 @define
@@ -64,7 +64,7 @@ class PreparedRequest:
     url: str
     headers: dict
     params: Optional[dict] = field(default=None)
-    request_body: Optional[Union[dict, str]] = field(default=None)
+    request_body: Optional[Union[dict, str, list]] = field(default=None)
     files: Optional[Union[Dict[str, Any], List[Tuple[str, Any]]]] = field(default=None)
 
 

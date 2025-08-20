@@ -224,6 +224,15 @@ class RequestConverter:
         """结构化数据 -> 原始数据"""
         if data is not None:
             _ensure_field_alias_configured(type(data))
+
+            if isinstance(data, (list, tuple, set)):
+                for item in data:
+                    if has(item):
+                        _ensure_field_alias_configured(type(item))
+            elif isinstance(data, dict):
+                for v in data.values():
+                    if has(v):
+                        _ensure_field_alias_configured(type(v))
         return self._converter.unstructure(data)
 
     def structure(self, data: Any, type_: Type[T]) -> Any:

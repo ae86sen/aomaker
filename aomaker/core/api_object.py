@@ -50,8 +50,24 @@ class BaseAPIObject(Generic[ResponseT]):
     def _validate_field_is_attrs(self):
         for field_name in _FIELD_TO_VALIDATE:
             field_ = getattr(self, field_name)
-            if field_ is not None and not has(field_):
-                raise TypeError(f"{field_name} must be an attrs instance")
+
+            if field_name == "request_body":
+                if field_ is None:
+                    continue
+                if has(field_):
+                    continue
+                # 允许原生 JSON 类型
+                if isinstance(field_, (dict, list, tuple, str, int, float, bool)):
+                    # 若是序列，元素需为 attrs 或原生 JSON
+                    if isinstance(field_, (list, tuple)):
+                        for item in field_:
+                            if not (has(item) or isinstance(item, (dict, list, tuple, str, int, float, bool, type(None)))):
+                                raise TypeError("request_body 列表元素必须是 attrs 实例或可JSON序列化的原生类型")
+                    continue
+                raise TypeError("request_body 必须是 attrs 实例或可JSON序列化的原生类型")
+            else:
+                if field_ is not None and not has(field_):
+                    raise TypeError(f"{field_name} must be an attrs instance")
 
     def __call__(self, *args, **kwargs):
         return self.send(*args, **kwargs)
