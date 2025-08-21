@@ -64,7 +64,7 @@ class HTTPClient:
             self.session.headers = original_headers
 
 
-def get_http_client(default_client: Type[HTTPClient]) -> HTTPClient:
+def get_http_client(default_client: Type[HTTPClient]=HTTPClient) -> HTTPClient:
     if not hasattr(get_http_client, "client"):
         get_http_client.client = default_client()
         headers = cache.get("headers")
