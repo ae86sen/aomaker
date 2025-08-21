@@ -169,8 +169,8 @@ def test_get_attrs_field_parameters_combine():
 @pytest.mark.parametrize("required,is_optional,expected", [
     (True, False, "int"),
     (False, False, "Optional[int]"),
-    (True, True, "int"),   # is_optional 优先
-    (False, True, "int"),  # 同上
+    (True, True, "Optional[int]"),   # is_optional 优先
+    (False, True, "Optional[int]"),  # 同上
 ])
 def test_render_optional_hint(required, is_optional, expected):
     dt = DataType(type="int", is_optional=is_optional)
