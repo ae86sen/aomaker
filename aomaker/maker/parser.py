@@ -222,7 +222,7 @@ class OpenAPIParser(JsonSchemaParser):
                         logger.warning(f"requestBody 引用的 schema 未找到: {schema_obj.ref} in {endpoint_name}")
                         self.current_media_type = None
                         continue
-                    body_type = self.parse_schema(real_schema, context_name)
+                    body_type = self._parse_reference(schema_obj.ref)
                 else:
                     body_type = self.parse_schema(schema_obj, context_name)
             finally:
