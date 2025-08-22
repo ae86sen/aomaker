@@ -116,6 +116,7 @@ class OpenAPIParser(JsonSchemaParser):
                             file_fields=request_body_datatype.file_fields,
                             imports=request_body_datatype.imports
                         )
+                        model.required = {f.name for f in model.fields if f.required}
                         endpoint.request_body = model
                 else:
                     endpoint.request_body = request_body_datatype
@@ -222,7 +223,7 @@ class OpenAPIParser(JsonSchemaParser):
                         logger.warning(f"requestBody 引用的 schema 未找到: {schema_obj.ref} in {endpoint_name}")
                         self.current_media_type = None
                         continue
-                    body_type = self._parse_reference(schema_obj.ref)
+                    body_type = self.parse_schema(real_schema, context_name)
                 else:
                     body_type = self.parse_schema(schema_obj, context_name)
             finally:

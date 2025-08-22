@@ -208,11 +208,33 @@ class APIGroup(BaseModel):
     endpoint_names: Set[str] = field(default_factory=set)
 
     def collect_models(self, model_registry):
-        """从全局注册表中收集属于当前 Tag 的模型"""
-        # todo: 有的模型可能会同时出现在多个tag中，这种其实可以提取出来放到common中，看怎么处理
+        """从全局注册表中收集属于当前 Tag 的模型，并补全其依赖的闭包"""
         for model in model_registry.models.values():
             if self.tag in model.tags:
                 self.models[model.name] = model
+
+        visited = set(self.models.keys())
+        stack = list(self.models.values())
+
+        def walk_datatype(dt: DataType):
+            if dt is None:
+                return
+            if dt.data_types:
+                for child in dt.data_types:
+                    walk_datatype(child)
+            if dt.is_custom_type and not dt.is_forward_ref:
+                name = dt.type
+                if name not in visited:
+                    nested = model_registry.get(name)
+                    if nested:
+                        visited.add(name)
+                        self.models[name] = nested
+                        stack.append(nested)
+
+        while stack:
+            m = stack.pop()
+            for f in m.fields:
+                walk_datatype(f.data_type)
 
     def add_endpoint(self, endpoint: Endpoint):
         name = endpoint.class_name

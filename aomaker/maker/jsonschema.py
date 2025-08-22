@@ -588,12 +588,21 @@ class JsonSchemaParser:
             if tag not in model.tags:
                 model.tags.append(tag)
 
-        for field in model.fields:
-            if field.data_type.is_custom_type and not field.data_type.is_forward_ref:
-                nested_model_name = field.data_type.type
-                nested_model = self.model_registry.get(nested_model_name)
+        def walk_datatype(dt: DataType):
+            if dt is None:
+                return
+            # 穿透 anyOf/oneOf、List、Dict 子类型
+            if dt.data_types:
+                for child in dt.data_types:
+                    walk_datatype(child)
+            # 处理自定义类型
+            if dt.is_custom_type and not dt.is_forward_ref:
+                nested_model = self.model_registry.get(dt.type)
                 if nested_model:
                     self._update_model_tags_recursive(nested_model)
+
+        for field in model.fields:
+            walk_datatype(field.data_type)
 
     def _get_type_mapping(self, schema_type: str, schema_format: Optional[str] = None) -> Tuple[str, Set[Import]]:
         # 处理类型是列表的情况
