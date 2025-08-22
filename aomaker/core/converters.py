@@ -1,11 +1,12 @@
 # --coding:utf-8--
 from __future__ import annotations
-from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any, get_args, Union, Dict
+from typing import TypeVar, TYPE_CHECKING, Optional, Type, Any, get_args, Union, Dict, get_origin, ForwardRef
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID
 import keyword
+import sys
 
 import cattrs
 from attrs import has, define, field
@@ -13,9 +14,10 @@ from cattrs import Converter as CattrsConverter
 
 if TYPE_CHECKING:
     from .api_object import BaseAPIObject
-from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT, MultipartFormDataRequest
+from .base_model import ContentType, EndpointConfig, HTTPMethod, ParametersT, PreparedRequest, RequestBodyT, \
+    MultipartFormDataRequest
 from .request_builder import JSONRequestBuilder, FormURLEncodedRequestBuilder, MultipartFormDataRequestBuilder, \
-    RequestBuilder,TextPlainRequestBuilder
+    RequestBuilder, TextPlainRequestBuilder
 
 REQUEST_BUILDERS = {
     ContentType.JSON: JSONRequestBuilder,
@@ -122,35 +124,64 @@ def time_structure_hook(value, _type):
     
 def _register_union_structure_hooks():
     """注册Union类型的structure hook来处理复杂的Union类型"""
+
+    def _resolve_forward_ref(arg):
+        """将 ForwardRef 解析为真实类型；解析失败返回 None"""
+        if not isinstance(arg, ForwardRef):
+            return arg
+        name = getattr(arg, "__forward_arg__", None)
+        modname = getattr(arg, "__forward_module__", None)
+        namespaces = []
+        if modname and modname in sys.modules:
+            namespaces.append(sys.modules[modname].__dict__)
+        if "__main__" in sys.modules:
+            namespaces.append(sys.modules["__main__"].__dict__)
+        namespaces.append(globals())
+        for ns in namespaces:
+            try:
+                return eval(name, ns, ns)
+            except Exception:
+                continue
+        return
+
     def structure_union_hook(obj, union_type):
         """智能处理Union类型的转换"""
         union_args = get_args(union_type)
         if not union_args:
             return obj
-        
-        # 如果对象已经是Union中的某个类型，直接返回
-        for arg_type in union_args:
-            if isinstance(obj, arg_type):
-                return obj
-        
-        # 如果是dict，尝试转换为最具体的attrs类
+
+        # 优先：当 obj 是 dict 时，先尝试转换为最具体的 attrs 类
         if isinstance(obj, dict):
             for arg_type in union_args:
-                if (hasattr(arg_type, '__attrs_attrs__') and 
-                    arg_type not in (dict, Dict)):
+                resolved = _resolve_forward_ref(arg_type) or arg_type
+                target = get_origin(resolved) or resolved  # 兼容 typing 泛型（如 Dict[str, Any]）
+                if (hasattr(target, '__attrs_attrs__') and
+                        target not in (dict, Dict)):
                     try:
-                        return cattrs_converter.structure(obj, arg_type)
+                        return cattrs_converter.structure(obj, target)
                     except Exception:
                         continue
             return obj
-        
+
+        # 兜底：如果对象已经是 Union 中某个类型，直接返回
+        for arg_type in union_args:
+            resolved = _resolve_forward_ref(arg_type) or arg_type
+            target = get_origin(resolved) or resolved
+            if target is Any or target in (dict, Dict):
+                continue
+            try:
+                if isinstance(obj, target):
+                    return obj
+            except TypeError:
+                # 遇到 typing 泛型（如 typing.Dict[...]）不能直接用于 isinstance
+                continue
+
         return obj
-    
+
     def is_union_type(tp):
         """检查是否是Union类型"""
-        return (hasattr(tp, '__origin__') and 
-                tp.__origin__ is Union)
-    
+        return get_origin(tp) is Union
+
     cattrs_converter.register_structure_hook_func(
         is_union_type,
         structure_union_hook
