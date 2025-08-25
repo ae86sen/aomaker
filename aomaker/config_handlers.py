@@ -50,13 +50,13 @@ class EnvVars:
 def set_conf_file(env: str):
     conf_path = os.path.join(CONF_DIR, Conf.CONF_NAME)
     if os.path.exists(conf_path):
-        with open(conf_path) as f:
+        with open(conf_path, encoding="utf-8") as f:
             doc = ruamel_yaml.load(f)
         doc['env'] = env
         if not doc.get(env):
             print_message(f':confounded_face: 测试环境-{env}还未在配置文件中配置！', style="bold red")
             sys.exit(1)
-        with open(conf_path, 'w') as f:
+        with open(conf_path, 'w', encoding="utf-8") as f:
             ruamel_yaml.dump(doc, f)
         print_message(f':globe_with_meridians: 当前测试环境: {env}')
     else:
