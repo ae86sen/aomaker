@@ -144,6 +144,26 @@ def _register_union_structure_hooks():
                 continue
         return
 
+    def _resolve_container_param_type(tp):
+        """解析容器类型参数中的 ForwardRef，并尽量重建参数化类型"""
+        resolved = _resolve_forward_ref(tp) or tp
+        origin = get_origin(resolved)
+        if origin is None:
+            return resolved
+        args = get_args(resolved)
+        if not args:
+            return resolved
+        # 解析内部 ForwardRef
+        new_args = tuple(_resolve_forward_ref(a) or a for a in args)
+        try:
+            # PEP 585: 内置容器类型可用下标构造（list[int]、dict[str, int]）
+            if len(new_args) == 1:
+                return origin[new_args[0]]
+            return origin[new_args]
+        except Exception:
+            # 无法重建参数化类型则返回已解析的 resolved
+            return resolved
+
     def structure_union_hook(obj, union_type):
         """智能处理Union类型的转换"""
         union_args = get_args(union_type)
@@ -152,6 +172,7 @@ def _register_union_structure_hooks():
 
         # 优先：当 obj 是 dict 时，先尝试转换为最具体的 attrs 类
         if isinstance(obj, dict):
+            # 1) dict -> attrs 类（优先）
             for arg_type in union_args:
                 resolved = _resolve_forward_ref(arg_type) or arg_type
                 target = get_origin(resolved) or resolved  # 兼容 typing 泛型（如 Dict[str, Any]）
@@ -161,7 +182,28 @@ def _register_union_structure_hooks():
                         return cattrs_converter.structure(obj, target)
                     except Exception:
                         continue
+            # 2) dict -> 参数化映射类型（例如 Dict[str, T]），用于深度结构化 value
+            for arg_type in union_args:
+                candidate = _resolve_container_param_type(arg_type)
+                origin = get_origin(candidate) or candidate
+                if origin in (dict, Dict):
+                    try:
+                        return cattrs_converter.structure(obj, candidate)
+                    except Exception:
+                        continue
             return obj
+
+        # 容器类型优先做深度结构化（避免被 isinstance 短路）
+        # list / tuple / set -> 参数化容器类型（例如 List[T]、Tuple[T,...]、Set[T]）
+        if isinstance(obj, (list, tuple, set)):
+            for arg_type in union_args:
+                candidate = _resolve_container_param_type(arg_type)
+                origin = get_origin(candidate) or candidate
+                if origin in (list, tuple, set):
+                    try:
+                        return cattrs_converter.structure(obj, candidate)
+                    except Exception:
+                        continue
 
         # 兜底：如果对象已经是 Union 中某个类型，直接返回
         for arg_type in union_args:
@@ -171,6 +213,12 @@ def _register_union_structure_hooks():
                 continue
             try:
                 if isinstance(obj, target):
+                    # 若为参数化容器，则让 cattrs 进一步深度结构化
+                    if get_args(resolved):
+                        try:
+                            return cattrs_converter.structure(obj, resolved)
+                        except Exception:
+                            return obj
                     return obj
             except TypeError:
                 # 遇到 typing 泛型（如 typing.Dict[...]）不能直接用于 isinstance
@@ -186,8 +234,6 @@ def _register_union_structure_hooks():
         is_union_type,
         structure_union_hook
     )
-
-
 
 # 注册结构化钩子
 cattrs_converter.register_structure_hook(datetime, datetime_structure_hook)
