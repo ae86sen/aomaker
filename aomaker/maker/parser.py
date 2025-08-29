@@ -1,4 +1,6 @@
 # --coding:utf-8--
+import re
+import keyword
 import json
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
@@ -23,6 +25,39 @@ SUPPORTED_CONTENT_TYPES = [
     MediaTypeEnum.HTML.value
 ]
 
+def _normalize_tag(tag: str) -> str:
+    """
+    将字符串转换为符合Python包名规范的字符串
+    
+    规则：
+    1. 可以包含字母（包括非ASCII字符）、数字和下划线
+    2. 不能以数字开头
+    3. 不能是Python保留字
+    4. 空格和连字符转换为下划线
+    
+    Args:
+        text: 输入字符串
+    
+    Returns:
+        符合Python包名规范的字符串
+    """
+    if not tag:
+        return 'package'
+    
+    # 1. 替换空格和连字符为下划线
+    tag = re.sub(r'[\s-]+', '_', tag)
+    # 2. 移除除字母、数字、下划线以外的字符
+    tag = re.sub(r'[^\w\u4e00-\u9fff]', '', tag)
+    # 3. 确保不以数字开头
+    if tag and tag[0].isdigit():
+        tag = '_' + tag
+    # 4. 如果是Python关键字，加下划线后缀
+    if keyword.iskeyword(tag):
+        tag += '_'
+    # 5. 处理空字符串情况
+    if not tag:
+        tag = 'package'
+    return tag
 
 class OpenAPIParser(JsonSchemaParser):
     def __init__(self, openapi_data: Dict, config: OpenAPIConfig = None, console: Console = None):
@@ -65,7 +100,9 @@ class OpenAPIParser(JsonSchemaParser):
                         f"[muted]({idx}/{total_paths})[/]"
                     )
                 operation = Operation.model_validate(op_data)
-                self.current_tags = operation.tags or ['default']
+                raw_tags = operation.tags or ['default']
+                normalized_tags = list(dict.fromkeys([_normalize_tag(tag) for tag in raw_tags]))
+                self.current_tags = normalized_tags
                 endpoint = self.parse_endpoint(path, method, operation)
 
                 for tag in self.current_tags:
@@ -78,13 +115,12 @@ class OpenAPIParser(JsonSchemaParser):
 
     def parse_endpoint(self, path: str, method: str, operation: Operation) -> Endpoint:
         class_name = self.config.class_name_strategy(path, method, operation)
-        endpoint_tags = operation.tags or ['default']
         endpoint = Endpoint(
             class_name=class_name,
             endpoint_id=operation.operationId or f"{path}_{method}",
             path=path,
             method=method,
-            tags=endpoint_tags,
+            tags=self.current_tags,
             description=operation.description
         )
 
