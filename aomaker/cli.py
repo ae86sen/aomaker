@@ -150,14 +150,11 @@ def create(project_name):
 @click.option("--output", "-o", help="代码输出目录")
 @click.option("--class-name-strategy", "-c",
               type=click.Choice(list(NAMING_STRATEGIES.keys()), case_sensitive=False),
-              default="operation_id",
-              show_default=True,
               help="API Object Class name生成策略（operation_id/summary/tags）")
 @click.option("--custom-strategy", "-cs", required=False,
               help="自定义命名策略的Python模块路径 (例如: 'mypackage.naming.custom_function')")
-@click.option("--base-api-class", "-B", default="aomaker.core.api_object.BaseAPIObject",
-              show_default=True,
-              help="API基类完整路径（module.ClassName格式）")
+@click.option("--base-api-class", "-B",
+              help="API基类完整路径（module.ClassName格式，如aomaker.core.api_object.BaseAPIObject）")
 @click.option("--base-api-class-alias", "-A",
               help="基类在生成代码中的别名")
 def gen_models(spec, output, class_name_strategy, custom_strategy, base_api_class, base_api_class_alias):

@@ -7,6 +7,7 @@ import requests
 import yaml
 from rich.console import Console
 from rich.theme import Theme
+from rich.table import Table
 
 from aomaker.path import AOMAKER_YAML_PATH
 
@@ -53,13 +54,31 @@ def _resolve_gen_models_config(
         print_message("❌  错误：必须在命令行参数或配置文件中提供spec参数", style="bold red")
         sys.exit(1)
     
+    warnings = []
+
+    # 判定CLI是否显式传参
+    cli_c = class_name_strategy is not None
+    cli_cs = custom_strategy is not None
+
+    if cli_c and cli_cs:
+        warnings.append("检测到同时传入 -c 和 -cs，已优先使用 -cs（自定义命名策略）")
+
+    # 命名策略合并：-cs > -c；若仅传 -c，则忽略配置文件中的 custom_strategy
+    if cli_cs:
+        final_custom_strategy = custom_strategy
+    elif cli_c:
+        final_custom_strategy = None
+    else:
+        final_custom_strategy = openapi_config.get('custom_strategy')
+
     final_config = {
         "final_spec": final_spec,
         "final_output": output or openapi_config.get('output'),
-        "final_class_name_strategy": class_name_strategy or openapi_config.get('class_name_strategy'),
-        "final_custom_strategy": custom_strategy or openapi_config.get('custom_strategy', ''),
-        "final_base_api_class": base_api_class or openapi_config.get('base_api_class'),
-        "final_base_api_class_alias": base_api_class_alias or openapi_config.get('base_api_class_alias')
+        "final_class_name_strategy": class_name_strategy if cli_c else openapi_config.get('class_name_strategy'),
+        "final_custom_strategy": final_custom_strategy,
+        "final_base_api_class": base_api_class if base_api_class is not None else openapi_config.get('base_api_class'),
+        "final_base_api_class_alias": base_api_class_alias if base_api_class_alias is not None else openapi_config.get('base_api_class_alias'),
+        "warnings": warnings
     }
 
     return final_config
@@ -109,6 +128,7 @@ def _fetch_and_parse_openapi_spec(final_spec: str) -> Optional[Dict[str, Any]]:
 
     return doc
 
+
 def handle_gen_models(spec: Optional[str],
                       output: Optional[str],
                       class_name_strategy: Optional[str],
@@ -125,22 +145,51 @@ def handle_gen_models(spec: Optional[str],
     final_base_api_class_alias = final_config['final_base_api_class_alias']
     final_custom_strategy = final_config['final_custom_strategy']
 
+    default_base = "aomaker.core.api_object.BaseAPIObject"
+    console = Console(theme=custom_theme)
+
+    table = Table(title="最终生效配置", show_header=True, header_style="bold magenta", show_edge=True, border_style="green")
+    table.add_column("Key", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green")
+
+    cn = final_class_name_strategy or "operation_id(default)"
+    cs = final_custom_strategy or "-"
+    base = final_base_api_class or f"{default_base}(default)"
+    alias = final_base_api_class_alias or "-"
+
+    table.add_row("spec", final_config['final_spec'])
+    table.add_row("output", final_output or "-")
+    table.add_row("class_name_strategy", cn)
+    table.add_row("custom_strategy", cs)
+    table.add_row("base_api_class", base)
+    table.add_row("base_api_class_alias", alias)
+
+    console.print(table)
+
+    for w in final_config.get('warnings', []):
+        console.print(f"[bold yellow]⚠️ {w}[/]")
+
     naming_strategy = NAMING_STRATEGIES["operation_id"]
     if final_class_name_strategy in NAMING_STRATEGIES:
         naming_strategy = NAMING_STRATEGIES[final_class_name_strategy]
 
     doc = _fetch_and_parse_openapi_spec(final_config['final_spec'])
 
-
     output_path = Path(final_output)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    config = OpenAPIConfig(
-        class_name_strategy=naming_strategy,
-        base_api_class=final_base_api_class,
-        base_api_class_alias=final_base_api_class_alias,
-        custom_strategy=final_custom_strategy
-    )
+    # 仅在非None时传参，避免用None覆盖默认值
+    config_kwargs = {
+        "class_name_strategy": naming_strategy
+    }
+    if final_base_api_class is not None:
+        config_kwargs["base_api_class"] = final_base_api_class
+    if final_base_api_class_alias is not None:
+        config_kwargs["base_api_class_alias"] = final_base_api_class_alias
+    if final_custom_strategy:
+        config_kwargs["custom_strategy"] = final_custom_strategy
+
+    config = OpenAPIConfig(**config_kwargs)
 
     console = Console(theme=custom_theme)
     console.print(
