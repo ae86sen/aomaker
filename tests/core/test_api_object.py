@@ -272,7 +272,7 @@ class TestSendLogic:
 
         mock_schema_value = {"type": "object", "properties": {"result": {"type": "string"}, "code": {"type": "integer"}}, "required": ["result", "code"]}
         self.mock_extract_schema = MagicMock(return_value=mock_schema_value)
-        monkeypatch.setattr("aomaker.core.api_object.extract_jsonschema", self.mock_extract_schema)
+        monkeypatch.setattr("aomaker.core.api_object.deserialization_schema", self.mock_extract_schema)
 
         mock_schema_storage = MagicMock()
         mock_schema_storage.get_schema.return_value = None 

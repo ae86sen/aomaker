@@ -1,19 +1,24 @@
 # --coding:utf-8--
 import json
 from typing import Union, Type, Generic, Optional, Dict, Any
+from enum import Enum
 
-from jsonschema_extractor import extract_jsonschema
 from jsonschema import validate, ValidationError
 from jsonschema.exceptions import best_match
 from attrs import define, field, has
+from apischema.json_schema import deserialization_schema
+from deepdiff import DeepDiff
 
 from aomaker.storage import config, schema
+from aomaker.log import logger
 from .base_model import EndpointConfig, ContentType, RequestBodyT, ResponseT, ParametersT, AoResponse
 from .converters import RequestConverter
 from .http_client import get_http_client, HTTPClient
+from .apischema_attrs import _set_default_object_fields
 
 # from .middlewares.logging_middleware import logging_middleware
 _FIELD_TO_VALIDATE = ("path_params", "query_params", "request_body", "response")
+_set_default_object_fields()
 
 
 @define(kw_only=True)
@@ -147,16 +152,15 @@ class BaseAPIObject(Generic[ResponseT]):
         # 获取或更新schema
         schema_name = self.response.__name__
         existing_schema = schema.get_schema(schema_name)
-        current_schema = extract_jsonschema(self.response)
-        
+
+        current_schema = deserialization_schema(self.response)
+
         # 更新schema缓存
-        if not existing_schema or current_schema != existing_schema:
-            schema.save_schema(schema_name, current_schema)
-            existing_schema = current_schema
-            
+        existing_schema = update_schema_if_needed(existing_schema, current_schema, schema_name)
+
         # 验证
         self.schema_validate(response_data, existing_schema)
-            
+
     def schema_validate(self, instance, schema):
         """简化的schema验证方法"""
         try:
@@ -165,6 +169,7 @@ class BaseAPIObject(Generic[ResponseT]):
             error = best_match(e.context) if e.context else e
             message = format_validation_error(error)
             raise AssertionError(message) from None
+
 
 def format_validation_error(error: ValidationError) -> str:
     path = ".".join(map(str, error.absolute_path)) if error.absolute_path else "root"
@@ -261,3 +266,29 @@ def format_validation_error(error: ValidationError) -> str:
          return f"字段 '{path}' 未能满足 '{validator}' 条件。最接近的匹配错误: {message}. (实际值: {instance_repr}).\n  可能的子错误:\n  - {sub_errors_str}"
 
     return f"字段 '{path}' 校验失败 ({validator}): {message}. 实际值为: {instance_repr}."
+
+
+def get_diff(old_schema, new_schema, schema_name: str):
+    try:
+        diff_dict = DeepDiff(old_schema, new_schema, ignore_type_in_groups=[(str, Enum)]).to_json(
+            ensure_ascii=False, indent=2)
+        if diff_dict:
+            logger.warning(f"[SchemaDiff] 模型<{schema_name}> 发生变化：\n {diff_dict}")
+    except Exception as e:
+        logger.warning(f"[SchemaDiff] 模型<{schema_name}> 发生变化，但 DeepDiff 解析差异失败：{e}")
+
+
+def update_schema_if_needed(existing_schema, current_schema, schema_name):
+    if not existing_schema:
+        # 首次保存
+        schema.save_schema(schema_name, current_schema)
+        return current_schema
+    
+    if current_schema != existing_schema:
+        # schema发生变化，输出diff并更新
+        get_diff(existing_schema, current_schema, schema_name)
+        schema.save_schema(schema_name, current_schema)
+        logger.info(f"[SchemaDiff] 模型<{schema_name}> ，已更新schema缓存")
+        return current_schema
+    
+    return existing_schema
